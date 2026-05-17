@@ -61,8 +61,11 @@ func run() {
 		viorClient *client.ViorClient
 		streamScr  *ui.StreamScreen
 
+		settingsScr *ui.SettingsScreen
+
 		ipEditor   widget.Editor
 		connectBtn widget.Clickable
+		settingsBtn widget.Clickable
 		connectErr string
 		servers    []discovery.Beacon
 		serverBtns [8]widget.Clickable
@@ -140,7 +143,6 @@ func run() {
 				copy(srvSnap, servers)
 				serversMu.Unlock()
 
-				// Check server button clicks.
 				for i := range srvSnap {
 					if i < len(serverBtns) && serverBtns[i].Clicked(gtx) {
 						doConnect(srvSnap[i].Name, srvSnap[i].Port)
@@ -149,12 +151,22 @@ func run() {
 				if connectBtn.Clicked(gtx) && ipEditor.Text() != "" {
 					doConnect(ipEditor.Text(), 8080)
 				}
+				if settingsBtn.Clicked(gtx) {
+					settingsScr = ui.NewSettingsScreen(th)
+					settingsScr.OnBack = func() { screen = "discover" }
+					screen = "settings"
+				}
 
-				discoverLayout(gtx, th, &list, &ipEditor, &connectBtn, &connectErr, srvSnap, &serverBtns)
+				discoverLayout(gtx, th, &list, &ipEditor, &connectBtn, &settingsBtn, &connectErr, srvSnap, &serverBtns)
 
 			case "stream":
 				if streamScr != nil {
 					streamScr.Layout(gtx)
+				}
+
+			case "settings":
+				if settingsScr != nil {
+					settingsScr.Layout(gtx)
 				}
 			}
 			e.Frame(gtx.Ops)
@@ -182,11 +194,11 @@ func divider(gtx layout.Context) layout.Dimensions {
 
 // ── Discover screen layout ──────────────────────────────────────────
 
-func discoverLayout(gtx layout.Context, th *material.Theme, list *widget.List, ipEditor *widget.Editor, connectBtn *widget.Clickable, connectErr *string, servers []discovery.Beacon, serverBtns *[8]widget.Clickable) {
+func discoverLayout(gtx layout.Context, th *material.Theme, list *widget.List, ipEditor *widget.Editor, connectBtn *widget.Clickable, settingsBtn *widget.Clickable, connectErr *string, servers []discovery.Beacon, serverBtns *[8]widget.Clickable) {
 	layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		// Fixed header.
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return headerBar(gtx, th)
+			return headerBar(gtx, th, settingsBtn)
 		}),
 		// Separator.
 		layout.Rigid(divider),
@@ -217,16 +229,22 @@ func discoverLayout(gtx layout.Context, th *material.Theme, list *widget.List, i
 	)
 }
 
-func headerBar(gtx layout.Context, th *material.Theme) layout.Dimensions {
+func headerBar(gtx layout.Context, th *material.Theme, settingsBtn *widget.Clickable) layout.Dimensions {
 	return layout.Inset{Top: unit.Dp(48), Left: unit.Dp(20), Right: unit.Dp(20), Bottom: unit.Dp(16)}.Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
-				// Brand mark.
+				// Gear button.
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					s := gtx.Dp(unit.Dp(32))
-					rrect(gtx, colIndigo, s, s, 8)
-					// "V" inside.
-					return layout.Dimensions{Size: image.Pt(s, s)}
+					return material.Clickable(gtx, settingsBtn, func(gtx layout.Context) layout.Dimensions {
+						sz := gtx.Dp(unit.Dp(36))
+						rrect(gtx, colSurface, sz, sz, 18)
+						return layout.Inset{Top: unit.Dp(8), Left: unit.Dp(9)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							l := material.Body1(th, "⚙")
+							l.Color = colText
+							l.TextSize = unit.Sp(16)
+							return l.Layout(gtx)
+						})
+					})
 				}),
 				layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {

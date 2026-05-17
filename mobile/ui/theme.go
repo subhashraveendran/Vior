@@ -1,71 +1,71 @@
-// Package ui provides Gio-based UI screens for the Vior mobile client.
+// Package ui provides Gio-based UI screens for Vior mobile client.
 package ui
 
 import (
+	"image"
 	"image/color"
 
-	"gioui.org/font"
 	"gioui.org/layout"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/text"
-	"gioui.org/unit"
 	"gioui.org/widget/material"
 )
 
-// Vior dark theme colors.
+// Design tokens.
 var (
-	ColorBg        = color.NRGBA{R: 15, G: 17, B: 23, A: 255}    // #0f1117
-	ColorSurface   = color.NRGBA{R: 26, G: 29, B: 37, A: 255}    // #1a1d25
-	ColorBorder    = color.NRGBA{R: 45, G: 48, B: 57, A: 255}    // #2d3039
-	ColorText      = color.NRGBA{R: 209, G: 213, B: 219, A: 255} // #d1d5db
-	ColorTextDim   = color.NRGBA{R: 107, G: 114, B: 128, A: 255} // #6b7280
-	ColorHeading   = color.NRGBA{R: 243, G: 244, B: 246, A: 255} // #f3f4f6
-	ColorPrimary   = color.NRGBA{R: 79, G: 70, B: 229, A: 255}   // #4f46e5
-	ColorPrimaryLt = color.NRGBA{R: 165, G: 180, B: 252, A: 255} // #a5b4fc
-	ColorGreen     = color.NRGBA{R: 52, G: 211, B: 153, A: 255}  // #34d399
-	ColorRed       = color.NRGBA{R: 239, G: 68, B: 68, A: 255}   // #ef4444
-	ColorBlack     = color.NRGBA{R: 0, G: 0, B: 0, A: 255}
-	ColorWhite     = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
+	ColBg      = color.NRGBA{R: 12, G: 13, B: 18, A: 255}
+	ColSurface = color.NRGBA{R: 20, G: 22, B: 28, A: 255}
+	ColSurf2   = color.NRGBA{R: 24, G: 26, B: 34, A: 255}
+	ColBorder  = color.NRGBA{R: 30, G: 32, B: 41, A: 255}
+	ColBorderH = color.NRGBA{R: 38, G: 40, B: 51, A: 255}
+	ColText    = color.NRGBA{R: 201, G: 205, B: 211, A: 255}
+	ColDim     = color.NRGBA{R: 92, G: 97, B: 112, A: 255}
+	ColHead    = color.NRGBA{R: 240, G: 241, B: 243, A: 255}
+	ColIndigo  = color.NRGBA{R: 99, G: 102, B: 241, A: 255}
+	ColIndigo2 = color.NRGBA{R: 129, G: 140, B: 248, A: 255}
+	ColGreen   = color.NRGBA{R: 52, G: 211, B: 153, A: 255}
+	ColRed     = color.NRGBA{R: 239, G: 68, B: 68, A: 255}
+	ColWhite   = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
+	ColBlack   = color.NRGBA{R: 0, G: 0, B: 0, A: 255}
 )
 
-// NewTheme creates the Vior material theme.
+// NewTheme creates dark Vior theme.
 func NewTheme() *material.Theme {
 	th := material.NewTheme()
-	th.Palette.Bg = ColorBg
-	th.Palette.Fg = ColorText
-	th.Palette.ContrastBg = ColorPrimary
-	th.Palette.ContrastFg = ColorWhite
+	th.Palette.Bg = ColBg
+	th.Palette.Fg = ColText
+	th.Palette.ContrastBg = ColIndigo
+	th.Palette.ContrastFg = ColWhite
 	th.Shaper = &text.Shaper{}
 	return th
 }
 
-// H1 returns a heading label.
-func H1(th *material.Theme, txt string) material.LabelStyle {
-	l := material.H5(th, txt)
-	l.Color = ColorHeading
-	l.Font.Weight = font.Bold
-	return l
+// ── Drawing helpers ─────────────────────────────────────────────────
+
+func FillBg(gtx layout.Context) {
+	paint.FillShape(gtx.Ops, ColBg, clip.Rect{Max: gtx.Constraints.Max}.Op())
 }
 
-// Body returns a body text label.
-func Body(th *material.Theme, txt string) material.LabelStyle {
-	l := material.Body1(th, txt)
-	l.Color = ColorText
-	return l
+func RRect(gtx layout.Context, c color.NRGBA, w, h, r int) {
+	paint.FillShape(gtx.Ops, c, clip.RRect{
+		Rect: image.Rectangle{Max: image.Pt(w, h)},
+		NE: r, NW: r, SE: r, SW: r,
+	}.Op(gtx.Ops))
 }
 
-// Caption returns a caption text label.
-func Caption(th *material.Theme, txt string) material.LabelStyle {
-	l := material.Caption(th, txt)
-	l.Color = ColorTextDim
-	return l
+func Divider(gtx layout.Context) layout.Dimensions {
+	paint.FillShape(gtx.Ops, ColBorder, clip.Rect{Max: image.Pt(gtx.Constraints.Max.X, 1)}.Op())
+	return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, 1)}
 }
 
-// PrimaryButton returns a styled primary button.
-func PrimaryButton(th *material.Theme, btn *material.ButtonStyle) {
-	btn.Background = ColorPrimary
-	btn.Color = ColorWhite
-	btn.CornerRadius = unit.Dp(10)
-	btn.TextSize = unit.Sp(16)
-	btn.Font.Weight = font.SemiBold
-	btn.Inset = layout.UniformInset(unit.Dp(14))
+func Circle(gtx layout.Context, c color.NRGBA, sz int) layout.Dimensions {
+	paint.FillShape(gtx.Ops, c, clip.Ellipse{Max: image.Pt(sz, sz)}.Op(gtx.Ops))
+	return layout.Dimensions{Size: image.Pt(sz, sz)}
+}
+
+// ColAlpha returns color with modified alpha.
+func ColAlpha(c color.NRGBA, a uint8) color.NRGBA {
+	c.A = a
+	return c
 }

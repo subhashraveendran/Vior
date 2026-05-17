@@ -1,16 +1,16 @@
-//go:build !darwin
+//go:build !darwin && !linux && !windows
 
 package virtual
 
-// Create is a stub for non-macOS platforms.
+// Create is a stub for unsupported platforms.
 func Create(width, height uint32, refreshRate float64) (uint32, error) {
 	return 0, ErrUnsupported
 }
 
-// CreateHiDPI is a stub for non-macOS platforms.
+// CreateHiDPI is a stub for unsupported platforms.
 func CreateHiDPI(logicalWidth, logicalHeight uint32, refreshRate float64) (uint32, error) {
 	return 0, ErrUnsupported
 }
 
-// Destroy is a stub for non-macOS platforms.
+// Destroy is a stub for unsupported platforms.
 func Destroy() {}

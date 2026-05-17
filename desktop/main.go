@@ -4,6 +4,7 @@ package main
 import (
 	"embed"
 
+	"github.com/subhashraveendran/vior/internal/config"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -35,7 +36,7 @@ func main() {
 			TitleBar: mac.TitleBarHiddenInset(),
 			About: &mac.AboutInfo{
 				Title:   "Vior",
-				Message: "Extend your view. Stream, control, transfer.\n\nv0.1.0-dev",
+				Message: "Extend your view. Stream, control, transfer.\n\n" + config.Version,
 			},
 		},
 	})

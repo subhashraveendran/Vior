@@ -3,6 +3,17 @@ package config
 
 import "net"
 
+const (
+	// Version is the current Vior version string.
+	Version = "v0.1.0-dev"
+
+	// DefaultRefreshRate is the default virtual display refresh rate in Hz.
+	DefaultRefreshRate = 60.0
+
+	// DefaultStreamPath is the HTTP path for the MJPEG stream.
+	DefaultStreamPath = "/stream"
+)
+
 // Config holds all Vior configuration values.
 type Config struct {
 	// Display settings

@@ -182,4 +182,3 @@ func LocalIPs() []string {
 	}
 	return ips
 }
-

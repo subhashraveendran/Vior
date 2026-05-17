@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/subhashraveendran/vior/internal/config"
 )
 
 var (
@@ -41,6 +42,6 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print Vior version",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("vior v0.1.0-dev")
+		fmt.Printf("vior %s\n", config.Version)
 	},
 }

@@ -185,7 +185,7 @@ func (a *App) OnClientConnect(session *protocol.Session, hello *protocol.HelloMe
 	info := virtual.Info{
 		Width:       uint32(hello.Width),
 		Height:      uint32(hello.Height),
-		RefreshRate: 60,
+		RefreshRate: config.DefaultRefreshRate,
 	}
 	displayID, err := virtual.CreateVirtualDisplay(info)
 	if err != nil {
@@ -236,7 +236,7 @@ func (a *App) OnClientConnect(session *protocol.Session, hello *protocol.HelloMe
 
 	// Send ready message to client.
 	session.Send(protocol.MsgReady, &protocol.ReadyMessage{
-		StreamURL:  "/stream",
+		StreamURL:  config.DefaultStreamPath,
 		Resolution: fmt.Sprintf("%dx%d", hello.Width, hello.Height),
 		SessionID:  session.ID,
 	})
@@ -270,7 +270,7 @@ func (a *App) OnClientResize(session *protocol.Session, msg *protocol.ResizeMess
 	info := virtual.Info{
 		Width:       uint32(msg.Width),
 		Height:      uint32(msg.Height),
-		RefreshRate: 60,
+		RefreshRate: config.DefaultRefreshRate,
 	}
 	displayID, err := virtual.CreateVirtualDisplay(info)
 	if err != nil {
@@ -305,7 +305,7 @@ func (a *App) OnClientResize(session *protocol.Session, msg *protocol.ResizeMess
 
 	// Send updated ready.
 	session.Send(protocol.MsgReady, &protocol.ReadyMessage{
-		StreamURL:  "/stream",
+		StreamURL:  config.DefaultStreamPath,
 		Resolution: fmt.Sprintf("%dx%d", msg.Width, msg.Height),
 		SessionID:  session.ID,
 	})
@@ -735,5 +735,5 @@ func (a *App) CheckPermissions() error {
 // ── Version ─────────────────────────────────────────────────────────
 
 func (a *App) GetVersion() string {
-	return "v0.1.0-dev"
+	return config.Version
 }

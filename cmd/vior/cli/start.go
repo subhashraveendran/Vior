@@ -263,7 +263,7 @@ func (h *cliSessionHandler) OnClientConnect(session *protocol.Session, hello *pr
 	info := virtual.Info{
 		Width:       uint32(hello.Width),
 		Height:      uint32(hello.Height),
-		RefreshRate: 60,
+		RefreshRate: config.DefaultRefreshRate,
 	}
 	displayID, err := virtual.CreateVirtualDisplay(info)
 	if err != nil {
@@ -314,7 +314,7 @@ func (h *cliSessionHandler) OnClientConnect(session *protocol.Session, hello *pr
 
 	// Send ready.
 	session.Send(protocol.MsgReady, &protocol.ReadyMessage{
-		StreamURL:  "/stream",
+		StreamURL:  config.DefaultStreamPath,
 		Resolution: fmt.Sprintf("%dx%d", hello.Width, hello.Height),
 		SessionID:  session.ID,
 	})
@@ -348,7 +348,7 @@ func (h *cliSessionHandler) OnClientResize(session *protocol.Session, msg *proto
 	virtual.Destroy()
 	time.Sleep(300 * time.Millisecond)
 
-	info := virtual.Info{Width: uint32(msg.Width), Height: uint32(msg.Height), RefreshRate: 60}
+	info := virtual.Info{Width: uint32(msg.Width), Height: uint32(msg.Height), RefreshRate: config.DefaultRefreshRate}
 	displayID, err := virtual.CreateVirtualDisplay(info)
 	if err != nil {
 		return err
@@ -375,7 +375,7 @@ func (h *cliSessionHandler) OnClientResize(session *protocol.Session, msg *proto
 	h.touchMapper = input.NewTouchMapper(input.DefaultController, d.Bounds)
 
 	session.Send(protocol.MsgReady, &protocol.ReadyMessage{
-		StreamURL:  "/stream",
+		StreamURL:  config.DefaultStreamPath,
 		Resolution: fmt.Sprintf("%dx%d", msg.Width, msg.Height),
 		SessionID:  session.ID,
 	})

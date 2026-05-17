@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/subhashraveendran/vior/internal/protocol"
 
@@ -155,16 +156,23 @@ func (m *Manager) sendChunks(t *Transfer) {
 			hasher.Write(chunk)
 
 			encoded := base64.StdEncoding.EncodeToString(chunk)
-			m.Send(protocol.MsgFileChunk, &protocol.FileChunkMessage{
+			sendErr := m.Send(protocol.MsgFileChunk, &protocol.FileChunkMessage{
 				ID:     t.ID,
 				Offset: offset,
 				Data:   encoded,
 			})
+			if sendErr != nil {
+				log.Printf("file transfer: send error: %v", sendErr)
+				return
+			}
 
 			offset += int64(n)
 			t.mu.Lock()
 			t.Transferred = offset
 			t.mu.Unlock()
+
+			// Throttle: small delay between chunks to avoid overwhelming WebSocket.
+			time.Sleep(5 * time.Millisecond)
 		}
 		if err == io.EOF {
 			break
@@ -185,6 +193,8 @@ func (m *Manager) sendChunks(t *Transfer) {
 		ID:   t.ID,
 		Hash: hash,
 	})
+
+	log.Printf("File sent: %s (%d bytes)", t.Name, offset)
 }
 
 // ── Receiving ───────────────────────────────────────────────────────

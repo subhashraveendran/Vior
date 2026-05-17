@@ -84,6 +84,12 @@
                 streamImg.src = msg.data.streamUrl;
                 showView(streamViewEl);
                 flashStatus('Connected', true);
+            } else if (msg.type === 'file-offer') {
+                handleFileOffer(msg.data);
+            } else if (msg.type === 'file-chunk') {
+                handleFileChunk(msg.data);
+            } else if (msg.type === 'file-complete') {
+                handleFileComplete(msg.data);
             } else if (msg.type === 'error') {
                 var errText = msg.data.message || 'Unknown error';
                 if (msg.data.code === 'occupied') {
@@ -264,6 +270,61 @@
             document.documentElement.requestFullscreen().catch(function () {});
         }
     });
+
+    // --- File Transfer (receiving from desktop) ---
+
+    var fileBuffers = {}; // id -> { chunks: [], name, mimeType, size, preview }
+
+    function handleFileOffer(data) {
+        // Auto-accept all file offers from desktop.
+        fileBuffers[data.id] = {
+            chunks: [],
+            name: data.name,
+            mimeType: data.mimeType,
+            size: data.size,
+            preview: data.preview,
+            received: 0
+        };
+        // Send accept.
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'file-accept', data: { id: data.id } }));
+        }
+        flashStatus('Receiving: ' + data.name, true);
+    }
+
+    function handleFileChunk(data) {
+        var buf = fileBuffers[data.id];
+        if (!buf) return;
+        // Decode base64 chunk.
+        var binary = atob(data.data);
+        var bytes = new Uint8Array(binary.length);
+        for (var i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        buf.chunks.push(bytes);
+        buf.received += bytes.length;
+    }
+
+    function handleFileComplete(data) {
+        var buf = fileBuffers[data.id];
+        if (!buf) return;
+
+        // Combine chunks into blob.
+        var blob = new Blob(buf.chunks, { type: buf.mimeType || 'application/octet-stream' });
+
+        // Trigger download.
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = buf.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        flashStatus('Received: ' + buf.name, true);
+        delete fileBuffers[data.id];
+    }
 
     // --- Start ---
     connect();

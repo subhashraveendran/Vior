@@ -4,7 +4,7 @@
 
 **Extend your view. Stream, control, transfer.**
 
-Turn your phone or tablet into a second monitor. No cables. No app install on phone. Just works.
+Turn your phone or tablet into a second monitor. Stream, control, transfer — from any browser.
 
 [![Build](https://github.com/subhashraveendran/Vior/actions/workflows/build.yml/badge.svg)](https://github.com/subhashraveendran/Vior/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)

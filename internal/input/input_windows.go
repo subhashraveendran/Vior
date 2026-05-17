@@ -3,6 +3,7 @@
 package input
 
 import (
+	"encoding/binary"
 	"syscall"
 	"unsafe"
 )
@@ -14,31 +15,46 @@ var (
 )
 
 const (
-	INPUT_MOUSE            = 0
-	INPUT_KEYBOARD         = 1
-	MOUSEEVENTF_LEFTDOWN   = 0x0002
-	MOUSEEVENTF_LEFTUP     = 0x0004
-	MOUSEEVENTF_RIGHTDOWN  = 0x0008
-	MOUSEEVENTF_RIGHTUP    = 0x0010
-	MOUSEEVENTF_MIDDLEDOWN = 0x0020
-	MOUSEEVENTF_MIDDLEUP   = 0x0040
-	MOUSEEVENTF_WHEEL      = 0x0800
-	MOUSEEVENTF_HWHEEL     = 0x1000
-	KEYEVENTF_KEYUP        = 0x0002
+	inputMouse    = 0
+	inputKeyboard = 1
+
+	mouseeventfLeftDown   = 0x0002
+	mouseeventfLeftUp     = 0x0004
+	mouseeventfRightDown  = 0x0008
+	mouseeventfRightUp    = 0x0010
+	mouseeventfMiddleDown = 0x0020
+	mouseeventfMiddleUp   = 0x0040
+	mouseeventfWheel      = 0x0800
+	mouseeventfHWheel     = 0x1000
+	keyeventfKeyUp        = 0x0002
+
+	inputSize = 40 // sizeof(INPUT) on 64-bit Windows
 )
 
-type mouseInput struct {
-	dx, dy, mouseData, dwFlags, time, dwExtraInfo uintptr
+// makeMouseInput creates a raw INPUT struct for mouse events.
+func makeMouseInput(flags, mouseData uintptr) []byte {
+	buf := make([]byte, inputSize)
+	binary.LittleEndian.PutUint32(buf[0:4], uint32(inputMouse))
+	// MOUSEINPUT starts at offset 8 (after type + padding)
+	// dx=0, dy=0 (offsets 8,16), mouseData (offset 24), dwFlags (offset 28)
+	binary.LittleEndian.PutUint32(buf[24:28], uint32(mouseData))
+	binary.LittleEndian.PutUint32(buf[28:32], uint32(flags))
+	return buf
 }
 
-type keyInput struct {
-	wVk, wScan, dwFlags, time, dwExtraInfo uintptr
+// makeKeyInput creates a raw INPUT struct for keyboard events.
+func makeKeyInput(vk uint16, flags uintptr) []byte {
+	buf := make([]byte, inputSize)
+	binary.LittleEndian.PutUint32(buf[0:4], uint32(inputKeyboard))
+	// KEYBDINPUT starts at offset 8
+	// wVk (offset 8, uint16), wScan (offset 10, uint16), dwFlags (offset 12, uint32)
+	binary.LittleEndian.PutUint16(buf[8:10], vk)
+	binary.LittleEndian.PutUint32(buf[12:16], uint32(flags))
+	return buf
 }
 
-type winInput struct {
-	inputType uint32
-	mi        mouseInput
-	_         [8]byte // padding
+func callSendInput(buf []byte) {
+	sendInput.Call(1, uintptr(unsafe.Pointer(&buf[0])), uintptr(inputSize))
 }
 
 type winController struct{}
@@ -54,35 +70,31 @@ func (c *winController) MoveMouse(x, y int) error {
 
 func (c *winController) MouseDown(x, y int, button MouseButton) error {
 	setCursor.Call(uintptr(x), uintptr(y))
-	var downFlags uintptr
+	var flags uintptr
 	switch button {
 	case ButtonRight:
-		downFlags = MOUSEEVENTF_RIGHTDOWN
+		flags = mouseeventfRightDown
 	case ButtonMiddle:
-		downFlags = MOUSEEVENTF_MIDDLEDOWN
+		flags = mouseeventfMiddleDown
 	default:
-		downFlags = MOUSEEVENTF_LEFTDOWN
+		flags = mouseeventfLeftDown
 	}
-	inp := winInput{inputType: INPUT_MOUSE}
-	inp.mi.dwFlags = downFlags
-	sendInput.Call(1, uintptr(unsafe.Pointer(&inp)), unsafe.Sizeof(inp))
+	callSendInput(makeMouseInput(flags, 0))
 	return nil
 }
 
 func (c *winController) MouseUp(x, y int, button MouseButton) error {
 	setCursor.Call(uintptr(x), uintptr(y))
-	var upFlags uintptr
+	var flags uintptr
 	switch button {
 	case ButtonRight:
-		upFlags = MOUSEEVENTF_RIGHTUP
+		flags = mouseeventfRightUp
 	case ButtonMiddle:
-		upFlags = MOUSEEVENTF_MIDDLEUP
+		flags = mouseeventfMiddleUp
 	default:
-		upFlags = MOUSEEVENTF_LEFTUP
+		flags = mouseeventfLeftUp
 	}
-	inp := winInput{inputType: INPUT_MOUSE}
-	inp.mi.dwFlags = upFlags
-	sendInput.Call(1, uintptr(unsafe.Pointer(&inp)), unsafe.Sizeof(inp))
+	callSendInput(makeMouseInput(flags, 0))
 	return nil
 }
 
@@ -90,54 +102,34 @@ func (c *winController) Click(button MouseButton) error {
 	var downFlags, upFlags uintptr
 	switch button {
 	case ButtonRight:
-		downFlags, upFlags = MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP
+		downFlags, upFlags = mouseeventfRightDown, mouseeventfRightUp
 	case ButtonMiddle:
-		downFlags, upFlags = MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP
+		downFlags, upFlags = mouseeventfMiddleDown, mouseeventfMiddleUp
 	default:
-		downFlags, upFlags = MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP
+		downFlags, upFlags = mouseeventfLeftDown, mouseeventfLeftUp
 	}
-
-	inp := winInput{inputType: INPUT_MOUSE}
-	inp.mi.dwFlags = downFlags
-	sendInput.Call(1, uintptr(unsafe.Pointer(&inp)), unsafe.Sizeof(inp))
-
-	inp.mi.dwFlags = upFlags
-	sendInput.Call(1, uintptr(unsafe.Pointer(&inp)), unsafe.Sizeof(inp))
-
+	callSendInput(makeMouseInput(downFlags, 0))
+	callSendInput(makeMouseInput(upFlags, 0))
 	return nil
 }
 
 func (c *winController) TypeKey(key string) error {
-	// Simplified: send virtual key code 0 for now.
-	// Full keyboard support needs scan code mapping.
-	vk := uintptr(0)
+	var vk uint16
 	if len(key) == 1 {
-		vk = uintptr(syscall.StringToUTF16(key)[0])
+		r := []rune(key)[0]
+		vk = uint16(r)
 	}
-
-	inp := winInput{inputType: INPUT_KEYBOARD}
-	inp.mi.dwFlags = 0
-	inp.mi.wVk = vk
-	sendInput.Call(1, uintptr(unsafe.Pointer(&inp)), unsafe.Sizeof(inp))
-
-	inp.mi.dwFlags = KEYEVENTF_KEYUP
-	sendInput.Call(1, uintptr(unsafe.Pointer(&inp)), unsafe.Sizeof(inp))
-
+	callSendInput(makeKeyInput(vk, 0))
+	callSendInput(makeKeyInput(vk, keyeventfKeyUp))
 	return nil
 }
 
 func (c *winController) Scroll(dx, dy int) error {
 	if dy != 0 {
-		inp := winInput{inputType: INPUT_MOUSE}
-		inp.mi.dwFlags = MOUSEEVENTF_WHEEL
-		inp.mi.mouseData = uintptr(int32(dy) * 120)
-		sendInput.Call(1, uintptr(unsafe.Pointer(&inp)), unsafe.Sizeof(inp))
+		callSendInput(makeMouseInput(mouseeventfWheel, uintptr(int32(dy)*120)))
 	}
 	if dx != 0 {
-		inp := winInput{inputType: INPUT_MOUSE}
-		inp.mi.dwFlags = MOUSEEVENTF_HWHEEL
-		inp.mi.mouseData = uintptr(int32(dx) * 120)
-		sendInput.Call(1, uintptr(unsafe.Pointer(&inp)), unsafe.Sizeof(inp))
+		callSendInput(makeMouseInput(mouseeventfHWheel, uintptr(int32(dx)*120)))
 	}
 	return nil
 }

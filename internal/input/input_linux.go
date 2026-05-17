@@ -5,6 +5,7 @@ package input
 /*
 #cgo LDFLAGS: -lX11 -lXtst
 
+#include <stdlib.h>
 #include <X11/Xlib.h>
 #include <X11/extensions/XTest.h>
 

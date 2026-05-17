@@ -46,7 +46,7 @@ func NewSession(conn *websocket.Conn) *Session {
 }
 
 // Send sends a typed message to the client. Thread-safe.
-func (s *Session) Send(msgType MessageType, data interface{}) error {
+func (s *Session) Send(msgType MessageType, data any) error {
 	b, err := Encode(msgType, data)
 	if err != nil {
 		return fmt.Errorf("encode: %w", err)

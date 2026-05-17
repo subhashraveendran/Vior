@@ -13,16 +13,16 @@ import (
 
 // Vior dark theme colors.
 var (
-	ColorBg        = color.NRGBA{R: 15, G: 17, B: 23, A: 255}     // #0f1117
-	ColorSurface   = color.NRGBA{R: 26, G: 29, B: 37, A: 255}     // #1a1d25
-	ColorBorder    = color.NRGBA{R: 45, G: 48, B: 57, A: 255}     // #2d3039
-	ColorText      = color.NRGBA{R: 209, G: 213, B: 219, A: 255}  // #d1d5db
-	ColorTextDim   = color.NRGBA{R: 107, G: 114, B: 128, A: 255}  // #6b7280
-	ColorHeading   = color.NRGBA{R: 243, G: 244, B: 246, A: 255}  // #f3f4f6
-	ColorPrimary   = color.NRGBA{R: 79, G: 70, B: 229, A: 255}    // #4f46e5
-	ColorPrimaryLt = color.NRGBA{R: 165, G: 180, B: 252, A: 255}  // #a5b4fc
-	ColorGreen     = color.NRGBA{R: 52, G: 211, B: 153, A: 255}   // #34d399
-	ColorRed       = color.NRGBA{R: 239, G: 68, B: 68, A: 255}    // #ef4444
+	ColorBg        = color.NRGBA{R: 15, G: 17, B: 23, A: 255}    // #0f1117
+	ColorSurface   = color.NRGBA{R: 26, G: 29, B: 37, A: 255}    // #1a1d25
+	ColorBorder    = color.NRGBA{R: 45, G: 48, B: 57, A: 255}    // #2d3039
+	ColorText      = color.NRGBA{R: 209, G: 213, B: 219, A: 255} // #d1d5db
+	ColorTextDim   = color.NRGBA{R: 107, G: 114, B: 128, A: 255} // #6b7280
+	ColorHeading   = color.NRGBA{R: 243, G: 244, B: 246, A: 255} // #f3f4f6
+	ColorPrimary   = color.NRGBA{R: 79, G: 70, B: 229, A: 255}   // #4f46e5
+	ColorPrimaryLt = color.NRGBA{R: 165, G: 180, B: 252, A: 255} // #a5b4fc
+	ColorGreen     = color.NRGBA{R: 52, G: 211, B: 153, A: 255}  // #34d399
+	ColorRed       = color.NRGBA{R: 239, G: 68, B: 68, A: 255}   // #ef4444
 	ColorBlack     = color.NRGBA{R: 0, G: 0, B: 0, A: 255}
 	ColorWhite     = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
 )

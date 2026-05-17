@@ -8,14 +8,14 @@ import (
 )
 
 var (
-	user32   = syscall.NewLazyDLL("user32.dll")
+	user32    = syscall.NewLazyDLL("user32.dll")
 	sendInput = user32.NewProc("SendInput")
 	setCursor = user32.NewProc("SetCursorPos")
 )
 
 const (
-	INPUT_MOUSE    = 0
-	INPUT_KEYBOARD = 1
+	INPUT_MOUSE            = 0
+	INPUT_KEYBOARD         = 1
 	MOUSEEVENTF_LEFTDOWN   = 0x0002
 	MOUSEEVENTF_LEFTUP     = 0x0004
 	MOUSEEVENTF_RIGHTDOWN  = 0x0008

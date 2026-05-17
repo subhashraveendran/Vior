@@ -5,7 +5,6 @@ package discovery
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"runtime"
@@ -184,7 +183,3 @@ func LocalIPs() []string {
 	return ips
 }
 
-func init() {
-	// Suppress unused log import warning.
-	_ = log.Println
-}

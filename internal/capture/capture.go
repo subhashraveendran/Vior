@@ -16,13 +16,13 @@ import (
 
 // Display represents a connected display.
 type Display struct {
-	Index   int    `json:"index"`
-	Name    string `json:"name"`
-	Width   int    `json:"width"`
-	Height  int    `json:"height"`
-	IsMain  bool   `json:"isMain"`
-	Mirrored bool  `json:"mirrored"`
-	Bounds image.Rectangle
+	Index    int    `json:"index"`
+	Name     string `json:"name"`
+	Width    int    `json:"width"`
+	Height   int    `json:"height"`
+	IsMain   bool   `json:"isMain"`
+	Mirrored bool   `json:"mirrored"`
+	Bounds   image.Rectangle
 }
 
 // ListDisplays returns all connected displays with actual pixel resolutions.
@@ -41,13 +41,13 @@ func ListDisplays() ([]Display, error) {
 		}
 		mirrored, _ := IsMirrored(i)
 		displays[i] = Display{
-			Index:   i,
-			Name:    fmt.Sprintf("Display %d", i),
-			Width:   w,
-			Height:  h,
-			IsMain:  i == 0,
+			Index:    i,
+			Name:     fmt.Sprintf("Display %d", i),
+			Width:    w,
+			Height:   h,
+			IsMain:   i == 0,
 			Mirrored: mirrored,
-			Bounds:  bounds,
+			Bounds:   bounds,
 		}
 	}
 	return displays, nil

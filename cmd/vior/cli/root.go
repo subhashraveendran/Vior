@@ -1,3 +1,4 @@
+// Package cli implements the Vior command-line interface using cobra.
 package cli
 
 import (

@@ -24,7 +24,7 @@ var usbSetupCmd = &cobra.Command{
 			return fmt.Errorf("adb not found in PATH. Install Android Debug Bridge:\n  brew install android-platform-tools  (macOS)\n  apt install adb                      (Linux)")
 		}
 		if !status.Connected {
-			return fmt.Errorf("no Android device connected. Plug in via USB and enable USB debugging.")
+			return fmt.Errorf("no Android device connected; plug in via USB and enable USB debugging")
 		}
 
 		if err := adb.SetupForward(usbPort, usbPort); err != nil {

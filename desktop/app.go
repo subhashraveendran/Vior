@@ -310,7 +310,7 @@ func (a *App) OnClientResize(session *protocol.Session, msg *protocol.ResizeMess
 		SessionID:  session.ID,
 	})
 
-	runtime.EventsEmit(a.ctx, "client:resized", map[string]interface{}{
+	runtime.EventsEmit(a.ctx, "client:resized", map[string]any{
 		"width": msg.Width, "height": msg.Height,
 	})
 
@@ -538,7 +538,7 @@ func (a *App) SetupUSB() error {
 	}
 	status := adb.Check()
 	if !status.Available {
-		return fmt.Errorf("ADB not available")
+		return fmt.Errorf("adb not available")
 	}
 	if !status.Connected {
 		return fmt.Errorf("no Android device connected — plug in via USB and enable USB debugging")
@@ -587,15 +587,15 @@ func (a *App) GetConnectedClients() []ClientInfo {
 // ── Server Status ───────────────────────────────────────────────────
 
 type ServerStatus struct {
-	Running      bool   `json:"running"`
-	Port         int    `json:"port"`
-	URL          string `json:"url"`
+	Running       bool   `json:"running"`
+	Port          int    `json:"port"`
+	URL           string `json:"url"`
 	QRCodeDataURL string `json:"qrCodeDataUrl"`
-	ClientCount  int    `json:"clientCount"`
-	Discovery    bool   `json:"discovery"`
-	USBAvailable bool   `json:"usbAvailable"`
-	USBConnected bool   `json:"usbConnected"`
-	Uptime       int    `json:"uptime"`
+	ClientCount   int    `json:"clientCount"`
+	Discovery     bool   `json:"discovery"`
+	USBAvailable  bool   `json:"usbAvailable"`
+	USBConnected  bool   `json:"usbConnected"`
+	Uptime        int    `json:"uptime"`
 }
 
 // ── File Transfer ───────────────────────────────────────────────────
@@ -607,7 +607,7 @@ func (a *App) ensureFileMgr() {
 	home, _ := os.UserHomeDir()
 	receiveDir := filepath.Join(home, "Downloads", "Vior")
 	a.fileMgr = filetransfer.NewManager(receiveDir)
-	a.fileMgr.Send = func(msgType protocol.MessageType, data interface{}) error {
+	a.fileMgr.Send = func(msgType protocol.MessageType, data any) error {
 		a.clientMu.Lock()
 		c := a.client
 		a.clientMu.Unlock()
@@ -617,13 +617,13 @@ func (a *App) ensureFileMgr() {
 		return c.Send(msgType, data)
 	}
 	a.fileMgr.OnFileReceived = func(t *filetransfer.Transfer) {
-		runtime.EventsEmit(a.ctx, "file:received", map[string]interface{}{
+		runtime.EventsEmit(a.ctx, "file:received", map[string]any{
 			"id": t.ID, "name": t.Name, "path": t.Path, "size": t.Transferred,
 			"mimeType": t.MimeType, "preview": t.Preview,
 		})
 	}
 	a.fileMgr.OnFileOffer = func(t *filetransfer.Transfer) {
-		runtime.EventsEmit(a.ctx, "file:offer", map[string]interface{}{
+		runtime.EventsEmit(a.ctx, "file:offer", map[string]any{
 			"id": t.ID, "name": t.Name, "size": t.Size,
 			"mimeType": t.MimeType, "preview": t.Preview,
 		})
@@ -668,14 +668,14 @@ func (a *App) RejectIncomingFile(transferID string) error {
 }
 
 // GetActiveTransfers returns all active file transfers.
-func (a *App) GetActiveTransfers() []map[string]interface{} {
+func (a *App) GetActiveTransfers() []map[string]any {
 	if a.fileMgr == nil {
 		return nil
 	}
 	transfers := a.fileMgr.ActiveTransfers()
-	result := make([]map[string]interface{}, len(transfers))
+	result := make([]map[string]any, len(transfers))
 	for i, t := range transfers {
-		result[i] = map[string]interface{}{
+		result[i] = map[string]any{
 			"id": t.ID, "name": t.Name, "size": t.Size,
 			"transferred": t.Transferred, "complete": t.Complete,
 			"mimeType": t.MimeType, "preview": t.Preview,

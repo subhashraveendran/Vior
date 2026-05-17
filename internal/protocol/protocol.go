@@ -45,8 +45,8 @@ type ReadyMessage struct {
 
 // InputMessage is sent by the client for touch, mouse, keyboard, and scroll events.
 type InputMessage struct {
-	Event  string  `json:"event"`            // "touch", "mouse", "key", "scroll"
-	Action string  `json:"action"`           // "down", "move", "up", "click"
+	Event  string  `json:"event"`  // "touch", "mouse", "key", "scroll"
+	Action string  `json:"action"` // "down", "move", "up", "click"
 	X      float64 `json:"x,omitempty"`
 	Y      float64 `json:"y,omitempty"`
 	Key    string  `json:"key,omitempty"`
@@ -110,7 +110,7 @@ type FileCompleteMessage struct {
 }
 
 // Encode wraps a typed payload into an Envelope.
-func Encode(msgType MessageType, data interface{}) ([]byte, error) {
+func Encode(msgType MessageType, data any) ([]byte, error) {
 	var raw json.RawMessage
 	if data != nil {
 		b, err := json.Marshal(data)

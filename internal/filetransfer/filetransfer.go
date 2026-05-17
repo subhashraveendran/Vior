@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
-	"image/png"
 	"io"
 	"log"
 	"mime"
@@ -22,8 +21,9 @@ import (
 
 	"github.com/subhashraveendran/vior/internal/protocol"
 
-	_ "image/gif"
 	_ "golang.org/x/image/webp"
+	_ "image/gif"
+	_ "image/png"
 )
 
 const (
@@ -63,7 +63,7 @@ type Manager struct {
 	ReceiveDir string
 
 	// Sender function (inject the WS send).
-	Send func(msgType protocol.MessageType, data interface{}) error
+	Send func(msgType protocol.MessageType, data any) error
 
 	// Callbacks.
 	OnFileReceived func(t *Transfer)
@@ -428,6 +428,3 @@ func uniquePath(path string) string {
 	}
 	return path
 }
-
-// Unused import guard for png decoder registration.
-var _ = png.Decode

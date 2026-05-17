@@ -6,14 +6,12 @@ import (
 	"fmt"
 	"syscall"
 	"unsafe"
-
-	"github.com/lxn/win"
 )
 
 var (
-	user32       = syscall.NewLazyDLL("user32.dll")
-	enumDisplays = user32.NewProc("EnumDisplayDevicesW")
-	enumSettings = user32.NewProc("EnumDisplaySettingsExW")
+	user32         = syscall.NewLazyDLL("user32.dll")
+	enumDisplays   = user32.NewProc("EnumDisplayDevicesW")
+	enumSettings   = user32.NewProc("EnumDisplaySettingsExW")
 	changeSettings = user32.NewProc("ChangeDisplaySettingsExW")
 )
 
@@ -32,42 +30,42 @@ type displayDevice struct {
 }
 
 type devMode struct {
-	DeviceName       [32]uint16
-	SpecVersion      uint16
-	DriverVersion    uint16
-	Size             uint16
-	DriverExtra      uint16
-	Fields           uint32
-	PositionX        int32
-	PositionY        int32
+	DeviceName         [32]uint16
+	SpecVersion        uint16
+	DriverVersion      uint16
+	Size               uint16
+	DriverExtra        uint16
+	Fields             uint32
+	PositionX          int32
+	PositionY          int32
 	DisplayOrientation uint32
 	DisplayFixedOutput uint32
-	Color            int16
-	Duplex           int16
-	YResolution      int16
-	TTOption         int16
-	Collate          int16
-	FormName         [32]uint16
-	LogPixels        uint16
-	BitsPerPel       uint32
-	PelsWidth        uint32
-	PelsHeight       uint32
-	DisplayFlags     uint32
-	DisplayFrequency uint32
-	DisplayFlagsEx   uint32
+	Color              int16
+	Duplex             int16
+	YResolution        int16
+	TTOption           int16
+	Collate            int16
+	FormName           [32]uint16
+	LogPixels          uint16
+	BitsPerPel         uint32
+	PelsWidth          uint32
+	PelsHeight         uint32
+	DisplayFlags       uint32
+	DisplayFrequency   uint32
+	DisplayFlagsEx     uint32
 }
 
 const (
-	DM_PELSWIDTH  = 0x00080000
-	DM_PELSHEIGHT = 0x00100000
-	DM_DISPLAYFREQUENCY = 0x00400000
-	CDS_UPDATEREGISTRY   = 0x00000001
-	CDS_TEST             = 0x00000002
-	CDS_FULLSCREEN       = 0x00000004
-	CDS_GLOBAL           = 0x00000008
-	CDS_SET_PRIMARY      = 0x00000010
-	CDS_RESET            = 0x40000000
-	CDS_NORESET          = 0x10000000
+	DM_PELSWIDTH           = 0x00080000
+	DM_PELSHEIGHT          = 0x00100000
+	DM_DISPLAYFREQUENCY    = 0x00400000
+	CDS_UPDATEREGISTRY     = 0x00000001
+	CDS_TEST               = 0x00000002
+	CDS_FULLSCREEN         = 0x00000004
+	CDS_GLOBAL             = 0x00000008
+	CDS_SET_PRIMARY        = 0x00000010
+	CDS_RESET              = 0x40000000
+	CDS_NORESET            = 0x10000000
 	DISP_CHANGE_SUCCESSFUL = 0
 )
 
@@ -166,12 +164,4 @@ func CreateHiDPI(logicalWidth, logicalHeight uint32, refreshRate float64) (uint3
 func Destroy() {
 	// Revert display changes by resetting.
 	changeSettings.Call(0, 0, 0, 0, 0)
-}
-
-// setWindowTitle sets the console window title (internal helper).
-func setWindowTitle(title string) {
-	hwnd := win.GetConsoleWindow()
-	if hwnd != 0 {
-		win.SetWindowText(hwnd, syscall.StringToUTF16Ptr(title))
-	}
 }

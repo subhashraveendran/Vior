@@ -1,3 +1,4 @@
+// Vior CLI entry point.
 package main
 
 import (

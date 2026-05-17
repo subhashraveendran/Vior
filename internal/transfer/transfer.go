@@ -13,7 +13,7 @@ import (
 type TransferStatus int
 
 const (
-	StatusPending    TransferStatus = iota
+	StatusPending TransferStatus = iota
 	StatusInProgress
 	StatusCompleted
 	StatusFailed
@@ -36,13 +36,13 @@ func (s TransferStatus) String() string {
 
 // Progress tracks transfer progress.
 type Progress struct {
-	FileName     string         `json:"fileName"`
-	TotalBytes   int64          `json:"totalBytes"`
-	Transferred  int64          `json:"transferred"`
-	Status       TransferStatus `json:"status"`
-	Error        string         `json:"error,omitempty"`
-	StartedAt    time.Time      `json:"startedAt"`
-	CompletedAt  *time.Time     `json:"completedAt,omitempty"`
+	FileName    string         `json:"fileName"`
+	TotalBytes  int64          `json:"totalBytes"`
+	Transferred int64          `json:"transferred"`
+	Status      TransferStatus `json:"status"`
+	Error       string         `json:"error,omitempty"`
+	StartedAt   time.Time      `json:"startedAt"`
+	CompletedAt *time.Time     `json:"completedAt,omitempty"`
 }
 
 // PercentDone returns progress as a percentage.
@@ -89,10 +89,10 @@ func (t *TCPTransfer) Send(filePath string) error {
 	}
 
 	t.progress = &Progress{
-		FileName:    filepath.Base(filePath),
-		TotalBytes:  fi.Size(),
-		Status:      StatusInProgress,
-		StartedAt:   time.Now(),
+		FileName:   filepath.Base(filePath),
+		TotalBytes: fi.Size(),
+		Status:     StatusInProgress,
+		StartedAt:  time.Now(),
 	}
 
 	buf := make([]byte, 64*1024) // 64KB chunks

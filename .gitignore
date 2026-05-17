@@ -8,3 +8,12 @@ build-errors.log
 *.test
 *.out
 .DS_Store
+
+# Wails build artifacts
+desktop/build/
+desktop/README.md
+desktop/.gitignore
+desktop/wails.json.bak
+desktop/frontend/README.md
+desktop/frontend/index.ts
+desktop/frontend/package.json.md5

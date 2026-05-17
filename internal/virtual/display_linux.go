@@ -27,7 +27,8 @@ func Create(width, height uint32, refreshRate float64) (uint32, error) {
 
 	// Create a new mode line and add it to the output.
 	modeline := generateModeline(modeName, width, height, refreshRate)
-	if err := xrandr("--newmode", modeline...); err != nil {
+	newmodeArgs := append([]string{"--newmode"}, modeline...)
+	if err := xrandr(newmodeArgs...); err != nil {
 		return 0, fmt.Errorf("failed to create mode: %w", err)
 	}
 

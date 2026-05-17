@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <title>Vior</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div id="connecting">
+        <div class="connect-card">
+            <div class="logo">V</div>
+            <div class="spinner"></div>
+            <p class="connect-text">Connecting to Vior...</p>
+            <p class="connect-sub">Setting up your display</p>
+        </div>
+    </div>
+
+    <div id="stream-view" class="hidden">
+        <img id="stream" alt="Vior Stream">
+        <button id="fullscreen-btn" aria-label="Fullscreen">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+            </svg>
+        </button>
+        <div id="status-bar">
+            <span id="conn-status" class="connected"></span>
+            <span id="conn-text">Connected</span>
+        </div>
+    </div>
+
+    <div id="disconnected" class="hidden">
+        <div class="disconnect-card">
+            <div class="disconnect-icon">
+                <svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor" opacity="0.4">
+                    <path d="M24 3.6L20.4 0 0 20.4 3.6 24l4.14-4.14c1.32.86 2.86 1.34 4.46 1.34 4.42 0 8-3.58 8-8 0-1.6-.48-3.14-1.34-4.46L24 3.6zM12.2 17.2c-1.12 0-2.18-.36-3.06-1.02L17.18 8.14c.66.88 1.02 1.94 1.02 3.06 0 3.32-2.68 5.6-6 6z"/>
+                </svg>
+            </div>
+            <p class="disconnect-title">Disconnected</p>
+            <p class="disconnect-sub">Attempting to reconnect...</p>
+            <div class="reconnect-bar">
+                <div class="reconnect-progress"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="error-view" class="hidden">
+        <div class="error-card">
+            <p class="error-title">Connection Error</p>
+            <p id="error-msg" class="error-sub"></p>
+            <button id="retry-btn" class="retry-btn">Retry</button>
+        </div>
+    </div>
+
+    <script src="/client.js"></script>
+</body>
+</html>

@@ -28,26 +28,27 @@ jobs:
       - name: Install dependencies
         run: cd mobile-cap && npm install
 
-      - name: Add Android platform
-        run: cd mobile-cap && npx cap add android
-
-      - name: Copy web assets
-        run: cd mobile-cap && npx cap sync android
-
-      - name: Copy USB plugin + manifest
+      - name: Setup Android platform
         run: |
-          # Copy custom AndroidManifest
-          cp mobile-cap/android/app/src/main/AndroidManifest.xml mobile-cap/android/app/src/main/AndroidManifest.xml.bak || true
+          cd mobile-cap
+          # Save custom files before cap regenerates android/
+          mkdir -p /tmp/vior-custom
+          cp -r android/app/src/main/java /tmp/vior-custom/java 2>/dev/null || true
+          cp -r android/app/src/main/res/xml /tmp/vior-custom/xml 2>/dev/null || true
+          cp android/app/src/main/AndroidManifest.xml /tmp/vior-custom/AndroidManifest.xml 2>/dev/null || true
 
-          # Copy USB plugin source
-          mkdir -p mobile-cap/android/app/src/main/java/com/vior/mobile/
-          cp mobile-cap/android/app/src/main/java/com/vior/mobile/UsbAccessoryPlugin.java \
-             mobile-cap/android/app/src/main/java/com/vior/mobile/ 2>/dev/null || true
+          # Let Capacitor generate fresh Android project
+          rm -rf android
+          npx cap add android
+          npx cap sync android
 
-          # Copy USB accessory filter
-          mkdir -p mobile-cap/android/app/src/main/res/xml/
-          cp mobile-cap/android/app/src/main/res/xml/usb_accessory_filter.xml \
-             mobile-cap/android/app/src/main/res/xml/ 2>/dev/null || true
+          # Overlay custom files
+          cp -r /tmp/vior-custom/java/* android/app/src/main/java/ 2>/dev/null || true
+          mkdir -p android/app/src/main/res/xml
+          cp -r /tmp/vior-custom/xml/* android/app/src/main/res/xml/ 2>/dev/null || true
+
+          # Merge manifest — add USB permissions and intent filter
+          # For now, use cleartext traffic which cap already enables
 
       - name: Build debug APK
         run: |

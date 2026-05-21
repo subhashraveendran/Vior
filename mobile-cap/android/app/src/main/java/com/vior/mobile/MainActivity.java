@@ -78,26 +78,13 @@ public class MainActivity extends BridgeActivity {
 
         // Register JavaScript interface for touch forwarding over USB.
         getBridge().getWebView().addJavascriptInterface(this, "Android");
-    }
 
-    @Override
-    protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
-        handleUsbIntent(intent);
-    }
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-        if (!usbConnected && usbPlugin != null) {
-            usbPlugin.scan();
-        }
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        // Don't disconnect on stop — keep USB alive in background.
+        // Scan for USB accessory after short delay (WebView needs time to load).
+        getBridge().getWebView().postDelayed(() -> {
+            if (!usbConnected && usbPlugin != null) {
+                usbPlugin.scan();
+            }
+        }, 1000);
     }
 
     private void handleUsbIntent(Intent intent) {

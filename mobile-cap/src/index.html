@@ -230,6 +230,80 @@
     serverList.appendChild(card);
   }
 
+  // ── USB Accessory Mode (AOA) ─────────────────────────────────
+  // Java bridge calls these when USB accessory connects/sends frames.
+  // Flow: plug cable → Android opens app → Java reads USB → calls these JS functions.
+
+  var usbMode = false;
+
+  window._viorUSBConnected = function() {
+    console.log('USB: connected');
+    usbMode = true;
+    // Show stream screen immediately — frames will arrive via _viorUSBFrame.
+    showScreen('stream');
+    document.querySelector('.stream-pill').innerHTML = '<span class="conn-dot"></span><span>USB Connected</span>';
+  };
+
+  window._viorUSBReady = function(w, h) {
+    console.log('USB: ready ' + w + 'x' + h);
+    displayW = w;
+    displayH = h;
+  };
+
+  window._viorUSBFrame = function(b64jpeg) {
+    // Render JPEG frame from USB (base64-encoded by Java).
+    streamImg.src = 'data:image/jpeg;base64,' + b64jpeg;
+  };
+
+  window._viorUSBDisconnected = function() {
+    console.log('USB: disconnected');
+    usbMode = false;
+    streamImg.src = '';
+    showScreen('disc');
+  };
+
+  // Override touch forwarding — if USB mode, send over Java bridge instead of WebSocket.
+  function sendTouchUSB(action, x, y) {
+    // action: 1=down, 2=move, 3=up
+    if (typeof Android !== 'undefined' && Android.sendTouch) {
+      Android.sendTouch(action, x, y);
+    }
+  }
+
+  streamImg.removeEventListener('touchstart', streamImg._tsHandler);
+  streamImg.removeEventListener('touchmove', streamImg._tmHandler);
+  streamImg.removeEventListener('touchend', streamImg._teHandler);
+
+  streamImg._tsHandler = function(e) {
+    e.preventDefault();
+    var p = mapTouch(e.changedTouches[0]);
+    if (usbMode) { sendTouchUSB(1, p.x, p.y); } else { send('touch','down',p.x,p.y); }
+  };
+  streamImg._tmHandler = function(e) {
+    e.preventDefault();
+    var p = mapTouch(e.changedTouches[0]);
+    if (usbMode) { sendTouchUSB(2, p.x, p.y); } else { send('touch','move',p.x,p.y); }
+  };
+  streamImg._teHandler = function(e) {
+    e.preventDefault();
+    var p = mapTouch(e.changedTouches[0]);
+    if (usbMode) { sendTouchUSB(3, p.x, p.y); } else { send('touch','up',p.x,p.y); }
+  };
+  streamImg.addEventListener('touchstart', streamImg._tsHandler, {passive:false});
+  streamImg.addEventListener('touchmove', streamImg._tmHandler, {passive:false});
+  streamImg.addEventListener('touchend', streamImg._teHandler, {passive:false});
+
+  // Back button — handle USB mode too.
+  backBtn.onclick = function() {
+    if (usbMode) {
+      usbMode = false;
+      // Can't disconnect USB from JS — just go back to discovery.
+    }
+    if (ws) { ws.close(); ws = null; }
+    streamImg.src = '';
+    showScreen('disc');
+  };
+
   autoDiscover();
 })();
 </script>

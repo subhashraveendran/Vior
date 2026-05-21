@@ -180,29 +180,38 @@
       probeServer(p[0], parseInt(p[1]), 'Last connected');
     }
 
-    // Scan common ports on local subnet.
-    // Get local IP from WebRTC (works in WebView).
+    // Scan local subnet — batch of 20 at a time to avoid WebView throttle.
     getLocalIP(function(ip) {
-      if (!ip) return;
-      var base = ip.split('.').slice(0, 3).join('.');
-      var ports = [8080, 7421, 9090, 3000];
-      // Scan .1 to .254
-      for (var i = 1; i <= 254; i++) {
-        var host = base + '.' + i;
-        ports.forEach(function(port) {
-          probeServer(host, port);
-        });
+      if (!ip) {
+        // WebRTC failed — show manual entry.
+        showManualEntry();
+        return;
       }
+      var base = ip.split('.').slice(0, 3).join('.');
+      var port = 8080; // default Vior port
+      var batch = 0;
+
+      function scanBatch() {
+        var start = batch * 20 + 1;
+        var end = Math.min(start + 20, 255);
+        for (var i = start; i < end; i++) {
+          probeServer(base + '.' + i, port);
+        }
+        batch++;
+        if (batch < 13 && !selectedServer) {
+          setTimeout(scanBatch, 300);
+        }
+      }
+      scanBatch();
     });
 
-    // Timeout: if nothing found after 8s, show empty state.
+    // Timeout: if nothing found after 6s, show manual entry.
     setTimeout(function() {
       if (!selectedServer) {
-        $('server-list').innerHTML = '<div class="empty"><div class="empty-title">No servers found</div><div class="empty-sub">Make sure Vior is running on your computer and you\'re on the same Wi-Fi</div><button class="retry-btn" onclick="startDiscovery()">Scan again</button></div>';
-        $('scan-dot').className = 'scan-dot';
-        $('scan-text').textContent = 'No servers found';
+        showManualEntry();
+        $('scan-text').textContent = 'Tap to enter IP manually';
       }
-    }, 10000);
+    }, 6000);
   }
 
   var foundServers = {};
@@ -327,6 +336,32 @@
     showScreen('disc');
     $('connect-btn').disabled = false;
     $('connect-btn').textContent = 'Connect';
+  };
+
+  // ── Manual entry fallback ──
+  function showManualEntry() {
+    if (selectedServer) return; // already found
+    $('server-list').innerHTML = '<div class="empty">' +
+      '<div class="empty-title">No servers found</div>' +
+      '<div class="empty-sub">Make sure Vior is running on your computer and you\'re on the same Wi-Fi</div>' +
+      '<div style="margin-top:20px;display:flex;gap:8px;justify-content:center">' +
+        '<input id="manual-ip" type="text" placeholder="IP address" inputmode="url" style="' +
+          'padding:10px 14px;border-radius:10px;background:var(--surface);border:1px solid var(--border);' +
+          'color:var(--text);font-size:15px;width:180px;outline:none;font-family:ui-monospace,monospace;">' +
+        '<button onclick="manualConnect()" style="padding:10px 20px;border-radius:10px;background:var(--indigo);' +
+          'color:#fff;border:none;font-size:14px;font-weight:600;cursor:pointer;">Go</button>' +
+      '</div>' +
+      '<button class="retry-btn" onclick="startDiscovery()">Scan again</button>' +
+    '</div>';
+  }
+
+  window.manualConnect = function() {
+    var ip = document.getElementById('manual-ip');
+    if (ip && ip.value.trim()) {
+      probeServer(ip.value.trim(), 8080, 'Manual');
+      // Also try connecting directly.
+      selectServer(ip.value.trim(), 8080);
+    }
   };
 
   // ── Frame polling ──

@@ -158,10 +158,10 @@
       if (msg.type === 'ready') {
         displayW = parseInt(msg.data.resolution.split('x')[0]);
         displayH = parseInt(msg.data.resolution.split('x')[1]);
-        streamImg.src = 'http://' + host + ':' + port + msg.data.streamUrl;
         showScreen('stream');
-        // Save last connection.
         localStorage.setItem('vior_last', host + ':' + port);
+        // Start frame polling — Android WebView doesn't support MJPEG multipart.
+        startFramePolling('http://' + host + ':' + port);
       } else if (msg.type === 'error') {
         showError(msg.data.message);
       }
@@ -228,6 +228,36 @@
     card.innerHTML = '<div class="srv-icon">🖥</div><div class="srv-info"><div class="srv-name">'+(label||host)+'</div><div class="srv-meta">'+host+':'+port+'</div></div><div class="srv-chev">›</div>';
     card.onclick = function() { connect(host, port); };
     serverList.appendChild(card);
+  }
+
+  // ── Frame polling (Android WebView doesn't support MJPEG multipart) ──
+  var framePollingActive = false;
+  var frameBaseUrl = '';
+
+  function startFramePolling(baseUrl) {
+    frameBaseUrl = baseUrl;
+    framePollingActive = true;
+    pollFrame();
+  }
+
+  function stopFramePolling() {
+    framePollingActive = false;
+  }
+
+  function pollFrame() {
+    if (!framePollingActive) return;
+    var img = new Image();
+    img.onload = function() {
+      streamImg.src = img.src;
+      // Next frame — request immediately for max FPS.
+      if (framePollingActive) requestAnimationFrame(pollFrame);
+    };
+    img.onerror = function() {
+      // Retry after short delay.
+      if (framePollingActive) setTimeout(pollFrame, 100);
+    };
+    // Add timestamp to prevent caching.
+    img.src = frameBaseUrl + '/snapshot?t=' + Date.now();
   }
 
   // ── USB Accessory Mode (AOA) ─────────────────────────────────
@@ -299,6 +329,7 @@
       usbMode = false;
       // Can't disconnect USB from JS — just go back to discovery.
     }
+    stopFramePolling();
     if (ws) { ws.close(); ws = null; }
     streamImg.src = '';
     showScreen('disc');

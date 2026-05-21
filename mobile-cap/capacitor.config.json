@@ -1,0 +1,13 @@
+{
+  "appId": "com.vior.mobile",
+  "appName": "Vior",
+  "webDir": "src",
+  "server": {
+    "allowNavigation": ["*"],
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true,
+    "useLegacyBridge": false
+  }
+}

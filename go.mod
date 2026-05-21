@@ -4,6 +4,7 @@ go 1.25.6
 
 require (
 	gioui.org v0.9.0
+	github.com/google/gousb v1.1.3
 	github.com/gorilla/websocket v1.5.3
 	github.com/kbinani/screenshot v0.0.0-20250624051815-089614a94018
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e

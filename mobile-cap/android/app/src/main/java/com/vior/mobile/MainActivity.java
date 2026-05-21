@@ -87,20 +87,17 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        // Also scan for accessories on resume (might have been plugged while app was bg).
-        if (!usbConnected) {
+    protected void onStart() {
+        super.onStart();
+        if (!usbConnected && usbPlugin != null) {
             usbPlugin.scan();
         }
     }
 
     @Override
-    protected void onDestroy() {
-        if (usbPlugin != null) {
-            usbPlugin.disconnect();
-        }
-        super.onDestroy();
+    protected void onStop() {
+        super.onStop();
+        // Don't disconnect on stop — keep USB alive in background.
     }
 
     private void handleUsbIntent(Intent intent) {

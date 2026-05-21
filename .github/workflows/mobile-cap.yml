@@ -1,0 +1,62 @@
+name: Capacitor Android
+
+on:
+  push:
+    branches: [main]
+    paths: ['mobile-cap/**']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: cd mobile-cap && npm install
+
+      - name: Add Android platform
+        run: cd mobile-cap && npx cap add android
+
+      - name: Copy web assets
+        run: cd mobile-cap && npx cap sync android
+
+      - name: Copy USB plugin + manifest
+        run: |
+          # Copy custom AndroidManifest
+          cp mobile-cap/android/app/src/main/AndroidManifest.xml mobile-cap/android/app/src/main/AndroidManifest.xml.bak || true
+
+          # Copy USB plugin source
+          mkdir -p mobile-cap/android/app/src/main/java/com/vior/mobile/
+          cp mobile-cap/android/app/src/main/java/com/vior/mobile/UsbAccessoryPlugin.java \
+             mobile-cap/android/app/src/main/java/com/vior/mobile/ 2>/dev/null || true
+
+          # Copy USB accessory filter
+          mkdir -p mobile-cap/android/app/src/main/res/xml/
+          cp mobile-cap/android/app/src/main/res/xml/usb_accessory_filter.xml \
+             mobile-cap/android/app/src/main/res/xml/ 2>/dev/null || true
+
+      - name: Build debug APK
+        run: |
+          cd mobile-cap/android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: vior-capacitor-android
+          path: mobile-cap/android/app/build/outputs/apk/debug/app-debug.apk

@@ -20,6 +20,7 @@ import (
 	"github.com/subhashraveendran/vior/internal/network"
 	"github.com/subhashraveendran/vior/internal/protocol"
 	"github.com/subhashraveendran/vior/internal/stream"
+	"github.com/subhashraveendran/vior/internal/usb"
 	"github.com/subhashraveendran/vior/internal/virtual"
 )
 
@@ -31,6 +32,7 @@ type App struct {
 	broadcaster *discovery.Broadcaster
 	touchMapper *input.TouchMapper
 	fileMgr     *filetransfer.Manager
+	usbAcc      *usb.Accessory
 	startedAt   time.Time
 
 	// Connected client tracking.
@@ -54,6 +56,10 @@ func (a *App) beforeClose(ctx context.Context) bool {
 }
 
 func (a *App) stopEverything() {
+	if a.usbAcc != nil {
+		a.usbAcc.Stop()
+		a.usbAcc = nil
+	}
 	if a.broadcaster != nil {
 		a.broadcaster.Stop()
 		a.broadcaster = nil
@@ -113,6 +119,40 @@ func (a *App) StartServer() error {
 		if err := a.broadcaster.Start(); err != nil {
 			log.Printf("discovery broadcast failed: %v", err)
 		}
+	}
+
+	// Start USB Accessory Mode scanning.
+	a.usbAcc = usb.NewAccessory()
+	a.usbAcc.OnConnect = func(width, height int, dpr float32) {
+		log.Printf("USB: device connected %dx%d @%.1fx", width, height, dpr)
+		a.handleUSBConnect(width, height, dpr)
+	}
+	a.usbAcc.OnTouch = func(action byte, x, y float32) {
+		if a.touchMapper != nil {
+			var act string
+			switch action {
+			case usb.TouchDown:
+				act = "down"
+			case usb.TouchMove:
+				act = "move"
+			case usb.TouchUp:
+				act = "up"
+			}
+			a.touchMapper.HandleTouch(act, float64(x), float64(y))
+		}
+	}
+	a.usbAcc.OnDisconnect = func() {
+		log.Println("USB: device disconnected")
+		if a.session != nil {
+			a.session.Stop()
+			a.session = nil
+		}
+		virtual.Destroy()
+		a.touchMapper = nil
+		runtime.EventsEmit(a.ctx, "client:disconnected", "usb")
+	}
+	if err := a.usbAcc.Start(); err != nil {
+		log.Printf("USB accessory scan failed: %v", err)
 	}
 
 	return nil
@@ -351,6 +391,81 @@ func (a *App) OnClientDisconnect(session *protocol.Session) {
 
 	// Notify desktop frontend.
 	runtime.EventsEmit(a.ctx, "client:disconnected", session.ID)
+}
+
+// ── USB Connection Handler ──────────────────────────────────────────
+
+func (a *App) handleUSBConnect(width, height int, dpr float32) {
+	// Check permissions.
+	if err := capture.CheckScreenRecordingPermission(); err != nil {
+		log.Printf("USB: permission denied: %v", err)
+		return
+	}
+
+	// Tear down existing.
+	if a.session != nil {
+		a.session.Stop()
+		a.session = nil
+	}
+	virtual.Destroy()
+
+	// Create virtual display.
+	info := virtual.Info{Width: uint32(width), Height: uint32(height), RefreshRate: 60}
+	displayID, err := virtual.CreateVirtualDisplay(info)
+	if err != nil {
+		log.Printf("USB: virtual display failed: %v", err)
+		return
+	}
+	time.Sleep(500 * time.Millisecond)
+
+	vdIdx := capture.FindDisplayIndexByID(displayID)
+	if vdIdx < 0 {
+		displays, _ := capture.ListDisplays()
+		vdIdx = len(displays) - 1
+	}
+	capture.UnmirrorDisplay(vdIdx)
+
+	displays, err := capture.ListDisplays()
+	if err != nil || vdIdx >= len(displays) {
+		log.Printf("USB: display list error")
+		return
+	}
+
+	// Start capture.
+	a.session = capture.NewSession(vdIdx, a.cfg.Quality, a.cfg.FrameRate)
+	a.session.Start()
+
+	// Touch mapper.
+	d := displays[vdIdx]
+	a.touchMapper = input.NewTouchMapper(input.DefaultController, d.Bounds)
+
+	// Send ready.
+	a.usbAcc.SendReady(width, height)
+
+	// Stream frames over USB.
+	go func() {
+		for frame := range a.session.FrameCh {
+			if err := a.usbAcc.SendFrame(frame); err != nil {
+				log.Printf("USB: send frame error: %v", err)
+				return
+			}
+		}
+	}()
+
+	// Also hook up to MJPEG server if running (for web client fallback).
+	if a.server != nil {
+		a.server.SetFrameCh(a.session.FrameCh)
+	}
+
+	runtime.EventsEmit(a.ctx, "client:connected", ClientInfo{
+		SessionID:      "usb",
+		Name:           "Android (USB)",
+		Width:          width,
+		Height:         height,
+		DPR:            float64(dpr),
+		ConnectedAt:    time.Now().Format(time.RFC3339),
+		ConnectionType: "usb",
+	})
 }
 
 // ── Display ──────────────────────────────────────────────────────────

@@ -104,7 +104,7 @@ func (s *MJPEGServer) Start() error {
 	addr := fmt.Sprintf("%s:%d", s.host, s.port)
 	s.server = &http.Server{
 		Addr:         addr,
-		Handler:      mux,
+		Handler:      corsHandler(mux),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 0, // Disabled — we use per-frame deadlines instead.
 		IdleTimeout:  120 * time.Second,
@@ -425,4 +425,19 @@ func (a *wsMessageAdapter) OnFileChunk(session *protocol.Session, msg *protocol.
 
 func (a *wsMessageAdapter) OnFileComplete(session *protocol.Session, msg *protocol.FileCompleteMessage) error {
 	return a.handler.OnClientFileComplete(session, msg)
+}
+
+// corsHandler wraps an http.Handler with permissive CORS headers.
+// Required for Capacitor WebView to load MJPEG/snapshot from local server.
+func corsHandler(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "*")
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(204)
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
 }

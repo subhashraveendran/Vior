@@ -9,7 +9,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -312,9 +314,40 @@ func (s *MJPEGServer) handleStream(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *MJPEGServer) handleInfo(w http.ResponseWriter, r *http.Request) {
-	hostname, _ := os.Hostname()
+	name := friendlyDeviceName()
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, `{"name":"%s","version":"%s","platform":"%s"}`, hostname, "0.1.0", runtime.GOOS)
+	fmt.Fprintf(w, `{"name":"%s","version":"%s","platform":"%s"}`, name, "0.1.0", friendlyPlatform())
+}
+
+func friendlyDeviceName() string {
+	// Try to get friendly computer name.
+	if runtime.GOOS == "darwin" {
+		out, err := exec.Command("scutil", "--get", "ComputerName").Output()
+		if err == nil {
+			name := strings.TrimSpace(string(out))
+			if name != "" {
+				return name
+			}
+		}
+	}
+	hostname, _ := os.Hostname()
+	// Clean up hostname — remove .local suffix.
+	hostname = strings.TrimSuffix(hostname, ".local")
+	hostname = strings.ReplaceAll(hostname, "-", " ")
+	return hostname
+}
+
+func friendlyPlatform() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "macOS"
+	case "linux":
+		return "Linux"
+	case "windows":
+		return "Windows"
+	default:
+		return runtime.GOOS
+	}
 }
 
 func (s *MJPEGServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {

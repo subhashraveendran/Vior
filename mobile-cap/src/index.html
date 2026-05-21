@@ -242,9 +242,10 @@
     var card = document.createElement('div');
     card.className = 'srv-card';
     card.id = 'srv-' + host.replace(/\./g, '-') + '-' + port;
-    card.innerHTML = '<div class="srv-icon">🖥</div>' +
+    var icon = platform === 'macOS' ? '💻' : platform === 'Windows' ? '🖥' : platform === 'Linux' ? '🐧' : '🖥';
+    card.innerHTML = '<div class="srv-icon">' + icon + '</div>' +
       '<div class="srv-info"><div class="srv-name">' + name + '</div>' +
-      '<div class="srv-meta mono">' + (platform ? platform + ' · ' : '') + host + ':' + port + '</div></div>' +
+      '<div class="srv-meta">' + platform + '</div></div>' +
       '<div class="srv-chev">›</div>';
     card.onclick = function() { selectServer(host, port); };
     $('server-list').appendChild(card);

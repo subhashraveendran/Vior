@@ -6,115 +6,136 @@
 <title>Vior</title>
 <style>
   :root {
-    --bg: #0c0d12; --surface: #14161c; --border: #1e2029;
+    --bg: #0c0d12; --surface: #14161c; --border: #1e2029; --borderH: #262833;
     --text: #c9cdd3; --dim: #5c6170; --head: #f0f1f3;
     --indigo: #6366f1; --indigo2: #818cf8; --green: #34d399; --red: #ef4444;
   }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body {
-    height: 100%; background: var(--bg); color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    overflow: hidden;
-  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased; overflow:hidden; }
+  .mono { font-family:ui-monospace,"SF Mono",Menlo,monospace; }
+  .hidden { display:none!important; }
+  .screen { position:absolute; inset:0; display:flex; flex-direction:column; transition:opacity 0.3s; }
 
-  .screen { position: absolute; inset: 0; display: flex; flex-direction: column; transition: opacity 0.3s; }
-  .screen.hidden { opacity: 0; pointer-events: none; }
+  /* ── Discovery ──────────────────── */
+  .header { padding:52px 20px 16px; display:flex; align-items:center; gap:12px; }
+  .mark { width:32px; height:32px; border-radius:8px; background:linear-gradient(135deg,#6366f1,#4f46e5); flex-shrink:0; }
+  .title { font-size:20px; font-weight:700; color:var(--head); flex:1; }
+  .scan-bar { padding:0 20px 14px; display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--dim); }
+  .scan-dot { width:8px; height:8px; border-radius:50%; background:var(--indigo); animation:pulse 1.8s ease-in-out infinite; }
+  .scan-dot.found { background:var(--green); animation:none; }
+  .sep { height:1px; background:var(--border); }
+  .list { flex:1; overflow-y:auto; padding:12px 18px; }
 
-  /* Discovery */
-  .disc-header { padding: 56px 20px 16px; display: flex; align-items: center; gap: 12px; }
-  .disc-mark { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #6366f1, #4f46e5); }
-  .disc-title { font-size: 20px; font-weight: 700; color: var(--head); flex: 1; }
-  .disc-scan { padding: 0 20px 14px; display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--dim); }
-  .disc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--indigo); animation: pulse 1.8s ease-in-out infinite; }
-  .disc-sep { height: 1px; background: var(--border); }
-  .disc-list { flex: 1; overflow-y: auto; padding: 12px 18px; display: flex; flex-direction: column; gap: 8px; }
+  .srv-card { padding:16px; border-radius:14px; background:var(--surface);
+    box-shadow:inset 0 1px 0 var(--borderH),0 0 0 1px var(--border);
+    display:flex; align-items:center; gap:14px; margin-bottom:10px;
+    -webkit-tap-highlight-color:transparent; cursor:pointer; }
+  .srv-card:active { opacity:0.7; }
+  .srv-card.selected { box-shadow:inset 0 0 0 1.5px var(--indigo),0 0 20px -8px rgba(99,102,241,0.4); }
+  .srv-icon { width:44px; height:44px; border-radius:11px; background:#0a0b10;
+    box-shadow:inset 0 0 0 1px var(--border); display:flex; align-items:center;
+    justify-content:center; font-size:20px; }
+  .srv-info { flex:1; min-width:0; }
+  .srv-name { font-size:15px; font-weight:600; color:var(--head); }
+  .srv-meta { font-size:11px; color:var(--dim); margin-top:3px; }
+  .srv-chev { color:var(--dim); font-size:22px; }
 
-  .srv-card {
-    padding: 14px; border-radius: 12px; background: var(--surface);
-    box-shadow: inset 0 1px 0 #262833, 0 0 0 1px var(--border);
-    display: flex; align-items: center; gap: 12px; cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .srv-card:active { opacity: 0.7; }
-  .srv-icon { width: 42px; height: 42px; border-radius: 10px; background: #0a0b10; box-shadow: inset 0 0 0 1px var(--border); display: flex; align-items: center; justify-content: center; color: var(--dim); }
-  .srv-info { flex: 1; min-width: 0; }
-  .srv-name { font-size: 14px; font-weight: 600; color: var(--head); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .srv-meta { font-size: 11px; color: var(--dim); margin-top: 2px; font-family: ui-monospace, monospace; }
-  .srv-chev { color: var(--dim); font-size: 20px; }
+  .empty { padding:60px 32px; text-align:center; }
+  .empty-title { font-size:17px; font-weight:600; color:var(--head); margin-bottom:8px; }
+  .empty-sub { font-size:13px; color:var(--dim); line-height:1.5; }
+  .retry-btn { margin-top:16px; padding:10px 24px; border-radius:10px; background:var(--surface);
+    border:1px solid var(--border); color:var(--text); font-size:13px; font-weight:600; cursor:pointer; }
 
-  .empty { padding: 60px 40px; text-align: center; }
-  .empty-title { font-size: 16px; font-weight: 600; color: var(--head); margin-bottom: 8px; }
-  .empty-sub { font-size: 13px; color: var(--dim); line-height: 1.5; }
+  /* Mode picker */
+  .mode-section { padding:16px 18px 0; }
+  .mode-label { font-size:10.5px; color:var(--dim); text-transform:uppercase; letter-spacing:1.2px; font-weight:600; margin-bottom:10px; padding-left:4px; }
+  .mode-row { display:flex; gap:8px; }
+  .mode-card { flex:1; padding:14px; border-radius:12px; background:var(--surface);
+    box-shadow:inset 0 1px 0 var(--borderH),0 0 0 1px var(--border);
+    text-align:center; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .mode-card:active { opacity:0.8; }
+  .mode-card.active { box-shadow:inset 0 0 0 1.5px var(--indigo),0 0 20px -8px rgba(99,102,241,0.4); }
+  .mode-icon { font-size:28px; margin-bottom:6px; }
+  .mode-name { font-size:14px; font-weight:600; color:var(--head); }
+  .mode-card.active .mode-name { color:var(--indigo2); }
+  .mode-desc { font-size:11px; color:var(--dim); margin-top:3px; }
 
-  .disc-bottom { padding: 16px 18px 32px; border-top: 1px solid var(--border); }
-  .disc-label { font-size: 10.5px; color: var(--dim); text-transform: uppercase; letter-spacing: 1.2px; font-weight: 600; margin-bottom: 8px; padding-left: 4px; }
-  .ip-row { display: flex; align-items: center; background: var(--surface); border-radius: 10px; box-shadow: inset 0 1px 0 #262833, 0 0 0 1px var(--border); padding: 4px; }
-  .ip-input { flex: 1; background: none; border: none; color: var(--text); font-size: 15px; padding: 8px 12px; outline: none; font-family: ui-monospace, monospace; }
-  .ip-input::placeholder { color: var(--dim); }
-  .ip-btn { padding: 9px 18px; border-radius: 8px; background: var(--indigo); color: #fff; border: none; font-size: 13px; font-weight: 600; cursor: pointer; }
+  /* Connect button */
+  .connect-section { padding:16px 18px 40px; }
+  .connect-btn { width:100%; height:50px; border-radius:12px; border:none;
+    background:linear-gradient(180deg,#7376f4,#5a5ee3); color:#fff;
+    font-size:16px; font-weight:600; cursor:pointer;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.2),0 8px 24px -4px rgba(99,102,241,0.5); }
+  .connect-btn:active { transform:scale(0.98); }
+  .connect-btn:disabled { opacity:0.4; }
+  .error-msg { padding:8px 4px 0; font-size:13px; color:var(--red); }
 
-  /* Stream */
-  #stream-screen { background: #000; }
-  #stream-img { width: 100%; height: 100%; object-fit: contain; touch-action: none; }
-  .stream-pill {
-    position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
-    display: flex; align-items: center; gap: 8px;
-    padding: 10px 16px; border-radius: 999px;
-    background: rgba(0,0,0,0.6); backdrop-filter: blur(16px);
-    box-shadow: inset 0 0 0 0.5px rgba(255,255,255,0.15);
-    color: #fff; font-size: 12px; font-weight: 600;
-  }
-  .stream-back {
-    position: fixed; top: 52px; left: 16px;
-    width: 40px; height: 40px; border-radius: 50%;
-    background: rgba(0,0,0,0.5); backdrop-filter: blur(16px);
-    border: none; color: #fff; font-size: 20px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: inset 0 0 0 0.5px rgba(255,255,255,0.15);
-  }
-
-  .conn-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px rgba(52,211,153,0.5); }
-
-  .error-msg { padding: 8px 20px; font-size: 13px; color: var(--red); }
+  /* ── Stream ──────────────────── */
+  #stream-screen { background:#000; }
+  #stream-img { width:100%; height:100%; object-fit:contain; touch-action:none; }
+  .stream-pill { position:fixed; bottom:40px; left:50%; transform:translateX(-50%);
+    display:flex; align-items:center; gap:8px; padding:10px 16px; border-radius:999px;
+    background:rgba(0,0,0,0.6); backdrop-filter:blur(16px);
+    box-shadow:inset 0 0 0 0.5px rgba(255,255,255,0.15);
+    color:#fff; font-size:12px; font-weight:600; }
+  .stream-back { position:fixed; top:52px; left:16px; width:40px; height:40px;
+    border-radius:50%; background:rgba(0,0,0,0.5); backdrop-filter:blur(16px);
+    border:none; color:#fff; font-size:20px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:inset 0 0 0 0.5px rgba(255,255,255,0.15); }
+  .conn-dot { width:7px; height:7px; border-radius:50%; background:var(--green);
+    box-shadow:0 0 8px rgba(52,211,153,0.5); }
 
   @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.85)} }
+  @keyframes spin { to{transform:rotate(360deg)} }
 </style>
 </head>
 <body>
 
-<!-- Discovery Screen -->
+<!-- ═══ Discovery Screen ═══ -->
 <div id="disc-screen" class="screen">
-  <div class="disc-header">
-    <div class="disc-mark"></div>
-    <div class="disc-title">Connect</div>
+  <div class="header">
+    <div class="mark"></div>
+    <div class="title">Vior</div>
   </div>
-  <div class="disc-scan">
-    <div class="disc-dot"></div>
-    <span>Scanning your network...</span>
+  <div class="scan-bar">
+    <div id="scan-dot" class="scan-dot"></div>
+    <span id="scan-text">Scanning your network...</span>
   </div>
-  <div class="disc-sep"></div>
-  <div id="server-list" class="disc-list">
-    <div class="empty">
-      <div class="empty-title">Searching...</div>
-      <div class="empty-sub">Looking for Vior servers on your network</div>
+  <div class="sep"></div>
+  <div id="server-list" class="list"></div>
+
+  <!-- Mode picker (shown after server found) -->
+  <div id="mode-section" class="mode-section hidden">
+    <div class="mode-label">Display Mode</div>
+    <div class="mode-row">
+      <div id="mode-extend" class="mode-card active" onclick="selectMode('extend')">
+        <div class="mode-icon">🖥</div>
+        <div class="mode-name">Extend</div>
+        <div class="mode-desc">Second display</div>
+      </div>
+      <div id="mode-mirror" class="mode-card" onclick="selectMode('mirror')">
+        <div class="mode-icon">🪞</div>
+        <div class="mode-name">Mirror</div>
+        <div class="mode-desc">Same as main</div>
+      </div>
     </div>
   </div>
-  <div class="disc-bottom">
-    <div class="disc-label">Connect manually</div>
-    <div class="ip-row">
-      <input id="ip-input" class="ip-input" type="text" placeholder="192.168.x.x" inputmode="url">
-      <button id="ip-btn" class="ip-btn">Connect</button>
-    </div>
+
+  <!-- Connect -->
+  <div id="connect-section" class="connect-section hidden">
+    <button id="connect-btn" class="connect-btn" disabled>Connect</button>
     <div id="error" class="error-msg" style="display:none"></div>
   </div>
 </div>
 
-<!-- Stream Screen -->
+<!-- ═══ Stream Screen ═══ -->
 <div id="stream-screen" class="screen hidden">
-  <img id="stream-img" alt="Stream">
+  <img id="stream-img" alt="">
   <button id="back-btn" class="stream-back">‹</button>
-  <div class="stream-pill">
+  <div id="stream-pill" class="stream-pill">
     <span class="conn-dot"></span>
     <span>Connected</span>
   </div>
@@ -122,36 +143,156 @@
 
 <script>
 (function() {
-  var discScreen = document.getElementById('disc-screen');
-  var streamScreen = document.getElementById('stream-screen');
-  var serverList = document.getElementById('server-list');
-  var ipInput = document.getElementById('ip-input');
-  var ipBtn = document.getElementById('ip-btn');
-  var backBtn = document.getElementById('back-btn');
-  var streamImg = document.getElementById('stream-img');
-  var errorEl = document.getElementById('error');
-  var ws = null;
-  var displayW = 0, displayH = 0;
+  var $ = function(id) { return document.getElementById(id); };
+  var ws = null, displayW = 0, displayH = 0;
+  var selectedServer = null, selectedMode = 'extend';
+  var streamImg = $('stream-img');
+  var framePolling = false, frameUrl = '';
 
+  // ── Screen management ──
   function showScreen(id) {
-    discScreen.classList.toggle('hidden', id !== 'disc');
-    streamScreen.classList.toggle('hidden', id !== 'stream');
+    $('disc-screen').classList.toggle('hidden', id !== 'disc');
+    $('stream-screen').classList.toggle('hidden', id !== 'stream');
   }
 
   function showError(msg) {
-    errorEl.textContent = msg;
-    errorEl.style.display = msg ? 'block' : 'none';
+    $('error').textContent = msg;
+    $('error').style.display = msg ? 'block' : 'none';
   }
 
-  function connect(host, port) {
+  // ── Mode selection ──
+  window.selectMode = function(mode) {
+    selectedMode = mode;
+    $('mode-extend').classList.toggle('active', mode === 'extend');
+    $('mode-mirror').classList.toggle('active', mode === 'mirror');
+  };
+
+  // ── Discovery — HTTP subnet scan ──
+  function startDiscovery() {
+    $('scan-dot').className = 'scan-dot';
+    $('scan-text').textContent = 'Scanning your network...';
+    $('server-list').innerHTML = '<div class="empty"><div class="empty-title">Searching...</div><div class="empty-sub">Looking for Vior servers on your network</div></div>';
+
+    // Try last known first.
+    var last = localStorage.getItem('vior_last');
+    if (last) {
+      var p = last.split(':');
+      probeServer(p[0], parseInt(p[1]), 'Last connected');
+    }
+
+    // Scan common ports on local subnet.
+    // Get local IP from WebRTC (works in WebView).
+    getLocalIP(function(ip) {
+      if (!ip) return;
+      var base = ip.split('.').slice(0, 3).join('.');
+      var ports = [8080, 7421, 9090, 3000];
+      // Scan .1 to .254
+      for (var i = 1; i <= 254; i++) {
+        var host = base + '.' + i;
+        ports.forEach(function(port) {
+          probeServer(host, port);
+        });
+      }
+    });
+
+    // Timeout: if nothing found after 8s, show empty state.
+    setTimeout(function() {
+      if (!selectedServer) {
+        $('server-list').innerHTML = '<div class="empty"><div class="empty-title">No servers found</div><div class="empty-sub">Make sure Vior is running on your computer and you\'re on the same Wi-Fi</div><button class="retry-btn" onclick="startDiscovery()">Scan again</button></div>';
+        $('scan-dot').className = 'scan-dot';
+        $('scan-text').textContent = 'No servers found';
+      }
+    }, 10000);
+  }
+
+  var foundServers = {};
+  function probeServer(host, port, label) {
+    var key = host + ':' + port;
+    if (foundServers[key]) return;
+
+    var controller = new AbortController();
+    setTimeout(function() { controller.abort(); }, 1500);
+
+    fetch('http://' + host + ':' + port + '/info', { signal: controller.signal })
+      .then(function(r) { return r.json(); })
+      .then(function(info) {
+        if (foundServers[key]) return;
+        foundServers[key] = true;
+
+        // Server found!
+        $('scan-dot').className = 'scan-dot found';
+        $('scan-text').textContent = 'Server found';
+
+        // Clear searching message.
+        if (!selectedServer) {
+          $('server-list').innerHTML = '';
+        }
+
+        addServerCard(host, port, info.name || label || host, info.platform || '');
+
+        // Auto-select first server.
+        if (!selectedServer) {
+          selectServer(host, port);
+        }
+      })
+      .catch(function() {});
+  }
+
+  function addServerCard(host, port, name, platform) {
+    var card = document.createElement('div');
+    card.className = 'srv-card';
+    card.id = 'srv-' + host.replace(/\./g, '-') + '-' + port;
+    card.innerHTML = '<div class="srv-icon">🖥</div>' +
+      '<div class="srv-info"><div class="srv-name">' + name + '</div>' +
+      '<div class="srv-meta mono">' + (platform ? platform + ' · ' : '') + host + ':' + port + '</div></div>' +
+      '<div class="srv-chev">›</div>';
+    card.onclick = function() { selectServer(host, port); };
+    $('server-list').appendChild(card);
+  }
+
+  function selectServer(host, port) {
+    selectedServer = { host: host, port: port };
+    // Highlight card.
+    document.querySelectorAll('.srv-card').forEach(function(c) { c.classList.remove('selected'); });
+    var id = 'srv-' + host.replace(/\./g, '-') + '-' + port;
+    var card = $(id);
+    if (card) card.classList.add('selected');
+    // Show mode + connect.
+    $('mode-section').classList.remove('hidden');
+    $('connect-section').classList.remove('hidden');
+    $('connect-btn').disabled = false;
+  }
+
+  // ── Get local IP via WebRTC ──
+  function getLocalIP(cb) {
+    try {
+      var pc = new RTCPeerConnection({ iceServers: [] });
+      pc.createDataChannel('');
+      pc.createOffer().then(function(offer) { return pc.setLocalDescription(offer); });
+      pc.onicecandidate = function(e) {
+        if (!e || !e.candidate) return;
+        var m = e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+        if (m) { cb(m[1]); pc.close(); }
+      };
+      setTimeout(function() { pc.close(); cb(null); }, 3000);
+    } catch (e) { cb(null); }
+  }
+
+  // ── Connect ──
+  $('connect-btn').onclick = function() {
+    if (!selectedServer) return;
     showError('');
-    var wsUrl = 'ws://' + host + ':' + port + '/ws';
-    ws = new WebSocket(wsUrl);
+    $('connect-btn').disabled = true;
+    $('connect-btn').textContent = 'Connecting...';
+
+    var host = selectedServer.host, port = selectedServer.port;
+    ws = new WebSocket('ws://' + host + ':' + port + '/ws');
     ws.onopen = function() {
       var dpr = window.devicePixelRatio || 1;
       var w = Math.round(screen.width * dpr);
       var h = Math.round(screen.height * dpr);
-      ws.send(JSON.stringify({type:'hello',data:{width:w,height:h,dpr:dpr,name:'Vior Mobile'}}));
+      // If mirror, send mode hint (server handles it).
+      ws.send(JSON.stringify({ type: 'hello', data: { width: w, height: h, dpr: dpr, name: 'Vior Mobile', mode: selectedMode } }));
     };
     ws.onmessage = function(e) {
       var msg = JSON.parse(e.data);
@@ -160,182 +301,58 @@
         displayH = parseInt(msg.data.resolution.split('x')[1]);
         showScreen('stream');
         localStorage.setItem('vior_last', host + ':' + port);
-        // Start frame polling — Android WebView doesn't support MJPEG multipart.
         startFramePolling('http://' + host + ':' + port);
+        $('stream-pill').innerHTML = '<span class="conn-dot"></span><span>' + selectedMode.charAt(0).toUpperCase() + selectedMode.slice(1) + ' · Connected</span>';
       } else if (msg.type === 'error') {
         showError(msg.data.message);
+        $('connect-btn').disabled = false;
+        $('connect-btn').textContent = 'Connect';
       }
     };
     ws.onclose = function() {
+      stopFramePolling();
       showScreen('disc');
+      $('connect-btn').disabled = false;
+      $('connect-btn').textContent = 'Connect';
     };
-    ws.onerror = function() {
-      showError('Connection failed');
-    };
-  }
-
-  // Manual connect.
-  ipBtn.onclick = function() {
-    var val = ipInput.value.trim();
-    if (!val) return;
-    var parts = val.split(':');
-    connect(parts[0], parts[1] || '8080');
-  };
-  ipInput.onkeydown = function(e) { if (e.key === 'Enter') ipBtn.click(); };
-
-  // Back button.
-  backBtn.onclick = function() {
-    if (ws) { ws.close(); ws = null; }
-    streamImg.src = '';
-    showScreen('disc');
+    ws.onerror = function() { showError('Connection failed'); };
   };
 
-  // Touch forwarding.
-  function mapTouch(t) {
-    var r = streamImg.getBoundingClientRect();
-    return { x: Math.round((t.clientX-r.left)/r.width*displayW), y: Math.round((t.clientY-r.top)/r.height*displayH) };
-  }
-  function send(ev,act,x,y) {
-    if (ws && ws.readyState===1) ws.send(JSON.stringify({type:'input',data:{event:ev,action:act,x:x,y:y}}));
-  }
-  streamImg.addEventListener('touchstart',function(e){e.preventDefault();var p=mapTouch(e.changedTouches[0]);send('touch','down',p.x,p.y);},{passive:false});
-  streamImg.addEventListener('touchmove',function(e){e.preventDefault();var p=mapTouch(e.changedTouches[0]);send('touch','move',p.x,p.y);},{passive:false});
-  streamImg.addEventListener('touchend',function(e){e.preventDefault();var p=mapTouch(e.changedTouches[0]);send('touch','up',p.x,p.y);},{passive:false});
-
-  // UDP discovery not available in WebView — poll HTTP instead.
-  // Try to find server by scanning common ports on gateway.
-  function autoDiscover() {
-    // Try last known server first.
-    var last = localStorage.getItem('vior_last');
-    if (last) {
-      var p = last.split(':');
-      tryServer(p[0], p[1], true);
-    }
-  }
-
-  function tryServer(host, port, auto) {
-    fetch('http://'+host+':'+port+'/snapshot', {mode:'no-cors', signal: AbortSignal.timeout(2000)})
-      .then(function() {
-        addServerCard(host, port, 'Saved server');
-        if (auto) connect(host, port);
-      }).catch(function(){});
-  }
-
-  function addServerCard(host, port, label) {
-    serverList.innerHTML = '';
-    var card = document.createElement('div');
-    card.className = 'srv-card';
-    card.innerHTML = '<div class="srv-icon">🖥</div><div class="srv-info"><div class="srv-name">'+(label||host)+'</div><div class="srv-meta">'+host+':'+port+'</div></div><div class="srv-chev">›</div>';
-    card.onclick = function() { connect(host, port); };
-    serverList.appendChild(card);
-  }
-
-  // ── Frame polling (Android WebView doesn't support MJPEG multipart) ──
-  var framePollingActive = false;
-  var frameBaseUrl = '';
-
-  function startFramePolling(baseUrl) {
-    frameBaseUrl = baseUrl;
-    framePollingActive = true;
-    pollFrame();
-  }
-
-  function stopFramePolling() {
-    framePollingActive = false;
-  }
-
-  function pollFrame() {
-    if (!framePollingActive) return;
-    var img = new Image();
-    img.onload = function() {
-      streamImg.src = img.src;
-      // Next frame — request immediately for max FPS.
-      if (framePollingActive) requestAnimationFrame(pollFrame);
-    };
-    img.onerror = function() {
-      // Retry after short delay.
-      if (framePollingActive) setTimeout(pollFrame, 100);
-    };
-    // Add timestamp to prevent caching.
-    img.src = frameBaseUrl + '/snapshot?t=' + Date.now();
-  }
-
-  // ── USB Accessory Mode (AOA) ─────────────────────────────────
-  // Java bridge calls these when USB accessory connects/sends frames.
-  // Flow: plug cable → Android opens app → Java reads USB → calls these JS functions.
-
-  var usbMode = false;
-
-  window._viorUSBConnected = function() {
-    console.log('USB: connected');
-    usbMode = true;
-    // Show stream screen immediately — frames will arrive via _viorUSBFrame.
-    showScreen('stream');
-    document.querySelector('.stream-pill').innerHTML = '<span class="conn-dot"></span><span>USB Connected</span>';
-  };
-
-  window._viorUSBReady = function(w, h) {
-    console.log('USB: ready ' + w + 'x' + h);
-    displayW = w;
-    displayH = h;
-  };
-
-  window._viorUSBFrame = function(b64jpeg) {
-    // Render JPEG frame from USB (base64-encoded by Java).
-    streamImg.src = 'data:image/jpeg;base64,' + b64jpeg;
-  };
-
-  window._viorUSBDisconnected = function() {
-    console.log('USB: disconnected');
-    usbMode = false;
-    streamImg.src = '';
-    showScreen('disc');
-  };
-
-  // Override touch forwarding — if USB mode, send over Java bridge instead of WebSocket.
-  function sendTouchUSB(action, x, y) {
-    // action: 1=down, 2=move, 3=up
-    if (typeof Android !== 'undefined' && Android.sendTouch) {
-      Android.sendTouch(action, x, y);
-    }
-  }
-
-  streamImg.removeEventListener('touchstart', streamImg._tsHandler);
-  streamImg.removeEventListener('touchmove', streamImg._tmHandler);
-  streamImg.removeEventListener('touchend', streamImg._teHandler);
-
-  streamImg._tsHandler = function(e) {
-    e.preventDefault();
-    var p = mapTouch(e.changedTouches[0]);
-    if (usbMode) { sendTouchUSB(1, p.x, p.y); } else { send('touch','down',p.x,p.y); }
-  };
-  streamImg._tmHandler = function(e) {
-    e.preventDefault();
-    var p = mapTouch(e.changedTouches[0]);
-    if (usbMode) { sendTouchUSB(2, p.x, p.y); } else { send('touch','move',p.x,p.y); }
-  };
-  streamImg._teHandler = function(e) {
-    e.preventDefault();
-    var p = mapTouch(e.changedTouches[0]);
-    if (usbMode) { sendTouchUSB(3, p.x, p.y); } else { send('touch','up',p.x,p.y); }
-  };
-  streamImg.addEventListener('touchstart', streamImg._tsHandler, {passive:false});
-  streamImg.addEventListener('touchmove', streamImg._tmHandler, {passive:false});
-  streamImg.addEventListener('touchend', streamImg._teHandler, {passive:false});
-
-  // Back button — handle USB mode too.
-  backBtn.onclick = function() {
-    if (usbMode) {
-      usbMode = false;
-      // Can't disconnect USB from JS — just go back to discovery.
-    }
+  // ── Back ──
+  $('back-btn').onclick = function() {
     stopFramePolling();
     if (ws) { ws.close(); ws = null; }
     streamImg.src = '';
     showScreen('disc');
+    $('connect-btn').disabled = false;
+    $('connect-btn').textContent = 'Connect';
   };
 
-  autoDiscover();
+  // ── Frame polling ──
+  function startFramePolling(base) { frameUrl = base; framePolling = true; pollFrame(); }
+  function stopFramePolling() { framePolling = false; }
+  function pollFrame() {
+    if (!framePolling) return;
+    var img = new Image();
+    img.onload = function() { streamImg.src = img.src; if (framePolling) requestAnimationFrame(pollFrame); };
+    img.onerror = function() { if (framePolling) setTimeout(pollFrame, 100); };
+    img.src = frameUrl + '/snapshot?t=' + Date.now();
+  }
+
+  // ── Touch ──
+  function mapTouch(t) {
+    var r = streamImg.getBoundingClientRect();
+    return { x: Math.round((t.clientX-r.left)/r.width*displayW), y: Math.round((t.clientY-r.top)/r.height*displayH) };
+  }
+  function sendInput(act, x, y) {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'input', data: { event: 'touch', action: act, x: x, y: y } }));
+  }
+  streamImg.addEventListener('touchstart', function(e) { e.preventDefault(); var p = mapTouch(e.changedTouches[0]); sendInput('down', p.x, p.y); }, { passive: false });
+  streamImg.addEventListener('touchmove', function(e) { e.preventDefault(); var p = mapTouch(e.changedTouches[0]); sendInput('move', p.x, p.y); }, { passive: false });
+  streamImg.addEventListener('touchend', function(e) { e.preventDefault(); var p = mapTouch(e.changedTouches[0]); sendInput('up', p.x, p.y); }, { passive: false });
+
+  // ── Start ──
+  startDiscovery();
 })();
 </script>
 </body>

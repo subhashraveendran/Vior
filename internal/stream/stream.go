@@ -8,6 +8,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"runtime"
 	"sync"
 	"time"
 
@@ -95,6 +97,7 @@ func (s *MJPEGServer) Start() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/stream", s.handleStream)
 	mux.HandleFunc("/snapshot", s.handleSnapshot)
+	mux.HandleFunc("/info", s.handleInfo)
 	if s.handler != nil {
 		mux.HandleFunc("/ws", s.handleWebSocket)
 	}
@@ -306,6 +309,12 @@ func (s *MJPEGServer) handleStream(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+func (s *MJPEGServer) handleInfo(w http.ResponseWriter, r *http.Request) {
+	hostname, _ := os.Hostname()
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprintf(w, `{"name":"%s","version":"%s","platform":"%s"}`, hostname, "0.1.0", runtime.GOOS)
 }
 
 func (s *MJPEGServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {

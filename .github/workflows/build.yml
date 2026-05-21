@@ -71,7 +71,7 @@ jobs:
       - name: Build Android APK
         run: |
           cd mobile
-          ANDROID_NDK_HOME=$ANDROID_HOME/ndk/26.1.10909125 gogio -target android -appid com.vior.mobile -version 0.1.0.1 -o vior-mobile.apk .
+          ANDROID_NDK_HOME=$ANDROID_HOME/ndk/26.1.10909125 gogio -target android -appid com.vior.mobile -version 0.1.0.1 -permissions android.permission.INTERNET,android.permission.ACCESS_NETWORK_STATE,android.permission.ACCESS_WIFI_STATE -o vior-mobile.apk .
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

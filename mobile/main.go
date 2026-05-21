@@ -77,6 +77,12 @@ func run() {
 	ipEditor.SingleLine = true
 	list.Axis = layout.Vertical
 
+	// Force initial render on Android.
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		w.Invalidate()
+	}()
+
 	// LAN scan loop.
 	scanning = true
 	go func() {
@@ -134,7 +140,9 @@ func run() {
 
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
-			bg(gtx, colBg)
+
+			// Paint background.
+			paint.FillShape(gtx.Ops, colBg, clip.Rect{Max: gtx.Constraints.Max}.Op())
 
 			switch screen {
 			case "discover":
@@ -153,7 +161,7 @@ func run() {
 				}
 				if settingsBtn.Clicked(gtx) {
 					settingsScr = ui.NewSettingsScreen(th)
-					settingsScr.OnBack = func() { screen = "discover" }
+					settingsScr.OnBack = func() { screen = "discover"; w.Invalidate() }
 					screen = "settings"
 				}
 
@@ -175,10 +183,6 @@ func run() {
 }
 
 // ── Drawing helpers ─────────────────────────────────────────────────
-
-func bg(gtx layout.Context, c color.NRGBA) {
-	paint.FillShape(gtx.Ops, c, clip.Rect{Max: gtx.Constraints.Max}.Op())
-}
 
 func rrect(gtx layout.Context, c color.NRGBA, w, h, r int) {
 	paint.FillShape(gtx.Ops, c, clip.RRect{
@@ -233,26 +237,30 @@ func headerBar(gtx layout.Context, th *material.Theme, settingsBtn *widget.Click
 	return layout.Inset{Top: unit.Dp(48), Left: unit.Dp(20), Right: unit.Dp(20), Bottom: unit.Dp(16)}.Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
-				// Gear button.
+				// Brand mark.
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Clickable(gtx, settingsBtn, func(gtx layout.Context) layout.Dimensions {
-						sz := gtx.Dp(unit.Dp(36))
-						rrect(gtx, colSurface, sz, sz, 18)
-						return layout.Inset{Top: unit.Dp(8), Left: unit.Dp(9)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							l := material.Body1(th, "⚙")
-							l.Color = colText
-							l.TextSize = unit.Sp(16)
-							return l.Layout(gtx)
-						})
-					})
+					s := gtx.Dp(unit.Dp(32))
+					rrect(gtx, colIndigo, s, s, 8)
+					return layout.Dimensions{Size: image.Pt(s, s)}
 				}),
 				layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
+				// Title.
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					l := material.H6(th, "Connect")
 					l.Color = colHead
 					l.Font.Weight = font.Bold
 					l.TextSize = unit.Sp(20)
 					return l.Layout(gtx)
+				}),
+				// Settings button.
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					btn := material.Button(th, settingsBtn, "⚙")
+					btn.Background = colSurface
+					btn.Color = colText
+					btn.CornerRadius = unit.Dp(18)
+					btn.TextSize = unit.Sp(16)
+					btn.Inset = layout.UniformInset(unit.Dp(8))
+					return btn.Layout(gtx)
 				}),
 			)
 		})

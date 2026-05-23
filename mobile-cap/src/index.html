@@ -33,14 +33,14 @@
   .mono { font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; }
   .hidden { display:none!important; }
 
-  body::after {
-    content:''; position:fixed; inset:0; pointer-events:none;
+  body::before {
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
     background-image:radial-gradient(circle,var(--border) 1px,transparent 1px);
-    background-size:14px 14px; opacity:0.035; z-index:999;
+    background-size:14px 14px; opacity:0.035;
   }
 
   /* ══ App Shell ══════════════════════ */
-  .app-shell { position:absolute; inset:0; display:flex; flex-direction:column; }
+  .app-shell { position:absolute; inset:0; display:flex; flex-direction:column; z-index:1; }
 
   /* Header */
   .app-header {
@@ -846,12 +846,12 @@
 
   // ── File Transfer ──
   var CHUNK_SIZE = 48 * 1024;
-  var fileTransfers = {}; // id → {name, size, mimeType, preview, transferred, complete, chunks[], direction}
+  var fileTransfers = {};
 
-  $('send-file-btn').addEventListener('click', function() { $('file-input').click(); });
-  $('send-photo-btn').addEventListener('click', function() { $('photo-input').click(); });
-  $('file-input').addEventListener('change', function(e) { if (e.target.files[0]) sendFile(e.target.files[0]); e.target.value=''; });
-  $('photo-input').addEventListener('change', function(e) { if (e.target.files[0]) sendFile(e.target.files[0]); e.target.value=''; });
+  if ($('send-file-btn')) $('send-file-btn').addEventListener('click', function() { if($('file-input')) $('file-input').click(); });
+  if ($('send-photo-btn')) $('send-photo-btn').addEventListener('click', function() { if($('photo-input')) $('photo-input').click(); });
+  if ($('file-input')) $('file-input').addEventListener('change', function(e) { if (e.target.files[0]) sendFile(e.target.files[0]); e.target.value=''; });
+  if ($('photo-input')) $('photo-input').addEventListener('change', function(e) { if (e.target.files[0]) sendFile(e.target.files[0]); e.target.value=''; });
 
   function genID() { var a=new Uint8Array(8); crypto.getRandomValues(a); return Array.from(a,function(b){return b.toString(16).padStart(2,'0');}).join(''); }
   function fmtSize(b) { if(b<1024)return b+' B'; if(b<1048576)return(b/1024).toFixed(1)+' KB'; return(b/1048576).toFixed(1)+' MB'; }

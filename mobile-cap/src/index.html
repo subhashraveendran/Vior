@@ -252,18 +252,8 @@
   .file-action-btn span { font-size:11px; font-weight:600; }
   .file-section-title { font-size:11px; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:0.8px; padding:4px 0 10px; }
   .file-empty { padding:24px; text-align:center; font-size:13px; color:var(--dim2); }
-
-  /* File transfer items */
-  .file-item {
-    padding:12px; border-radius:10px; background:var(--surface);
-    box-shadow:inset 0 1px 0 var(--border-h),0 0 0 1px var(--border);
-    display:flex; align-items:center; gap:12px; margin-bottom:8px;
-  }
-  .file-thumb {
-    width:42px; height:42px; border-radius:8px; background:var(--bg-deep);
-    border:1px solid var(--border); display:flex; align-items:center; justify-content:center;
-    flex-shrink:0; overflow:hidden;
-  }
+  .file-item { padding:12px; border-radius:10px; background:var(--surface); box-shadow:inset 0 1px 0 var(--border-h),0 0 0 1px var(--border); display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+  .file-thumb { width:42px; height:42px; border-radius:8px; background:var(--bg-deep); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; }
   .file-thumb img { width:100%; height:100%; object-fit:cover; }
   .file-thumb svg { width:20px; height:20px; color:var(--dim); }
   .file-body { flex:1; min-width:0; }
@@ -272,14 +262,9 @@
   .file-progress { width:100%; height:3px; border-radius:2px; background:var(--border); margin-top:6px; overflow:hidden; }
   .file-progress-bar { height:100%; border-radius:2px; background:var(--indigo); transition:width 0.2s; }
   .file-actions { display:flex; gap:6px; flex-shrink:0; }
-  .file-accept-btn,.file-reject-btn {
-    width:32px; height:32px; border-radius:8px; border:none;
-    display:flex; align-items:center; justify-content:center;
-  }
+  .file-accept-btn,.file-reject-btn { width:32px; height:32px; border-radius:8px; border:none; display:flex; align-items:center; justify-content:center; }
   .file-accept-btn { background:rgba(52,211,153,0.1); color:var(--green); }
-  .file-accept-btn:active { background:rgba(52,211,153,0.2); }
   .file-reject-btn { background:rgba(239,68,68,0.1); color:var(--red); }
-  .file-reject-btn:active { background:rgba(239,68,68,0.2); }
   .file-done-badge { font-size:10px; font-weight:600; color:var(--green); padding:4px 8px; border-radius:6px; background:rgba(52,211,153,0.1); }
 
   /* ══ Remote Tab ═════════════════════ */
@@ -740,8 +725,8 @@
         $('connecting-overlay').classList.remove('active');
         showToast(msg.data.message||'Connection failed', 'error');
         setDisconnectedUI();
-      } else if (msg.type.startsWith('file-')) {
-        handleFileMessage(msg);
+      } else if (msg.type && msg.type.indexOf('file-')===0) {
+        try { handleFileMessage(msg); } catch(ex) { console.error('file msg error', ex); }
       }
     };
     ws.onclose = function() {
@@ -845,17 +830,18 @@
   $('kb-btn').addEventListener('click',function(){ /* TODO: show keyboard input */ showToast('Keyboard coming soon','ok'); });
 
   // ── File Transfer ──
+  try {
   var CHUNK_SIZE = 48 * 1024;
   var fileTransfers = {};
+  var _sfi = $('send-file-btn'), _spi = $('send-photo-btn'), _fi = $('file-input'), _pi = $('photo-input');
+  if (_sfi) _sfi.onclick = function() { if(_fi) _fi.click(); };
+  if (_spi) _spi.onclick = function() { if(_pi) _pi.click(); };
+  if (_fi) _fi.onchange = function(e) { if (e.target.files[0]) sendFile(e.target.files[0]); e.target.value=''; };
+  if (_pi) _pi.onchange = function(e) { if (e.target.files[0]) sendFile(e.target.files[0]); e.target.value=''; };
 
-  if ($('send-file-btn')) $('send-file-btn').addEventListener('click', function() { if($('file-input')) $('file-input').click(); });
-  if ($('send-photo-btn')) $('send-photo-btn').addEventListener('click', function() { if($('photo-input')) $('photo-input').click(); });
-  if ($('file-input')) $('file-input').addEventListener('change', function(e) { if (e.target.files[0]) sendFile(e.target.files[0]); e.target.value=''; });
-  if ($('photo-input')) $('photo-input').addEventListener('change', function(e) { if (e.target.files[0]) sendFile(e.target.files[0]); e.target.value=''; });
-
-  function genID() { var a=new Uint8Array(8); crypto.getRandomValues(a); return Array.from(a,function(b){return b.toString(16).padStart(2,'0');}).join(''); }
-  function fmtSize(b) { if(b<1024)return b+' B'; if(b<1048576)return(b/1024).toFixed(1)+' KB'; return(b/1048576).toFixed(1)+' MB'; }
-  function fileIcon() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>'; }
+  function genID() { var a = new Uint8Array(8); (window.crypto||window.msCrypto).getRandomValues(a); return Array.from(a,function(b){return ('0'+b.toString(16)).slice(-2);}).join(''); }
+  function fmtSize(b) { if(b<1024) return b+' B'; if(b<1048576) return (b/1024).toFixed(1)+' KB'; return (b/1048576).toFixed(1)+' MB'; }
+  function fileIconSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>'; }
 
   function sendFile(file) {
     var id = genID();
@@ -864,157 +850,81 @@
       var data = new Uint8Array(reader.result);
       var t = {id:id, name:file.name, size:file.size, mimeType:file.type||'application/octet-stream', preview:'', transferred:0, complete:false, data:data, direction:'out'};
       fileTransfers[id] = t;
-
-      // Generate preview for images
-      if (file.type && file.type.startsWith('image/')) {
+      if (file.type && file.type.indexOf('image/')===0) {
         var pr = new FileReader();
-        pr.onload = function() { t.preview = pr.result; sendOffer(t); };
+        pr.onload = function() { t.preview = pr.result; doSendOffer(t); };
         pr.readAsDataURL(file);
-      } else {
-        sendOffer(t);
-      }
+      } else { doSendOffer(t); }
     };
     reader.readAsArrayBuffer(file);
   }
-
-  function sendOffer(t) {
+  function doSendOffer(t) {
     if (!ws || ws.readyState !== 1) return;
     ws.send(JSON.stringify({type:'file-offer', data:{id:t.id, name:t.name, size:t.size, mimeType:t.mimeType, preview:t.preview}}));
-    renderFileList();
-    showToast('Offering '+t.name, 'ok');
+    renderFileList(); showToast('Offering '+t.name, 'ok');
   }
-
-  function sendChunks(t) {
+  function doSendChunks(t) {
     var offset = 0;
     function next() {
-      if (offset >= t.data.length) {
-        // Complete
-        t.complete = true;
-        ws.send(JSON.stringify({type:'file-complete', data:{id:t.id, hash:''}}));
-        renderFileList();
-        showToast('Sent '+t.name, 'ok');
-        return;
-      }
-      var end = Math.min(offset + CHUNK_SIZE, t.data.length);
+      if (offset >= t.data.length) { t.complete=true; ws.send(JSON.stringify({type:'file-complete', data:{id:t.id, hash:''}})); renderFileList(); showToast('Sent '+t.name,'ok'); return; }
+      var end = Math.min(offset+CHUNK_SIZE, t.data.length);
       var chunk = t.data.slice(offset, end);
-      var b64 = btoa(String.fromCharCode.apply(null, chunk));
-      ws.send(JSON.stringify({type:'file-chunk', data:{id:t.id, offset:offset, data:b64}}));
-      offset = end;
-      t.transferred = offset;
-      renderFileList();
+      var b64str = ''; for(var i=0;i<chunk.length;i++) b64str += String.fromCharCode(chunk[i]);
+      ws.send(JSON.stringify({type:'file-chunk', data:{id:t.id, offset:offset, data:btoa(b64str)}}));
+      offset = end; t.transferred = offset; renderFileList();
       setTimeout(next, 5);
     }
     next();
   }
-
   function handleFileMessage(msg) {
-    if (msg.type === 'file-offer') {
-      // Incoming file offer from desktop
-      var d = msg.data;
+    var d = msg.data;
+    if (msg.type==='file-offer') {
       fileTransfers[d.id] = {id:d.id, name:d.name, size:d.size, mimeType:d.mimeType, preview:d.preview||'', transferred:0, complete:false, chunks:[], direction:'in', pending:true};
-      renderIncoming();
-      showToast('Incoming: '+d.name, 'ok');
-      // Switch to files tab
+      renderIncoming(); showToast('Incoming: '+d.name, 'ok');
       document.querySelectorAll('.tab-item').forEach(function(b){b.classList.remove('active');});
       document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
-      document.querySelector('[data-tab="files"]').classList.add('active');
-      $('tab-files').classList.add('active');
-    } else if (msg.type === 'file-accept') {
-      // Desktop accepted our file, start sending chunks
-      var t = fileTransfers[msg.data.id];
-      if (t && t.direction === 'out') sendChunks(t);
-    } else if (msg.type === 'file-reject') {
-      var t2 = fileTransfers[msg.data.id];
-      if (t2) { delete fileTransfers[msg.data.id]; renderFileList(); showToast('Rejected: '+t2.name, 'error'); }
-    } else if (msg.type === 'file-chunk') {
-      var t3 = fileTransfers[msg.data.id];
-      if (t3 && t3.direction === 'in') {
-        t3.chunks.push(msg.data.data);
-        t3.transferred += atob(msg.data.data).length;
-        renderFileList();
-      }
-    } else if (msg.type === 'file-complete') {
-      var t4 = fileTransfers[msg.data.id];
-      if (t4 && t4.direction === 'in') {
-        t4.complete = true;
-        // Assemble file from chunks
-        var binParts = t4.chunks.map(function(c) { var raw=atob(c); var arr=new Uint8Array(raw.length); for(var i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i); return arr; });
-        var blob = new Blob(binParts, {type: t4.mimeType});
-        t4.blobUrl = URL.createObjectURL(blob);
-        t4.chunks = []; // free memory
-        renderFileList();
-        renderIncoming();
-        showToast('Received '+t4.name, 'ok');
+      var ftab = document.querySelector('[data-tab="files"]'); if(ftab) ftab.classList.add('active');
+      var fp = $('tab-files'); if(fp) fp.classList.add('active');
+    } else if (msg.type==='file-accept') {
+      var t = fileTransfers[d.id]; if(t && t.direction==='out') doSendChunks(t);
+    } else if (msg.type==='file-reject') {
+      var t2 = fileTransfers[d.id]; if(t2){delete fileTransfers[d.id]; renderFileList(); showToast('Rejected: '+t2.name,'error');}
+    } else if (msg.type==='file-chunk') {
+      var t3 = fileTransfers[d.id]; if(t3 && t3.direction==='in'){t3.chunks.push(d.data); t3.transferred+=atob(d.data).length; renderFileList();}
+    } else if (msg.type==='file-complete') {
+      var t4 = fileTransfers[d.id];
+      if(t4 && t4.direction==='in'){
+        t4.complete=true;
+        var parts = []; for(var c=0;c<t4.chunks.length;c++){var raw=atob(t4.chunks[c]);var arr=new Uint8Array(raw.length);for(var j=0;j<raw.length;j++)arr[j]=raw.charCodeAt(j);parts.push(arr);}
+        t4.blobUrl = URL.createObjectURL(new Blob(parts,{type:t4.mimeType}));
+        t4.chunks=[]; renderFileList(); renderIncoming(); showToast('Received '+t4.name,'ok');
       }
     }
   }
-
-  function acceptFile(id) {
-    var t = fileTransfers[id];
-    if (!t) return;
-    t.pending = false;
-    ws.send(JSON.stringify({type:'file-accept', data:{id:id}}));
-    renderIncoming();
-    renderFileList();
-  }
-
-  function rejectFile(id) {
-    var t = fileTransfers[id];
-    if (!t) return;
-    ws.send(JSON.stringify({type:'file-reject', data:{id:id, reason:'rejected'}}));
-    delete fileTransfers[id];
-    renderIncoming();
-    renderFileList();
-  }
-
+  window._acceptFile = function(id){var t=fileTransfers[id];if(!t)return;t.pending=false;ws.send(JSON.stringify({type:'file-accept',data:{id:id}}));renderIncoming();renderFileList();};
+  window._rejectFile = function(id){ws.send(JSON.stringify({type:'file-reject',data:{id:id,reason:'rejected'}}));delete fileTransfers[id];renderIncoming();renderFileList();};
   function renderIncoming() {
-    var list = $('incoming-list');
-    var section = $('incoming-section');
-    var html = '';
-    var hasPending = false;
-    Object.keys(fileTransfers).forEach(function(id) {
-      var t = fileTransfers[id];
-      if (t.direction !== 'in' || !t.pending) return;
-      hasPending = true;
-      var thumb = t.preview ? '<img src="'+t.preview+'">' : fileIcon();
-      html += '<div class="file-item"><div class="file-thumb">'+thumb+'</div><div class="file-body"><div class="file-name">'+esc(t.name)+'</div><div class="file-size">'+fmtSize(t.size)+'</div></div><div class="file-actions"><button class="file-accept-btn" onclick="window._acceptFile(\''+id+'\')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></button><button class="file-reject-btn" onclick="window._rejectFile(\''+id+'\')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div></div>';
-    });
-    list.innerHTML = html;
-    if (hasPending) section.classList.remove('hidden'); else section.classList.add('hidden');
+    var list=$('incoming-list'),sec=$('incoming-section'); if(!list||!sec)return;
+    var html='',has=false;
+    for(var id in fileTransfers){var t=fileTransfers[id];if(t.direction!=='in'||!t.pending)continue;has=true;
+      var th=t.preview?'<img src="'+t.preview+'">':fileIconSvg();
+      html+='<div class="file-item"><div class="file-thumb">'+th+'</div><div class="file-body"><div class="file-name">'+esc(t.name)+'</div><div class="file-size">'+fmtSize(t.size)+'</div></div><div class="file-actions"><button class="file-accept-btn" onclick="window._acceptFile(\''+id+'\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></button><button class="file-reject-btn" onclick="window._rejectFile(\''+id+'\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div></div>';}
+    list.innerHTML=html; if(has)sec.classList.remove('hidden');else sec.classList.add('hidden');
   }
-  window._acceptFile = acceptFile;
-  window._rejectFile = rejectFile;
-
   function renderFileList() {
-    var list = $('file-list');
-    var html = '';
-    var ids = Object.keys(fileTransfers);
-    var active = ids.filter(function(id) { var t=fileTransfers[id]; return !t.pending; });
-    if (active.length === 0) { list.innerHTML = '<div class="file-empty">No transfers yet</div>'; return; }
-    active.forEach(function(id) {
-      var t = fileTransfers[id];
-      var thumb = t.preview ? '<img src="'+t.preview+'">' : fileIcon();
-      var arrow = t.direction === 'out' ? '↑' : '↓';
-      var statusHtml = '';
-      if (t.complete) {
-        if (t.direction === 'in' && t.blobUrl) {
-          statusHtml = '<a href="'+t.blobUrl+'" download="'+esc(t.name)+'" style="text-decoration:none"><span class="file-done-badge">Save</span></a>';
-        } else {
-          statusHtml = '<span class="file-done-badge">Done</span>';
-        }
-      } else {
-        var pct = t.size > 0 ? Math.round(t.transferred/t.size*100) : 0;
-        statusHtml = '<span style="font-size:11px;color:var(--dim);font-weight:600">'+pct+'%</span>';
-      }
-      var progressHtml = '';
-      if (!t.complete && t.size > 0) {
-        var pctW = Math.round(t.transferred/t.size*100);
-        progressHtml = '<div class="file-progress"><div class="file-progress-bar" style="width:'+pctW+'%"></div></div>';
-      }
-      html += '<div class="file-item"><div class="file-thumb">'+thumb+'</div><div class="file-body"><div class="file-name">'+arrow+' '+esc(t.name)+'</div><div class="file-size">'+fmtSize(t.transferred)+' / '+fmtSize(t.size)+'</div>'+progressHtml+'</div>'+statusHtml+'</div>';
-    });
-    list.innerHTML = html;
+    var list=$('file-list'); if(!list)return;
+    var html='',count=0;
+    for(var id in fileTransfers){var t=fileTransfers[id];if(t.pending)continue;count++;
+      var th=t.preview?'<img src="'+t.preview+'">':fileIconSvg();
+      var arrow=t.direction==='out'?'↑':'↓';
+      var st='';
+      if(t.complete){st=t.direction==='in'&&t.blobUrl?'<a href="'+t.blobUrl+'" download="'+esc(t.name)+'" style="text-decoration:none"><span class="file-done-badge">Save</span></a>':'<span class="file-done-badge">Done</span>';}
+      else{var pct=t.size>0?Math.round(t.transferred/t.size*100):0;st='<span style="font-size:11px;color:var(--dim);font-weight:600">'+pct+'%</span>';}
+      var prog='';if(!t.complete&&t.size>0){prog='<div class="file-progress"><div class="file-progress-bar" style="width:'+Math.round(t.transferred/t.size*100)+'%"></div></div>';}
+      html+='<div class="file-item"><div class="file-thumb">'+th+'</div><div class="file-body"><div class="file-name">'+arrow+' '+esc(t.name)+'</div><div class="file-size">'+fmtSize(t.transferred)+' / '+fmtSize(t.size)+'</div>'+prog+'</div>'+st+'</div>';}
+    if(count===0)list.innerHTML='<div class="file-empty">No transfers yet</div>'; else list.innerHTML=html;
   }
+  } catch(ftErr) { console.error('File transfer init error:', ftErr); }
 
   // USB callbacks
   window.onUsbFrame=function(b64){if(!streamVisible){$('stream-fs').classList.add('active');streamVisible=true;}streamImg.src='data:image/jpeg;base64,'+b64;var ld=$('stream-loading');if(ld&&!ld.classList.contains('hidden'))ld.classList.add('hidden');};

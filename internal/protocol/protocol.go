@@ -34,6 +34,7 @@ type HelloMessage struct {
 	Height int     `json:"height"`
 	DPR    float64 `json:"dpr"`
 	Name   string  `json:"name"`
+	Mode   string  `json:"mode"` // "extend" or "mirror"
 }
 
 // ReadyMessage is sent by the server after virtual display creation succeeds.

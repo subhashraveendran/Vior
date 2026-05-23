@@ -245,7 +245,11 @@ type cliSessionHandler struct {
 }
 
 func (h *cliSessionHandler) OnClientConnect(session *protocol.Session, hello *protocol.HelloMessage) error {
-	fmt.Printf("\nClient connected: %s %dx%d @%.1fx\n", hello.Name, hello.Width, hello.Height, hello.DPR)
+	mode := hello.Mode
+	if mode == "" {
+		mode = "extend"
+	}
+	fmt.Printf("\nClient connected: %s %dx%d @%.1fx mode=%s\n", hello.Name, hello.Width, hello.Height, hello.DPR, mode)
 
 	// Tear down existing.
 	if h.session != nil {
@@ -259,35 +263,57 @@ func (h *cliSessionHandler) OnClientConnect(session *protocol.Session, hello *pr
 		return fmt.Errorf("permission denied: %w", err)
 	}
 
-	// Create virtual display matching client resolution.
-	info := virtual.Info{
-		Width:       uint32(hello.Width),
-		Height:      uint32(hello.Height),
-		RefreshRate: config.DefaultRefreshRate,
-	}
-	displayID, err := virtual.CreateVirtualDisplay(info)
-	if err != nil {
-		return fmt.Errorf("failed to create virtual display: %w", err)
-	}
-	fmt.Printf("Created virtual display %dx%d\n", hello.Width, hello.Height)
+	var captureIdx int
+	var resW, resH int
 
-	// Small delay for display registration.
-	time.Sleep(500 * time.Millisecond)
-
-	// Find new display by ID.
-	vdIdx := capture.FindDisplayIndexByID(displayID)
-	if vdIdx < 0 {
+	if mode == "mirror" {
+		// Mirror mode: capture main display directly.
 		displays, err := capture.ListDisplays()
 		if err != nil {
 			return fmt.Errorf("failed to list displays: %w", err)
 		}
-		vdIdx = len(displays) - 1
-		log.Printf("Warning: display ID %d not found, using index %d", displayID, vdIdx)
-	}
+		captureIdx = 0
+		for i, d := range displays {
+			if d.IsMain {
+				captureIdx = i
+				break
+			}
+		}
+		resW = displays[captureIdx].Width
+		resH = displays[captureIdx].Height
+		fmt.Printf("Mirror mode: capturing main display (%dx%d)\n", resW, resH)
+	} else {
+		// Extend mode: create virtual display matching client resolution.
+		info := virtual.Info{
+			Width:       uint32(hello.Width),
+			Height:      uint32(hello.Height),
+			RefreshRate: config.DefaultRefreshRate,
+		}
+		displayID, err := virtual.CreateVirtualDisplay(info)
+		if err != nil {
+			return fmt.Errorf("failed to create virtual display: %w", err)
+		}
+		fmt.Printf("Created virtual display %dx%d\n", hello.Width, hello.Height)
 
-	// Extend mode.
-	if err := capture.UnmirrorDisplay(vdIdx); err != nil {
-		log.Printf("extend display warning: %v", err)
+		time.Sleep(500 * time.Millisecond)
+
+		vdIdx := capture.FindDisplayIndexByID(displayID)
+		if vdIdx < 0 {
+			displays, err := capture.ListDisplays()
+			if err != nil {
+				return fmt.Errorf("failed to list displays: %w", err)
+			}
+			vdIdx = len(displays) - 1
+			log.Printf("Warning: display ID %d not found, using index %d", displayID, vdIdx)
+		}
+
+		if err := capture.UnmirrorDisplay(vdIdx); err != nil {
+			log.Printf("extend display warning: %v", err)
+		}
+
+		captureIdx = vdIdx
+		resW = hello.Width
+		resH = hello.Height
 	}
 
 	// Refresh display list for bounds.
@@ -295,12 +321,12 @@ func (h *cliSessionHandler) OnClientConnect(session *protocol.Session, hello *pr
 	if err != nil {
 		return fmt.Errorf("failed to list displays: %w", err)
 	}
-	if vdIdx >= len(displays) {
-		return fmt.Errorf("display index %d out of range", vdIdx)
+	if captureIdx >= len(displays) {
+		return fmt.Errorf("display index %d out of range", captureIdx)
 	}
 
 	// Start capture.
-	h.session = capture.NewSession(vdIdx, h.cfg.Quality, h.cfg.FrameRate)
+	h.session = capture.NewSession(captureIdx, h.cfg.Quality, h.cfg.FrameRate)
 	if err := h.session.Start(); err != nil {
 		return fmt.Errorf("capture failed: %w", err)
 	}
@@ -309,13 +335,13 @@ func (h *cliSessionHandler) OnClientConnect(session *protocol.Session, hello *pr
 	h.server.SetFrameCh(h.session.FrameCh)
 
 	// Touch mapper.
-	d := displays[vdIdx]
+	d := displays[captureIdx]
 	h.touchMapper = input.NewTouchMapper(input.DefaultController, d.Bounds)
 
 	// Send ready.
 	session.Send(protocol.MsgReady, &protocol.ReadyMessage{
 		StreamURL:  config.DefaultStreamPath,
-		Resolution: fmt.Sprintf("%dx%d", hello.Width, hello.Height),
+		Resolution: fmt.Sprintf("%dx%d", resW, resH),
 		SessionID:  session.ID,
 	})
 

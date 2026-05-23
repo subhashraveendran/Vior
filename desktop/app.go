@@ -207,7 +207,11 @@ func (a *App) OnClientConnect(session *protocol.Session, hello *protocol.HelloMe
 	a.client = session
 	a.clientMu.Unlock()
 
-	log.Printf("Client connected: %s %dx%d @%.1fx", hello.Name, hello.Width, hello.Height, hello.DPR)
+	mode := hello.Mode
+	if mode == "" {
+		mode = "extend"
+	}
+	log.Printf("Client connected: %s %dx%d @%.1fx mode=%s", hello.Name, hello.Width, hello.Height, hello.DPR, mode)
 
 	// Check screen recording permission first.
 	if err := capture.CheckScreenRecordingPermission(); err != nil {
@@ -221,35 +225,60 @@ func (a *App) OnClientConnect(session *protocol.Session, hello *protocol.HelloMe
 	}
 	virtual.Destroy()
 
-	// Create virtual display matching client's resolution.
-	info := virtual.Info{
-		Width:       uint32(hello.Width),
-		Height:      uint32(hello.Height),
-		RefreshRate: config.DefaultRefreshRate,
-	}
-	displayID, err := virtual.CreateVirtualDisplay(info)
-	if err != nil {
-		return fmt.Errorf("failed to create virtual display: %w", err)
-	}
+	var captureIdx int
+	var resW, resH int
 
-	// Small delay for display to register in the system.
-	time.Sleep(500 * time.Millisecond)
-
-	// Find the virtual display by its CGDirectDisplayID — not by assuming last index.
-	vdIdx := capture.FindDisplayIndexByID(displayID)
-	if vdIdx < 0 {
-		// Fallback: use last display.
+	if mode == "mirror" {
+		// Mirror mode: capture main display, no virtual display needed.
 		displays, err := capture.ListDisplays()
 		if err != nil {
 			return fmt.Errorf("failed to list displays: %w", err)
 		}
-		vdIdx = len(displays) - 1
-		log.Printf("Warning: could not find display by ID %d, using index %d", displayID, vdIdx)
-	}
+		// Find main display.
+		captureIdx = 0
+		for i, d := range displays {
+			if d.IsMain {
+				captureIdx = i
+				break
+			}
+		}
+		resW = displays[captureIdx].Width
+		resH = displays[captureIdx].Height
+		log.Printf("Mirror mode: capturing main display %d (%dx%d)", captureIdx, resW, resH)
+	} else {
+		// Extend mode: create virtual display matching client resolution.
+		info := virtual.Info{
+			Width:       uint32(hello.Width),
+			Height:      uint32(hello.Height),
+			RefreshRate: config.DefaultRefreshRate,
+		}
+		displayID, err := virtual.CreateVirtualDisplay(info)
+		if err != nil {
+			return fmt.Errorf("failed to create virtual display: %w", err)
+		}
 
-	// Set to extend mode.
-	if err := capture.UnmirrorDisplay(vdIdx); err != nil {
-		log.Printf("extend display warning: %v", err)
+		// Small delay for display to register in the system.
+		time.Sleep(500 * time.Millisecond)
+
+		// Find the virtual display by its CGDirectDisplayID.
+		vdIdx := capture.FindDisplayIndexByID(displayID)
+		if vdIdx < 0 {
+			displays, err := capture.ListDisplays()
+			if err != nil {
+				return fmt.Errorf("failed to list displays: %w", err)
+			}
+			vdIdx = len(displays) - 1
+			log.Printf("Warning: could not find display by ID %d, using index %d", displayID, vdIdx)
+		}
+
+		// Set to extend mode.
+		if err := capture.UnmirrorDisplay(vdIdx); err != nil {
+			log.Printf("extend display warning: %v", err)
+		}
+
+		captureIdx = vdIdx
+		resW = hello.Width
+		resH = hello.Height
 	}
 
 	// Refresh display list to get correct bounds.
@@ -257,12 +286,12 @@ func (a *App) OnClientConnect(session *protocol.Session, hello *protocol.HelloMe
 	if err != nil {
 		return fmt.Errorf("failed to list displays: %w", err)
 	}
-	if vdIdx >= len(displays) {
-		return fmt.Errorf("display index %d out of range", vdIdx)
+	if captureIdx >= len(displays) {
+		return fmt.Errorf("display index %d out of range", captureIdx)
 	}
 
 	// Start capture session.
-	a.session = capture.NewSession(vdIdx, a.cfg.Quality, a.cfg.FrameRate)
+	a.session = capture.NewSession(captureIdx, a.cfg.Quality, a.cfg.FrameRate)
 	if err := a.session.Start(); err != nil {
 		return fmt.Errorf("capture failed: %w", err)
 	}
@@ -270,14 +299,16 @@ func (a *App) OnClientConnect(session *protocol.Session, hello *protocol.HelloMe
 	// Hook up frames to server.
 	a.server.SetFrameCh(a.session.FrameCh)
 
-	// Set up touch mapper.
-	d := displays[vdIdx]
+	// Set up touch mapper — maps phone touch coordinates to the captured display's bounds.
+	d := displays[captureIdx]
 	a.touchMapper = input.NewTouchMapper(input.DefaultController, d.Bounds)
 
 	// Send ready message to client.
+	// For mirror, send main display resolution so phone knows the aspect ratio
+	// and can scale correctly with object-fit:contain.
 	session.Send(protocol.MsgReady, &protocol.ReadyMessage{
 		StreamURL:  config.DefaultStreamPath,
-		Resolution: fmt.Sprintf("%dx%d", hello.Width, hello.Height),
+		Resolution: fmt.Sprintf("%dx%d", resW, resH),
 		SessionID:  session.ID,
 	})
 

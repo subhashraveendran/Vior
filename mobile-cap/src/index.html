@@ -66,10 +66,11 @@
   /* Tab content area */
   .tab-content { flex:1; overflow:hidden; position:relative; }
   .tab-pane {
-    position:absolute; inset:0; overflow-y:auto; -webkit-overflow-scrolling:touch;
-    opacity:0; pointer-events:none; transition:opacity 0.3s;
+    position:absolute; top:0; left:0; right:0; bottom:0;
+    overflow-y:auto; -webkit-overflow-scrolling:touch;
+    display:none;
   }
-  .tab-pane.active { opacity:1; pointer-events:auto; }
+  .tab-pane.active { display:flex; flex-direction:column; }
 
   /* ══ Bottom Tab Bar ═════════════════ */
   .tab-bar {

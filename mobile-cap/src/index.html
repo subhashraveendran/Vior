@@ -3,199 +3,617 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0c0d12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Vior</title>
+<link rel="manifest" href="manifest.json">
 <style>
+  /* ── Design Tokens ────────────────────────────── */
   :root {
-    --bg: #0c0d12; --surface: #14161c; --border: #1e2029; --borderH: #262833;
-    --text: #c9cdd3; --dim: #5c6170; --head: #f0f1f3;
-    --indigo: #6366f1; --indigo2: #818cf8; --green: #34d399; --red: #ef4444;
+    --bg: #0a0b10;
+    --surface: #12141a;
+    --surface2: #181a22;
+    --border: #1c1e28;
+    --border-h: #24262f;
+    --text: #b8bcc4;
+    --dim: #555a66;
+    --dim2: #3a3e48;
+    --head: #eceef2;
+    --white: #ffffff;
+    --indigo: #6366f1;
+    --indigo-l: #818cf8;
+    --indigo-d: #4f46e5;
+    --indigo-glow: rgba(99,102,241,0.25);
+    --green: #34d399;
+    --green-glow: rgba(52,211,153,0.3);
+    --red: #ef4444;
+    --amber: #f59e0b;
+    --safe-t: env(safe-area-inset-top, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-l: env(safe-area-inset-left, 0px);
+    --safe-r: env(safe-area-inset-right, 0px);
+    --radius: 14px;
+    --radius-s: 10px;
+    --radius-xs: 8px;
   }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  html,body { height:100%; background:var(--bg); color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
-    -webkit-font-smoothing:antialiased; overflow:hidden; }
-  .mono { font-family:ui-monospace,"SF Mono",Menlo,monospace; }
-  .hidden { display:none!important; }
-  .screen { position:absolute; inset:0; display:flex; flex-direction:column; transition:opacity 0.3s; }
 
-  /* ── Discovery ──────────────────── */
-  .header { padding:52px 20px 16px; display:flex; align-items:center; gap:12px; }
-  .mark { width:32px; height:32px; border-radius:8px; background:linear-gradient(135deg,#6366f1,#4f46e5); flex-shrink:0; }
-  .title { font-size:20px; font-weight:700; color:var(--head); flex:1; }
-  .scan-bar { padding:0 20px 14px; display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--dim); }
-  .scan-dot { width:8px; height:8px; border-radius:50%; background:var(--indigo); animation:pulse 1.8s ease-in-out infinite; }
-  .scan-dot.found { background:var(--green); animation:none; }
-  .sep { height:1px; background:var(--border); }
-  .list { flex:1; overflow-y:auto; padding:12px 18px; }
+  /* ── Reset ────────────────────────────── */
+  *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+  html, body {
+    height:100%; background:var(--bg); color:var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button { font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  input { font-family: inherit; }
 
-  .srv-card { padding:16px; border-radius:14px; background:var(--surface);
-    box-shadow:inset 0 1px 0 var(--borderH),0 0 0 1px var(--border);
-    display:flex; align-items:center; gap:14px; margin-bottom:10px;
-    -webkit-tap-highlight-color:transparent; cursor:pointer; }
-  .srv-card:active { opacity:0.7; }
-  .srv-card.selected { box-shadow:inset 0 0 0 1.5px var(--indigo),0 0 20px -8px rgba(99,102,241,0.4); }
-  .srv-icon { width:44px; height:44px; border-radius:11px; background:#0a0b10;
-    box-shadow:inset 0 0 0 1px var(--border); display:flex; align-items:center;
-    justify-content:center; font-size:20px; }
-  .srv-info { flex:1; min-width:0; }
-  .srv-name { font-size:15px; font-weight:600; color:var(--head); }
-  .srv-meta { font-size:11px; color:var(--dim); margin-top:3px; }
-  .srv-chev { color:var(--dim); font-size:22px; }
+  /* ── Utility ────────────────────────────── */
+  .hidden { display: none !important; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
 
-  .empty { padding:60px 32px; text-align:center; }
-  .empty-title { font-size:17px; font-weight:600; color:var(--head); margin-bottom:8px; }
-  .empty-sub { font-size:13px; color:var(--dim); line-height:1.5; }
-  .retry-btn { margin-top:16px; padding:10px 24px; border-radius:10px; background:var(--surface);
-    border:1px solid var(--border); color:var(--text); font-size:13px; font-weight:600; cursor:pointer; }
+  /* ── Screens ────────────────────────────── */
+  .screen {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    opacity: 0; transform: translateY(8px);
+    transition: opacity 0.35s ease, transform 0.35s ease;
+    pointer-events: none;
+  }
+  .screen.active {
+    opacity: 1; transform: translateY(0);
+    pointer-events: auto;
+  }
+  .screen.exit {
+    opacity: 0; transform: translateY(-8px);
+  }
+
+  /* ── Discovery Screen ────────────────────── */
+  .disc-header {
+    padding: calc(12px + var(--safe-t)) 20px 0;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .brand-mark {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 12px -2px rgba(99,102,241,0.4);
+    flex-shrink: 0;
+  }
+  .brand-mark svg { width: 20px; height: 20px; }
+  .brand-title { font-size: 22px; font-weight: 700; color: var(--head); flex: 1; letter-spacing: -0.3px; }
+
+  /* Scan status */
+  .scan-status {
+    padding: 16px 20px 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .scan-indicator {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--indigo);
+    position: relative;
+  }
+  .scan-indicator.scanning::after {
+    content: '';
+    position: absolute; inset: -4px;
+    border-radius: 50%;
+    border: 1.5px solid var(--indigo);
+    animation: scan-ring 1.8s ease-out infinite;
+  }
+  .scan-indicator.found { background: var(--green); }
+  .scan-indicator.found::after { display: none; }
+  .scan-indicator.failed { background: var(--amber); }
+  .scan-indicator.failed::after { display: none; }
+  .scan-label { font-size: 13px; color: var(--dim); font-weight: 500; }
+
+  @keyframes scan-ring {
+    0% { transform: scale(1); opacity: 0.7; }
+    100% { transform: scale(2.5); opacity: 0; }
+  }
+
+  .divider { height: 1px; background: var(--border); margin: 0 20px; }
+
+  /* Server list */
+  .server-list {
+    flex: 1; overflow-y: auto; padding: 14px 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Server card */
+  .srv-card {
+    padding: 16px;
+    border-radius: var(--radius);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 10px;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .srv-card:active { transform: scale(0.98); }
+  .srv-card.selected {
+    border-color: var(--indigo);
+    box-shadow: 0 0 0 1px var(--indigo), 0 4px 20px -4px var(--indigo-glow);
+  }
+  .srv-icon-wrap {
+    width: 46px; height: 46px; border-radius: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .srv-icon-wrap svg { width: 22px; height: 22px; color: var(--dim); }
+  .srv-card.selected .srv-icon-wrap svg { color: var(--indigo-l); }
+  .srv-body { flex: 1; min-width: 0; }
+  .srv-name { font-size: 15px; font-weight: 600; color: var(--head); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .srv-meta { font-size: 12px; color: var(--dim); margin-top: 2px; display: flex; align-items: center; gap: 6px; }
+  .srv-meta-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--dim2); }
+  .srv-chevron { color: var(--dim2); transition: color 0.2s; }
+  .srv-card.selected .srv-chevron { color: var(--indigo-l); }
+
+  /* Empty / searching state */
+  .empty-state {
+    padding: 48px 28px;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+  }
+  .empty-icon {
+    width: 64px; height: 64px; border-radius: 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 20px;
+  }
+  .empty-icon svg { width: 28px; height: 28px; color: var(--dim); }
+  .empty-title { font-size: 17px; font-weight: 600; color: var(--head); margin-bottom: 6px; }
+  .empty-desc { font-size: 13px; color: var(--dim); line-height: 1.6; max-width: 260px; }
+
+  /* Searching animation */
+  .search-dots { display: flex; gap: 4px; margin-top: 20px; }
+  .search-dots span {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--indigo);
+    animation: dot-bounce 1.2s ease-in-out infinite;
+  }
+  .search-dots span:nth-child(2) { animation-delay: 0.15s; }
+  .search-dots span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes dot-bounce {
+    0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1.1); }
+  }
+
+  /* Manual IP */
+  .manual-section {
+    padding: 16px 16px 0;
+  }
+  .manual-row {
+    display: flex; gap: 8px;
+  }
+  .manual-input {
+    flex: 1; height: 46px; padding: 0 14px;
+    border-radius: var(--radius-s);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--head); font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .manual-input::placeholder { color: var(--dim2); }
+  .manual-input:focus { border-color: var(--indigo); }
+  .manual-go {
+    height: 46px; padding: 0 20px;
+    border-radius: var(--radius-s);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text); font-size: 14px; font-weight: 600;
+    transition: background 0.2s;
+  }
+  .manual-go:active { background: var(--border); }
+  .retry-btn {
+    width: 100%; height: 44px; margin-top: 10px;
+    border-radius: var(--radius-s);
+    background: none; border: 1px solid var(--border);
+    color: var(--dim); font-size: 13px; font-weight: 500;
+  }
+  .retry-btn:active { background: var(--surface); }
 
   /* Mode picker */
-  .mode-section { padding:16px 18px 0; }
-  .mode-label { font-size:10.5px; color:var(--dim); text-transform:uppercase; letter-spacing:1.2px; font-weight:600; margin-bottom:10px; padding-left:4px; }
-  .mode-row { display:flex; gap:8px; }
-  .mode-card { flex:1; padding:14px; border-radius:12px; background:var(--surface);
-    box-shadow:inset 0 1px 0 var(--borderH),0 0 0 1px var(--border);
-    text-align:center; cursor:pointer; -webkit-tap-highlight-color:transparent; }
-  .mode-card:active { opacity:0.8; }
-  .mode-card.active { box-shadow:inset 0 0 0 1.5px var(--indigo),0 0 20px -8px rgba(99,102,241,0.4); }
-  .mode-icon { font-size:28px; margin-bottom:6px; }
-  .mode-name { font-size:14px; font-weight:600; color:var(--head); }
-  .mode-card.active .mode-name { color:var(--indigo2); }
-  .mode-desc { font-size:11px; color:var(--dim); margin-top:3px; }
+  .mode-section { padding: 14px 16px 0; }
+  .section-label {
+    font-size: 11px; font-weight: 600; color: var(--dim);
+    text-transform: uppercase; letter-spacing: 1px;
+    padding: 0 2px 10px;
+  }
+  .mode-row { display: flex; gap: 10px; }
+  .mode-card {
+    flex: 1; padding: 16px 12px;
+    border-radius: var(--radius);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    text-align: center;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+  }
+  .mode-card:active { transform: scale(0.97); }
+  .mode-card.active {
+    border-color: var(--indigo);
+    box-shadow: 0 0 0 1px var(--indigo), 0 4px 16px -4px var(--indigo-glow);
+  }
+  .mode-card-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: var(--bg); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 10px;
+  }
+  .mode-card-icon svg { width: 20px; height: 20px; color: var(--dim); }
+  .mode-card.active .mode-card-icon { border-color: var(--indigo); background: rgba(99,102,241,0.08); }
+  .mode-card.active .mode-card-icon svg { color: var(--indigo-l); }
+  .mode-name { font-size: 14px; font-weight: 600; color: var(--head); }
+  .mode-card.active .mode-name { color: var(--indigo-l); }
+  .mode-desc { font-size: 11px; color: var(--dim); margin-top: 3px; }
 
   /* Connect button */
-  .connect-section { padding:16px 18px 40px; }
-  .connect-btn { width:100%; height:50px; border-radius:12px; border:none;
-    background:linear-gradient(180deg,#7376f4,#5a5ee3); color:#fff;
-    font-size:16px; font-weight:600; cursor:pointer;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.2),0 8px 24px -4px rgba(99,102,241,0.5); }
-  .connect-btn:active { transform:scale(0.98); }
-  .connect-btn:disabled { opacity:0.4; }
-  .error-msg { padding:8px 4px 0; font-size:13px; color:var(--red); }
+  .connect-section { padding: 16px 16px calc(16px + var(--safe-b)); }
+  .connect-btn {
+    width: 100%; height: 52px;
+    border-radius: 13px; border: none;
+    background: linear-gradient(180deg, #7376f4 0%, #5558e8 100%);
+    color: var(--white);
+    font-size: 16px; font-weight: 600;
+    box-shadow: 0 8px 24px -4px rgba(99,102,241,0.5), inset 0 1px 0 rgba(255,255,255,0.15);
+    transition: opacity 0.2s, transform 0.15s;
+  }
+  .connect-btn:active { transform: scale(0.98); }
+  .connect-btn:disabled { opacity: 0.35; transform: none; }
+  .connect-btn.connecting {
+    background: var(--surface2);
+    box-shadow: inset 0 0 0 1px var(--border);
+    color: var(--dim);
+  }
+  .error-text {
+    text-align: center; padding: 10px 0 0;
+    font-size: 13px; color: var(--red); font-weight: 500;
+  }
 
-  /* ── Stream ──────────────────── */
-  #stream-screen { background:#000; }
-  #stream-img { width:100%; height:100%; object-fit:contain; touch-action:none; }
-  .stream-pill { position:fixed; bottom:40px; left:50%; transform:translateX(-50%);
-    display:flex; align-items:center; gap:8px; padding:10px 16px; border-radius:999px;
-    background:rgba(0,0,0,0.6); backdrop-filter:blur(16px);
-    box-shadow:inset 0 0 0 0.5px rgba(255,255,255,0.15);
-    color:#fff; font-size:12px; font-weight:600; }
-  .stream-back { position:fixed; top:52px; left:16px; width:40px; height:40px;
-    border-radius:50%; background:rgba(0,0,0,0.5); backdrop-filter:blur(16px);
-    border:none; color:#fff; font-size:20px; cursor:pointer;
-    display:flex; align-items:center; justify-content:center;
-    box-shadow:inset 0 0 0 0.5px rgba(255,255,255,0.15); }
-  .conn-dot { width:7px; height:7px; border-radius:50%; background:var(--green);
-    box-shadow:0 0 8px rgba(52,211,153,0.5); }
+  /* ── Connecting Screen ────────────────────── */
+  .connecting-content {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 24px;
+    padding: 40px;
+  }
+  .connect-anim {
+    width: 80px; height: 80px; position: relative;
+  }
+  .connect-anim-ring {
+    position: absolute; inset: 0;
+    border: 2px solid var(--border);
+    border-top-color: var(--indigo);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  .connect-anim-dot {
+    position: absolute; top: 50%; left: 50%;
+    width: 12px; height: 12px;
+    margin: -6px 0 0 -6px;
+    border-radius: 50%;
+    background: var(--indigo);
+    box-shadow: 0 0 20px var(--indigo-glow);
+  }
+  .connect-text { font-size: 16px; font-weight: 600; color: var(--head); }
+  .connect-sub { font-size: 13px; color: var(--dim); margin-top: -16px; }
+  .connect-cancel {
+    padding: 10px 28px; border-radius: var(--radius-s);
+    background: none; border: 1px solid var(--border);
+    color: var(--dim); font-size: 13px; font-weight: 500;
+  }
+  .connect-cancel:active { background: var(--surface); }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
-  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.85)} }
-  @keyframes spin { to{transform:rotate(360deg)} }
+  /* ── Stream Screen ────────────────────── */
+  #stream-screen { background: #000; }
+  #stream-img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    touch-action: none;
+    background: #000;
+  }
+
+  /* Stream overlay — auto-hide after 3s */
+  .stream-overlay {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    transition: opacity 0.4s;
+  }
+  .stream-overlay.dimmed { opacity: 0; }
+
+  .stream-top {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    padding: calc(8px + var(--safe-t)) 12px 12px;
+    display: flex; align-items: center; gap: 10px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%);
+    pointer-events: auto;
+  }
+  .stream-back-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--white); font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .stream-back-btn:active { background: rgba(255,255,255,0.2); }
+  .stream-title { font-size: 14px; font-weight: 600; color: var(--white); flex: 1; }
+  .stream-mode-badge {
+    padding: 4px 10px; border-radius: 6px;
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.08);
+    font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.7);
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+
+  .stream-bottom {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    padding: 12px 16px calc(12px + var(--safe-b));
+    display: flex; justify-content: center;
+    background: linear-gradient(0deg, rgba(0,0,0,0.7) 0%, transparent 100%);
+    pointer-events: auto;
+  }
+  .stream-pill {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 16px; border-radius: 999px;
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .pill-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green-glow);
+  }
+  .pill-dot.reconnecting {
+    background: var(--amber);
+    box-shadow: 0 0 8px rgba(245,158,11,0.3);
+    animation: blink 1s ease-in-out infinite;
+  }
+  .pill-text { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.8); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* Loading frame placeholder */
+  .stream-loading {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: #000;
+  }
+  .stream-loading-text { font-size: 13px; color: var(--dim); }
 </style>
 </head>
 <body>
 
-<!-- ═══ Discovery Screen ═══ -->
-<div id="disc-screen" class="screen">
-  <div class="header">
-    <div class="mark"></div>
-    <div class="title">Vior</div>
+<!-- ═══════ Discovery Screen ═══════ -->
+<div id="disc-screen" class="screen active">
+  <div class="disc-header">
+    <div class="brand-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="3" width="20" height="14" rx="2"/>
+        <path d="M8 21h8M12 17v4"/>
+      </svg>
+    </div>
+    <div class="brand-title">Vior</div>
   </div>
-  <div class="scan-bar">
-    <div id="scan-dot" class="scan-dot"></div>
-    <span id="scan-text">Scanning your network...</span>
-  </div>
-  <div class="sep"></div>
-  <div id="server-list" class="list"></div>
 
-  <!-- Mode picker (shown after server found) -->
+  <div class="scan-status">
+    <div id="scan-ind" class="scan-indicator scanning"></div>
+    <span id="scan-label" class="scan-label">Scanning network…</span>
+  </div>
+  <div class="divider"></div>
+
+  <div id="server-list" class="server-list"></div>
+
+  <div id="manual-section" class="manual-section hidden">
+    <div class="manual-row">
+      <input id="manual-ip" class="manual-input mono" type="text" placeholder="192.168.1.100" inputmode="url">
+      <button id="manual-go" class="manual-go">Connect</button>
+    </div>
+    <button id="retry-btn" class="retry-btn">Scan again</button>
+  </div>
+
   <div id="mode-section" class="mode-section hidden">
-    <div class="mode-label">Display Mode</div>
+    <div class="section-label">Display Mode</div>
     <div class="mode-row">
-      <div id="mode-extend" class="mode-card active" onclick="selectMode('extend')">
-        <div class="mode-icon">🖥</div>
+      <div id="mode-extend" class="mode-card active" data-mode="extend">
+        <div class="mode-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="4" width="10" height="7" rx="1"/>
+            <rect x="13" y="4" width="10" height="7" rx="1"/>
+            <path d="M6 14v3M18 14v3M3 17h6M15 17h6"/>
+          </svg>
+        </div>
         <div class="mode-name">Extend</div>
-        <div class="mode-desc">Second display</div>
+        <div class="mode-desc">Extra screen space</div>
       </div>
-      <div id="mode-mirror" class="mode-card" onclick="selectMode('mirror')">
-        <div class="mode-icon">🪞</div>
+      <div id="mode-mirror" class="mode-card" data-mode="mirror">
+        <div class="mode-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2"/>
+            <path d="M8 21h8M12 17v4"/>
+            <path d="M9 8l3-2 3 2M9 12l3 2 3-2"/>
+          </svg>
+        </div>
         <div class="mode-name">Mirror</div>
-        <div class="mode-desc">Same as main</div>
+        <div class="mode-desc">Clone main display</div>
       </div>
     </div>
   </div>
 
-  <!-- Connect -->
   <div id="connect-section" class="connect-section hidden">
     <button id="connect-btn" class="connect-btn" disabled>Connect</button>
-    <div id="error" class="error-msg" style="display:none"></div>
+    <div id="error-text" class="error-text hidden"></div>
   </div>
 </div>
 
-<!-- ═══ Stream Screen ═══ -->
-<div id="stream-screen" class="screen hidden">
+<!-- ═══════ Connecting Screen ═══════ -->
+<div id="connecting-screen" class="screen">
+  <div class="connecting-content">
+    <div class="connect-anim">
+      <div class="connect-anim-ring"></div>
+      <div class="connect-anim-dot"></div>
+    </div>
+    <div class="connect-text">Connecting…</div>
+    <div class="connect-sub" id="connecting-sub">Setting up display</div>
+    <button id="cancel-connect" class="connect-cancel">Cancel</button>
+  </div>
+</div>
+
+<!-- ═══════ Stream Screen ═══════ -->
+<div id="stream-screen" class="screen">
   <img id="stream-img" alt="">
-  <button id="back-btn" class="stream-back">‹</button>
-  <div id="stream-pill" class="stream-pill">
-    <span class="conn-dot"></span>
-    <span>Connected</span>
+  <div id="stream-loading" class="stream-loading">
+    <span class="stream-loading-text">Waiting for frames…</span>
+  </div>
+  <div id="stream-overlay" class="stream-overlay">
+    <div class="stream-top">
+      <button id="back-btn" class="stream-back-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M15 18l-6-6 6-6"/>
+        </svg>
+      </button>
+      <span id="stream-title" class="stream-title"></span>
+      <span id="stream-mode" class="stream-mode-badge"></span>
+    </div>
+    <div class="stream-bottom">
+      <div class="stream-pill">
+        <span id="pill-dot" class="pill-dot"></span>
+        <span id="pill-text" class="pill-text">Connected</span>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
 (function() {
-  var $ = function(id) { return document.getElementById(id); };
-  var ws = null, displayW = 0, displayH = 0;
-  var selectedServer = null, selectedMode = 'extend';
-  var streamImg = $('stream-img');
-  var framePolling = false, frameUrl = '';
+  'use strict';
 
-  // ── Screen management ──
+  // ── Helpers ──
+  var $ = function(id) { return document.getElementById(id); };
+  var ws = null;
+  var displayW = 0, displayH = 0;
+  var selectedServer = null, selectedMode = 'extend';
+  var serverName = '';
+  var streamImg = $('stream-img');
+  var framePolling = false, frameBaseUrl = '';
+  var overlayTimer = null;
+  var reconnectAttempts = 0;
+  var maxReconnect = 5;
+  var currentScreen = 'disc';
+  var blobUrl = null;
+
+  // ── SVG Icons ──
+  var ICONS = {
+    mac: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
+    windows: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18M12 3v18"/></svg>',
+    linux: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M8 12c-2 1-3 3-3 5 0 2 3 4 7 4s7-2 7-4c0-2-1-4-3-5"/><circle cx="10" cy="7" r="0.5" fill="currentColor"/><circle cx="14" cy="7" r="0.5" fill="currentColor"/></svg>',
+    search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>',
+    wifi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0114 0M8.53 16.11a6 6 0 016.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg>',
+    offline: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.56 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg>'
+  };
+
+  function platformIcon(platform) {
+    if (platform === 'macOS') return ICONS.mac;
+    if (platform === 'Windows') return ICONS.windows;
+    if (platform === 'Linux') return ICONS.linux;
+    return ICONS.mac;
+  }
+
+  // ── Screen Transitions ──
   function showScreen(id) {
-    $('disc-screen').classList.toggle('hidden', id !== 'disc');
-    $('stream-screen').classList.toggle('hidden', id !== 'stream');
+    var screens = ['disc', 'connecting', 'stream'];
+    screens.forEach(function(s) {
+      var el = $(s + '-screen');
+      if (s === id) {
+        el.classList.remove('hidden', 'exit');
+        // Force reflow for transition
+        void el.offsetWidth;
+        el.classList.add('active');
+      } else {
+        el.classList.remove('active');
+        el.classList.add('exit');
+        setTimeout(function() { el.classList.add('hidden'); }, 350);
+      }
+    });
+    currentScreen = id;
   }
 
   function showError(msg) {
-    $('error').textContent = msg;
-    $('error').style.display = msg ? 'block' : 'none';
+    var el = $('error-text');
+    if (msg) {
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    } else {
+      el.classList.add('hidden');
+    }
   }
 
-  // ── Mode selection ──
-  window.selectMode = function(mode) {
-    selectedMode = mode;
-    $('mode-extend').classList.toggle('active', mode === 'extend');
-    $('mode-mirror').classList.toggle('active', mode === 'mirror');
-  };
+  // ── Mode Selection ──
+  document.querySelectorAll('.mode-card').forEach(function(card) {
+    card.addEventListener('click', function() {
+      selectedMode = card.dataset.mode;
+      $('mode-extend').classList.toggle('active', selectedMode === 'extend');
+      $('mode-mirror').classList.toggle('active', selectedMode === 'mirror');
+    });
+  });
 
-  // ── Discovery — HTTP subnet scan ──
+  // ── Discovery ──
+  var foundServers = {};
+  var discoveryDone = false;
+
   function startDiscovery() {
-    $('scan-dot').className = 'scan-dot';
-    $('scan-text').textContent = 'Scanning your network...';
-    $('server-list').innerHTML = '<div class="empty"><div class="empty-title">Searching...</div><div class="empty-sub">Looking for Vior servers on your network</div></div>';
+    foundServers = {};
+    selectedServer = null;
+    discoveryDone = false;
+    $('scan-ind').className = 'scan-indicator scanning';
+    $('scan-label').textContent = 'Scanning network…';
+    $('server-list').innerHTML = '';
+    $('manual-section').classList.add('hidden');
+    $('mode-section').classList.add('hidden');
+    $('connect-section').classList.add('hidden');
 
-    // Try last known first.
+    // Show searching state
+    $('server-list').innerHTML =
+      '<div class="empty-state">' +
+        '<div class="empty-icon">' + ICONS.search + '</div>' +
+        '<div class="empty-title">Searching…</div>' +
+        '<div class="empty-desc">Looking for Vior servers on your network</div>' +
+        '<div class="search-dots"><span></span><span></span><span></span></div>' +
+      '</div>';
+
+    // Try last known server first
     var last = localStorage.getItem('vior_last');
     if (last) {
-      var p = last.split(':');
-      probeServer(p[0], parseInt(p[1]), 'Last connected');
+      var parts = last.split(':');
+      probeServer(parts[0], parseInt(parts[1]));
     }
 
-    // Scan local subnet — batch of 20 at a time to avoid WebView throttle.
+    // Subnet scan in batches
     getLocalIP(function(ip) {
       if (!ip) {
-        // WebRTC failed — show manual entry.
-        showManualEntry();
+        setTimeout(showManualFallback, 2000);
         return;
       }
       var base = ip.split('.').slice(0, 3).join('.');
-      var port = 8080; // default Vior port
+      var ports = [8080, 0]; // Try default port. Port 0 = auto-assigned, can't scan.
       var batch = 0;
 
       function scanBatch() {
+        if (discoveryDone) return;
         var start = batch * 20 + 1;
         var end = Math.min(start + 20, 255);
         for (var i = start; i < end; i++) {
-          probeServer(base + '.' + i, port);
+          ports.forEach(function(p) {
+            if (p > 0) probeServer(base + '.' + i, p);
+          });
         }
         batch++;
         if (batch < 13 && !selectedServer) {
@@ -205,43 +623,39 @@
       scanBatch();
     });
 
-    // Timeout: if nothing found after 6s, show manual entry.
+    // Timeout → manual fallback
     setTimeout(function() {
-      if (!selectedServer) {
-        showManualEntry();
-        $('scan-text').textContent = 'Tap to enter IP manually';
+      if (!selectedServer && !discoveryDone) {
+        showManualFallback();
       }
-    }, 6000);
+    }, 7000);
   }
 
-  var foundServers = {};
-  function probeServer(host, port, label) {
+  function probeServer(host, port) {
     var key = host + ':' + port;
     if (foundServers[key]) return;
 
-    var controller = new AbortController();
-    setTimeout(function() { controller.abort(); }, 1500);
+    var ctrl = new AbortController();
+    setTimeout(function() { ctrl.abort(); }, 1500);
 
-    fetch('http://' + host + ':' + port + '/info', { signal: controller.signal })
+    fetch('http://' + host + ':' + port + '/info', { signal: ctrl.signal })
       .then(function(r) { return r.json(); })
       .then(function(info) {
         if (foundServers[key]) return;
-        foundServers[key] = true;
+        foundServers[key] = info;
 
-        // Server found!
-        $('scan-dot').className = 'scan-dot found';
-        $('scan-text').textContent = 'Server found';
+        $('scan-ind').className = 'scan-indicator found';
+        $('scan-label').textContent = 'Server found';
 
-        // Clear searching message.
+        // Clear search animation
         if (!selectedServer) {
           $('server-list').innerHTML = '';
         }
 
-        addServerCard(host, port, info.name || label || host, info.platform || '');
+        addServerCard(host, port, info.name || host, info.platform || '');
 
-        // Auto-select first server.
         if (!selectedServer) {
-          selectServer(host, port);
+          selectServer(host, port, info.name || host);
         }
       })
       .catch(function() {});
@@ -251,143 +665,338 @@
     var card = document.createElement('div');
     card.className = 'srv-card';
     card.id = 'srv-' + host.replace(/\./g, '-') + '-' + port;
-    var icon = platform === 'macOS' ? '💻' : platform === 'Windows' ? '🖥' : platform === 'Linux' ? '🐧' : '🖥';
-    card.innerHTML = '<div class="srv-icon">' + icon + '</div>' +
-      '<div class="srv-info"><div class="srv-name">' + name + '</div>' +
-      '<div class="srv-meta">' + platform + '</div></div>' +
-      '<div class="srv-chev">›</div>';
-    card.onclick = function() { selectServer(host, port); };
+    card.innerHTML =
+      '<div class="srv-icon-wrap">' + platformIcon(platform) + '</div>' +
+      '<div class="srv-body">' +
+        '<div class="srv-name">' + escHtml(name) + '</div>' +
+        '<div class="srv-meta">' +
+          '<span>' + escHtml(platform) + '</span>' +
+          '<span class="srv-meta-dot"></span>' +
+          '<span>' + ICONS.wifi.replace('viewBox', 'width="12" height="12" viewBox') + ' Wi-Fi</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="srv-chevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>';
+    card.addEventListener('click', function() { selectServer(host, port, name); });
     $('server-list').appendChild(card);
   }
 
-  function selectServer(host, port) {
+  function selectServer(host, port, name) {
     selectedServer = { host: host, port: port };
-    // Highlight card.
+    serverName = name || host;
+
     document.querySelectorAll('.srv-card').forEach(function(c) { c.classList.remove('selected'); });
     var id = 'srv-' + host.replace(/\./g, '-') + '-' + port;
     var card = $(id);
     if (card) card.classList.add('selected');
-    // Show mode + connect.
+
     $('mode-section').classList.remove('hidden');
     $('connect-section').classList.remove('hidden');
     $('connect-btn').disabled = false;
+    $('connect-btn').textContent = 'Connect';
+    showError('');
   }
 
-  // ── Get local IP via WebRTC ──
+  function showManualFallback() {
+    discoveryDone = true;
+    $('scan-ind').className = 'scan-indicator failed';
+    $('scan-label').textContent = 'No servers found';
+
+    if (!selectedServer) {
+      $('server-list').innerHTML =
+        '<div class="empty-state">' +
+          '<div class="empty-icon">' + ICONS.offline + '</div>' +
+          '<div class="empty-title">No servers found</div>' +
+          '<div class="empty-desc">Make sure Vior is running on your computer and both devices are on the same Wi-Fi</div>' +
+        '</div>';
+    }
+
+    $('manual-section').classList.remove('hidden');
+  }
+
+  // ── WebRTC local IP ──
   function getLocalIP(cb) {
     try {
       var pc = new RTCPeerConnection({ iceServers: [] });
       pc.createDataChannel('');
-      pc.createOffer().then(function(offer) { return pc.setLocalDescription(offer); });
+      pc.createOffer().then(function(o) { return pc.setLocalDescription(o); });
+      var done = false;
       pc.onicecandidate = function(e) {
+        if (done) return;
         if (!e || !e.candidate) return;
         var m = e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
-        if (m) { cb(m[1]); pc.close(); }
+        if (m && m[1] !== '0.0.0.0') {
+          done = true;
+          pc.close();
+          cb(m[1]);
+        }
       };
-      setTimeout(function() { pc.close(); cb(null); }, 3000);
+      setTimeout(function() { if (!done) { done = true; pc.close(); cb(null); } }, 3000);
     } catch (e) { cb(null); }
   }
 
   // ── Connect ──
-  $('connect-btn').onclick = function() {
+  $('connect-btn').addEventListener('click', function() {
     if (!selectedServer) return;
+    reconnectAttempts = 0;
+    doConnect();
+  });
+
+  function doConnect() {
     showError('');
-    $('connect-btn').disabled = true;
-    $('connect-btn').textContent = 'Connecting...';
+    showScreen('connecting');
+    $('connecting-sub').textContent = 'Setting up display';
 
     var host = selectedServer.host, port = selectedServer.port;
+
     ws = new WebSocket('ws://' + host + ':' + port + '/ws');
+
     ws.onopen = function() {
+      $('connecting-sub').textContent = 'Sending screen info…';
       var dpr = window.devicePixelRatio || 1;
       var w = Math.round(screen.width * dpr);
       var h = Math.round(screen.height * dpr);
-      // If mirror, send mode hint (server handles it).
-      ws.send(JSON.stringify({ type: 'hello', data: { width: w, height: h, dpr: dpr, name: 'Vior Mobile', mode: selectedMode } }));
+      ws.send(JSON.stringify({
+        type: 'hello',
+        data: { width: w, height: h, dpr: dpr, name: 'Vior Mobile', mode: selectedMode }
+      }));
     };
+
     ws.onmessage = function(e) {
       var msg = JSON.parse(e.data);
       if (msg.type === 'ready') {
         displayW = parseInt(msg.data.resolution.split('x')[0]);
         displayH = parseInt(msg.data.resolution.split('x')[1]);
-        showScreen('stream');
         localStorage.setItem('vior_last', host + ':' + port);
-        startFramePolling('http://' + host + ':' + port);
-        $('stream-pill').innerHTML = '<span class="conn-dot"></span><span>' + selectedMode.charAt(0).toUpperCase() + selectedMode.slice(1) + ' · Connected</span>';
+        frameBaseUrl = 'http://' + host + ':' + port;
+
+        // Set stream UI
+        $('stream-title').textContent = serverName;
+        $('stream-mode').textContent = selectedMode;
+        $('pill-dot').className = 'pill-dot';
+        $('pill-text').textContent = 'Connected';
+        $('stream-loading').classList.remove('hidden');
+
+        showScreen('stream');
+        startFramePolling();
+        startOverlayAutoHide();
+
       } else if (msg.type === 'error') {
-        showError(msg.data.message);
+        showScreen('disc');
+        showError(msg.data.message || 'Connection failed');
         $('connect-btn').disabled = false;
         $('connect-btn').textContent = 'Connect';
       }
     };
+
     ws.onclose = function() {
       stopFramePolling();
-      showScreen('disc');
-      $('connect-btn').disabled = false;
-      $('connect-btn').textContent = 'Connect';
+      if (currentScreen === 'stream' && reconnectAttempts < maxReconnect) {
+        // Auto-reconnect
+        reconnectAttempts++;
+        $('pill-dot').className = 'pill-dot reconnecting';
+        $('pill-text').textContent = 'Reconnecting… (' + reconnectAttempts + '/' + maxReconnect + ')';
+        var delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 10000);
+        setTimeout(function() {
+          if (currentScreen === 'stream') doConnect();
+        }, delay);
+      } else if (currentScreen === 'stream' || currentScreen === 'connecting') {
+        showScreen('disc');
+        $('connect-btn').disabled = false;
+        $('connect-btn').textContent = 'Connect';
+      }
     };
-    ws.onerror = function() { showError('Connection failed'); };
-  };
 
-  // ── Back ──
-  $('back-btn').onclick = function() {
+    ws.onerror = function() {};
+  }
+
+  // ── Cancel connecting ──
+  $('cancel-connect').addEventListener('click', function() {
+    if (ws) { ws.close(); ws = null; }
+    showScreen('disc');
+    $('connect-btn').disabled = false;
+    $('connect-btn').textContent = 'Connect';
+  });
+
+  // ── Back from stream ──
+  $('back-btn').addEventListener('click', function() {
+    reconnectAttempts = maxReconnect; // prevent auto-reconnect
     stopFramePolling();
     if (ws) { ws.close(); ws = null; }
+    cleanupBlobUrl();
     streamImg.src = '';
     showScreen('disc');
     $('connect-btn').disabled = false;
     $('connect-btn').textContent = 'Connect';
-  };
+  });
 
-  // ── Manual entry fallback ──
-  function showManualEntry() {
-    if (selectedServer) return; // already found
-    $('server-list').innerHTML = '<div class="empty">' +
-      '<div class="empty-title">No servers found</div>' +
-      '<div class="empty-sub">Make sure Vior is running on your computer and you\'re on the same Wi-Fi</div>' +
-      '<div style="margin-top:20px;display:flex;gap:8px;justify-content:center">' +
-        '<input id="manual-ip" type="text" placeholder="IP address" inputmode="url" style="' +
-          'padding:10px 14px;border-radius:10px;background:var(--surface);border:1px solid var(--border);' +
-          'color:var(--text);font-size:15px;width:180px;outline:none;font-family:ui-monospace,monospace;">' +
-        '<button onclick="manualConnect()" style="padding:10px 20px;border-radius:10px;background:var(--indigo);' +
-          'color:#fff;border:none;font-size:14px;font-weight:600;cursor:pointer;">Go</button>' +
-      '</div>' +
-      '<button class="retry-btn" onclick="startDiscovery()">Scan again</button>' +
-    '</div>';
+  // ── Manual connect ──
+  $('manual-go').addEventListener('click', function() {
+    var val = $('manual-ip').value.trim();
+    if (!val) return;
+    // Parse host:port or just host
+    var parts = val.split(':');
+    var host = parts[0];
+    var port = parts.length > 1 ? parseInt(parts[1]) : 8080;
+    probeServer(host, port);
+    selectServer(host, port, host);
+  });
+
+  $('manual-ip').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') $('manual-go').click();
+  });
+
+  $('retry-btn').addEventListener('click', function() {
+    startDiscovery();
+  });
+
+  // ── Frame Polling (fetch + blob for mixed content fix) ──
+  function startFramePolling() {
+    framePolling = true;
+    pollFrame();
   }
 
-  window.manualConnect = function() {
-    var ip = document.getElementById('manual-ip');
-    if (ip && ip.value.trim()) {
-      probeServer(ip.value.trim(), 8080, 'Manual');
-      // Also try connecting directly.
-      selectServer(ip.value.trim(), 8080);
+  function stopFramePolling() {
+    framePolling = false;
+  }
+
+  function cleanupBlobUrl() {
+    if (blobUrl) {
+      URL.revokeObjectURL(blobUrl);
+      blobUrl = null;
+    }
+  }
+
+  function pollFrame() {
+    if (!framePolling) return;
+
+    // Use fetch() instead of Image.src — Capacitor patches fetch() to go through
+    // native HTTP layer, bypassing mixed content restrictions (https→http).
+    fetch(frameBaseUrl + '/snapshot?t=' + Date.now())
+      .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.blob();
+      })
+      .then(function(blob) {
+        if (!framePolling) return;
+        cleanupBlobUrl();
+        blobUrl = URL.createObjectURL(blob);
+        streamImg.src = blobUrl;
+
+        // Hide loading overlay on first frame
+        var loading = $('stream-loading');
+        if (loading && !loading.classList.contains('hidden')) {
+          loading.classList.add('hidden');
+        }
+
+        // Reset reconnect counter on successful frame
+        reconnectAttempts = 0;
+        if ($('pill-dot').classList.contains('reconnecting')) {
+          $('pill-dot').className = 'pill-dot';
+          $('pill-text').textContent = 'Connected';
+        }
+
+        // Poll next frame
+        requestAnimationFrame(pollFrame);
+      })
+      .catch(function() {
+        if (!framePolling) return;
+        // Retry after short delay
+        setTimeout(pollFrame, 150);
+      });
+  }
+
+  // ── Overlay auto-hide ──
+  function startOverlayAutoHide() {
+    showOverlay();
+    // Tap anywhere toggles overlay
+    streamImg.addEventListener('click', toggleOverlay);
+  }
+
+  function showOverlay() {
+    $('stream-overlay').classList.remove('dimmed');
+    clearTimeout(overlayTimer);
+    overlayTimer = setTimeout(hideOverlay, 3500);
+  }
+
+  function hideOverlay() {
+    $('stream-overlay').classList.add('dimmed');
+  }
+
+  function toggleOverlay() {
+    var ov = $('stream-overlay');
+    if (ov.classList.contains('dimmed')) {
+      showOverlay();
+    } else {
+      hideOverlay();
+    }
+  }
+
+  // ── Touch Input ──
+  function mapTouch(t) {
+    var r = streamImg.getBoundingClientRect();
+    return {
+      x: Math.round((t.clientX - r.left) / r.width * displayW),
+      y: Math.round((t.clientY - r.top) / r.height * displayH)
+    };
+  }
+
+  function sendInput(action, x, y) {
+    if (ws && ws.readyState === 1) {
+      ws.send(JSON.stringify({
+        type: 'input',
+        data: { event: 'touch', action: action, x: x, y: y }
+      }));
+    }
+  }
+
+  streamImg.addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    var p = mapTouch(e.changedTouches[0]);
+    sendInput('down', p.x, p.y);
+  }, { passive: false });
+
+  streamImg.addEventListener('touchmove', function(e) {
+    e.preventDefault();
+    var p = mapTouch(e.changedTouches[0]);
+    sendInput('move', p.x, p.y);
+  }, { passive: false });
+
+  streamImg.addEventListener('touchend', function(e) {
+    e.preventDefault();
+    var p = mapTouch(e.changedTouches[0]);
+    sendInput('up', p.x, p.y);
+  }, { passive: false });
+
+  // ── HTML escape ──
+  function escHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  // ── USB Accessory callback (from Java bridge) ──
+  window.onUsbFrame = function(base64Jpeg) {
+    if (currentScreen !== 'stream') showScreen('stream');
+    streamImg.src = 'data:image/jpeg;base64,' + base64Jpeg;
+    var loading = $('stream-loading');
+    if (loading && !loading.classList.contains('hidden')) {
+      loading.classList.add('hidden');
     }
   };
 
-  // ── Frame polling ──
-  function startFramePolling(base) { frameUrl = base; framePolling = true; pollFrame(); }
-  function stopFramePolling() { framePolling = false; }
-  function pollFrame() {
-    if (!framePolling) return;
-    var img = new Image();
-    img.onload = function() { streamImg.src = img.src; if (framePolling) requestAnimationFrame(pollFrame); };
-    img.onerror = function() { if (framePolling) setTimeout(pollFrame, 100); };
-    img.src = frameUrl + '/snapshot?t=' + Date.now();
-  }
+  window.onUsbConnected = function() {
+    $('pill-dot').className = 'pill-dot';
+    $('pill-text').textContent = 'USB · Connected';
+    $('stream-mode').textContent = 'USB';
+  };
 
-  // ── Touch ──
-  function mapTouch(t) {
-    var r = streamImg.getBoundingClientRect();
-    return { x: Math.round((t.clientX-r.left)/r.width*displayW), y: Math.round((t.clientY-r.top)/r.height*displayH) };
-  }
-  function sendInput(act, x, y) {
-    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'input', data: { event: 'touch', action: act, x: x, y: y } }));
-  }
-  streamImg.addEventListener('touchstart', function(e) { e.preventDefault(); var p = mapTouch(e.changedTouches[0]); sendInput('down', p.x, p.y); }, { passive: false });
-  streamImg.addEventListener('touchmove', function(e) { e.preventDefault(); var p = mapTouch(e.changedTouches[0]); sendInput('move', p.x, p.y); }, { passive: false });
-  streamImg.addEventListener('touchend', function(e) { e.preventDefault(); var p = mapTouch(e.changedTouches[0]); sendInput('up', p.x, p.y); }, { passive: false });
+  window.onUsbDisconnected = function() {
+    if (currentScreen === 'stream') {
+      showScreen('disc');
+    }
+  };
 
-  // ── Start ──
+  // ── Boot ──
   startDiscovery();
 })();
 </script>

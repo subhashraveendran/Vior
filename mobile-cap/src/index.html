@@ -64,13 +64,9 @@
   .conn-badge-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
 
   /* Tab content area */
-  .tab-content { flex:1; overflow:hidden; position:relative; }
-  .tab-pane {
-    position:absolute; top:0; left:0; right:0; bottom:0;
-    overflow-y:auto; -webkit-overflow-scrolling:touch;
-    display:none;
-  }
-  .tab-pane.active { display:flex; flex-direction:column; }
+  .tab-content { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .tab-pane { display:none; }
+  .tab-pane.active { display:block; }
 
   /* ══ Bottom Tab Bar ═════════════════ */
   .tab-bar {

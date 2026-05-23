@@ -4,7 +4,13 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Base64;
 import android.util.Log;
+import android.view.View;
+import android.view.ViewGroup;
 import android.webkit.WebView;
+
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -85,6 +91,17 @@ public class MainActivity extends BridgeActivity {
                 usbPlugin.scan();
             }
         }, 1000);
+
+        // Fix Android 15 edge-to-edge: apply system bar insets as margins
+        // so WebView content is never hidden behind the navigation bar.
+        View webView = getBridge().getWebView();
+        ViewCompat.setOnApplyWindowInsetsListener(webView, (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) v.getLayoutParams();
+            params.bottomMargin = systemBars.bottom;
+            v.setLayoutParams(params);
+            return WindowInsetsCompat.CONSUMED;
+        });
     }
 
     private void handleUsbIntent(Intent intent) {

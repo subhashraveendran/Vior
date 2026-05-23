@@ -5,14 +5,27 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
+  # ═══════════════════════════════════════════
+  # 1. CLI — Go binary for macOS/Linux/Windows
+  # ═══════════════════════════════════════════
   cli:
     name: CLI (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: macos-latest
+            artifact: vior-cli-macOS
+            binary: vior
+          - os: ubuntu-latest
+            artifact: vior-cli-Linux
+            binary: vior
+          - os: windows-latest
+            artifact: vior-cli-Windows
+            binary: vior.exe
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -35,47 +48,32 @@ jobs:
           $url = "https://github.com/libusb/libusb/releases/download/v${libusb_ver}/libusb-${libusb_ver}.7z"
           Invoke-WebRequest -Uri $url -OutFile libusb.7z
           7z x libusb.7z -olibusb
-          # Debug: show extracted structure
-          Get-ChildItem -Recurse libusb -Depth 4 | Select-Object FullName | Format-Table -AutoSize
-          # Copy to C:\libusb
           $dest = "C:\libusb"
           New-Item -ItemType Directory -Force -Path $dest
           Copy-Item -Recurse libusb\* $dest
-          # Find libusb.h location
+          # Find actual paths
           $header = Get-ChildItem -Recurse $dest -Filter "libusb.h" | Select-Object -First 1
-          $incdir = $header.DirectoryName
-          Write-Host "Include dir: $incdir"
-          # Find lib location
+          $incdir = ($header.DirectoryName -replace '\\','/')
           $lib = Get-ChildItem -Recurse $dest -Filter "libusb-1.0.lib" | Where-Object { $_.FullName -match "MS64" } | Select-Object -First 1
-          $libdir = $lib.DirectoryName
-          Write-Host "Lib dir: $libdir"
-          # Also copy DLL to a PATH location
+          $libdir = ($lib.DirectoryName -replace '\\','/')
           $dll = Get-ChildItem -Recurse $dest -Filter "libusb-1.0.dll" | Where-Object { $_.FullName -match "MS64" } | Select-Object -First 1
           if ($dll) { Copy-Item $dll.FullName "C:\Windows\System32\" -Force }
-          # Set env vars with actual paths
-          $incdirUnix = $incdir -replace '\\','/'
-          $libdirUnix = $libdir -replace '\\','/'
-          # Create pkg-config file
+          Write-Host "Include: $incdir  Lib: $libdir"
           $pcdir = "$dest\pkgconfig"
           New-Item -ItemType Directory -Force -Path $pcdir
           @"
-          prefix=C:/libusb
-          exec_prefix=`${prefix}
-          libdir=$libdirUnix
-          includedir=$incdirUnix
-
           Name: libusb-1.0
           Description: libusb-1.0
           Version: ${libusb_ver}
-          Libs: -L$libdirUnix -llibusb-1.0
-          Cflags: -I$incdirUnix
+          Libs: -L$libdir -llibusb-1.0
+          Cflags: -I$incdir
           "@ | Out-File -Encoding ASCII "$pcdir\libusb-1.0.pc"
           echo "PKG_CONFIG_PATH=$pcdir" >> $env:GITHUB_ENV
-          echo "CGO_LDFLAGS=-L$libdirUnix" >> $env:GITHUB_ENV
-          echo "CGO_CFLAGS=-I$incdirUnix" >> $env:GITHUB_ENV
+          echo "CGO_LDFLAGS=-L$libdir" >> $env:GITHUB_ENV
+          echo "CGO_CFLAGS=-I$incdir" >> $env:GITHUB_ENV
 
       - name: Build CLI
-        run: go build -o vior ./cmd/vior/
+        run: go build -o ${{ matrix.binary }} ./cmd/vior/
 
       - name: Vet
         run: go vet ./cmd/... ./internal/...
@@ -83,8 +81,162 @@ jobs:
       - name: Test
         run: go test ./internal/... -short
 
-      - name: Upload CLI binary
+      - name: Upload CLI
         uses: actions/upload-artifact@v4
         with:
-          name: vior-${{ runner.os }}-${{ runner.arch }}
-          path: vior*
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.binary }}
+
+  # ═══════════════════════════════════════════
+  # 2. Desktop — Wails app for macOS/Linux/Windows
+  # ═══════════════════════════════════════════
+  desktop:
+    name: Desktop (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            artifact: vior-desktop-macOS
+          - os: ubuntu-latest
+            artifact: vior-desktop-Linux
+          - os: windows-latest
+            artifact: vior-desktop-Windows
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxtst-dev libusb-1.0-0-dev \
+            libgtk-3-dev libwebkit2gtk-4.0-dev pkg-config
+
+      - name: Install Windows dependencies
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          choco install pkgconfiglite -y
+          $libusb_ver = "1.0.27"
+          $url = "https://github.com/libusb/libusb/releases/download/v${libusb_ver}/libusb-${libusb_ver}.7z"
+          Invoke-WebRequest -Uri $url -OutFile libusb.7z
+          7z x libusb.7z -olibusb
+          $dest = "C:\libusb"
+          New-Item -ItemType Directory -Force -Path $dest
+          Copy-Item -Recurse libusb\* $dest
+          $header = Get-ChildItem -Recurse $dest -Filter "libusb.h" | Select-Object -First 1
+          $incdir = ($header.DirectoryName -replace '\\','/')
+          $lib = Get-ChildItem -Recurse $dest -Filter "libusb-1.0.lib" | Where-Object { $_.FullName -match "MS64" } | Select-Object -First 1
+          $libdir = ($lib.DirectoryName -replace '\\','/')
+          $dll = Get-ChildItem -Recurse $dest -Filter "libusb-1.0.dll" | Where-Object { $_.FullName -match "MS64" } | Select-Object -First 1
+          if ($dll) { Copy-Item $dll.FullName "C:\Windows\System32\" -Force }
+          $pcdir = "$dest\pkgconfig"
+          New-Item -ItemType Directory -Force -Path $pcdir
+          @"
+          Name: libusb-1.0
+          Description: libusb-1.0
+          Version: ${libusb_ver}
+          Libs: -L$libdir -llibusb-1.0
+          Cflags: -I$incdir
+          "@ | Out-File -Encoding ASCII "$pcdir\libusb-1.0.pc"
+          echo "PKG_CONFIG_PATH=$pcdir" >> $env:GITHUB_ENV
+          echo "CGO_LDFLAGS=-L$libdir" >> $env:GITHUB_ENV
+          echo "CGO_CFLAGS=-I$incdir" >> $env:GITHUB_ENV
+
+      - name: Install frontend dependencies
+        run: cd desktop/frontend && npm install
+
+      - name: Build desktop app
+        run: |
+          cd desktop
+          wails build -clean -o vior-desktop
+
+      - name: Upload macOS app
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: desktop/build/bin/*
+
+      - name: Upload Linux app
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: desktop/build/bin/*
+
+      - name: Upload Windows app
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: desktop/build/bin/*
+
+  # ═══════════════════════════════════════════
+  # 3. Mobile — Capacitor Android APK
+  # ═══════════════════════════════════════════
+  mobile:
+    name: Mobile (Android)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: cd mobile-cap && npm install
+
+      - name: Setup Android platform
+        run: |
+          cd mobile-cap
+          # Save custom files before cap regenerates android/
+          mkdir -p /tmp/vior-custom
+          cp -r android/app/src/main/java /tmp/vior-custom/java 2>/dev/null || true
+          cp -r android/app/src/main/res/xml /tmp/vior-custom/xml 2>/dev/null || true
+          cp android/app/src/main/AndroidManifest.xml /tmp/vior-custom/AndroidManifest.xml 2>/dev/null || true
+
+          # Regenerate Android project
+          rm -rf android
+          npx cap add android
+          npx cap sync android
+
+          # Overlay custom files
+          cp -r /tmp/vior-custom/java/* android/app/src/main/java/ 2>/dev/null || true
+          mkdir -p android/app/src/main/res/xml
+          cp -r /tmp/vior-custom/xml/* android/app/src/main/res/xml/ 2>/dev/null || true
+
+      - name: Build debug APK
+        run: |
+          cd mobile-cap/android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: vior-mobile-Android
+          path: mobile-cap/android/app/build/outputs/apk/debug/app-debug.apk

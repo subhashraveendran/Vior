@@ -576,21 +576,22 @@
     </div>
   </div>
 
-  <!-- Bottom Tab Bar -->
-  <div class="tab-bar">
-    <button class="tab-item active" data-tab="display">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-      <span class="tab-item-label">Display</span>
-    </button>
-    <button class="tab-item" data-tab="files">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
-      <span class="tab-item-label">Files</span>
-    </button>
-    <button class="tab-item" data-tab="remote">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><circle cx="12" cy="10" r="1" fill="currentColor"/></svg>
-      <span class="tab-item-label">Remote</span>
-    </button>
-  </div>
+</div>
+
+<!-- Bottom Tab Bar (outside app-shell to escape its stacking context) -->
+<div class="tab-bar">
+  <button class="tab-item active" data-tab="display">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+    <span class="tab-item-label">Display</span>
+  </button>
+  <button class="tab-item" data-tab="files">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+    <span class="tab-item-label">Files</span>
+  </button>
+  <button class="tab-item" data-tab="remote">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><circle cx="12" cy="10" r="1" fill="currentColor"/></svg>
+    <span class="tab-item-label">Remote</span>
+  </button>
 </div>
 
 <!-- Connecting overlay -->

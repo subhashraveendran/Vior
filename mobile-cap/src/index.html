@@ -277,28 +277,49 @@
   .file-done-badge { font-size:10px; font-weight:600; color:var(--green); padding:4px 8px; border-radius:6px; background:rgba(52,211,153,0.1); }
 
   /* ══ Remote Tab ═════════════════════ */
-  .remote-content { padding:16px; display:flex; flex-direction:column; height:100%; }
+  .remote-content { padding:12px; display:flex; flex-direction:column; gap:10px; min-height:100%; }
   .trackpad-area {
-    flex:1; min-height:200px; border-radius:12px; background:var(--surface);
+    height:30vh; min-height:160px; border-radius:12px; background:var(--surface);
     box-shadow:inset 0 1px 0 var(--border-h),inset 0 -1px 0 var(--bg-deep),0 0 0 1px var(--border);
     display:flex; align-items:center; justify-content:center;
-    touch-action:none; position:relative; margin-bottom:12px;
+    touch-action:none; position:relative; flex-shrink:0;
   }
   .trackpad-label {
-    font-size:13px; color:var(--dim2); pointer-events:none;
-    display:flex; flex-direction:column; align-items:center; gap:8px;
+    font-size:12px; color:var(--dim2); pointer-events:none;
+    display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center;
+    padding:0 16px; line-height:1.5;
   }
-  .trackpad-label svg { width:32px; height:32px; color:var(--dim2); }
+  .trackpad-label svg { width:28px; height:28px; color:var(--dim2); }
   .remote-actions { display:flex; gap:8px; flex-shrink:0; }
   .remote-btn {
-    flex:1; height:44px; border-radius:8px; background:var(--surface);
+    flex:1; height:42px; border-radius:8px; background:var(--surface);
     box-shadow:inset 0 1px 0 var(--border-h),0 0 0 1px var(--border);
     border:none; color:var(--text); font-size:12px; font-weight:600;
     display:flex; align-items:center; justify-content:center; gap:6px;
     transition:transform 0.15s;
+    touch-action:manipulation;
   }
   .remote-btn:active { transform:scale(0.97); background:var(--border); }
   .remote-btn svg { width:16px; height:16px; color:var(--indigo-l); }
+
+  /* Shortcut grid (WiFi-Mouse style) */
+  .shortcut-section { display:flex; flex-direction:column; gap:6px; }
+  .shortcut-grid {
+    display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;
+  }
+  .shortcut-key {
+    height:40px; border-radius:8px; background:var(--surface);
+    box-shadow:inset 0 1px 0 var(--border-h),0 0 0 1px var(--border);
+    border:none; color:var(--text); font-size:11.5px; font-weight:600;
+    display:flex; align-items:center; justify-content:center;
+    transition:transform 0.1s,background 0.15s;
+    touch-action:manipulation;
+    -webkit-user-select:none; user-select:none;
+  }
+  .shortcut-key:active { transform:scale(0.96); background:var(--indigo); color:white; }
+  .shortcut-key.wide { grid-column:span 2; }
+  .shortcut-key.media { color:var(--indigo-l); }
+  .shortcut-key.danger:active { background:var(--red); }
 
   /* ══ Stream Fullscreen ══════════════ */
   .stream-fs {
@@ -487,10 +508,55 @@
         <div id="trackpad" class="trackpad-area">
           <div class="trackpad-label">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="4"/><path d="M12 18h.01"/></svg>
-            <span>1 finger move · tap to click<br>2 finger swipe to scroll · 2 finger tap = right click</span>
+            <span>1 finger: move · tap = click<br>2 finger: scroll · tap = right click</span>
           </div>
         </div>
         <input type="text" id="kb-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
+        <div class="remote-actions">
+          <button id="click-btn" class="remote-btn">Click</button>
+          <button id="rclick-btn" class="remote-btn">Right Click</button>
+          <button id="kb-btn" class="remote-btn">⌨ Keyboard</button>
+        </div>
+
+        <div class="section-label">Shortcuts</div>
+        <div class="shortcut-grid">
+          <button class="shortcut-key" data-shortcut="Cmd+c">Copy</button>
+          <button class="shortcut-key" data-shortcut="Cmd+v">Paste</button>
+          <button class="shortcut-key" data-shortcut="Cmd+x">Cut</button>
+          <button class="shortcut-key" data-shortcut="Cmd+z">Undo</button>
+          <button class="shortcut-key" data-shortcut="Cmd+Shift+z">Redo</button>
+          <button class="shortcut-key" data-shortcut="Cmd+a">Select All</button>
+          <button class="shortcut-key" data-shortcut="Cmd+s">Save</button>
+          <button class="shortcut-key" data-shortcut="Cmd+f">Find</button>
+          <button class="shortcut-key" data-shortcut="Cmd+Tab">App ⇆</button>
+          <button class="shortcut-key" data-shortcut="Cmd+`">Window ⇆</button>
+          <button class="shortcut-key" data-shortcut="Cmd+Space">Spotlight</button>
+          <button class="shortcut-key danger" data-shortcut="Cmd+q">Quit</button>
+        </div>
+
+        <div class="section-label">System</div>
+        <div class="shortcut-grid">
+          <button class="shortcut-key" data-shortcut="Escape">Esc</button>
+          <button class="shortcut-key" data-shortcut="Return">Enter</button>
+          <button class="shortcut-key" data-shortcut="Tab">Tab</button>
+          <button class="shortcut-key" data-shortcut="BackSpace">⌫</button>
+          <button class="shortcut-key" data-shortcut="Up">↑</button>
+          <button class="shortcut-key" data-shortcut="Down">↓</button>
+          <button class="shortcut-key" data-shortcut="Left">←</button>
+          <button class="shortcut-key" data-shortcut="Right">→</button>
+        </div>
+
+        <div class="section-label">Function Keys</div>
+        <div class="shortcut-grid">
+          <button class="shortcut-key" data-shortcut="F1">F1</button>
+          <button class="shortcut-key" data-shortcut="F2">F2</button>
+          <button class="shortcut-key" data-shortcut="F3">F3</button>
+          <button class="shortcut-key" data-shortcut="F4">F4</button>
+          <button class="shortcut-key" data-shortcut="F5">F5</button>
+          <button class="shortcut-key" data-shortcut="F6">F6</button>
+          <button class="shortcut-key" data-shortcut="F11">F11</button>
+          <button class="shortcut-key" data-shortcut="F12">F12</button>
+        </div>
 
         <div class="remote-actions">
           <button id="click-btn" class="remote-btn">
@@ -694,7 +760,16 @@
         clearTimeout(discoveryTimeout);
         if (!selectedServer) $('server-list').innerHTML = '';
         addServerCard(host, port, info.name||host, info.platform||'');
-        if (!selectedServer) { selectServer(host, port, info.name||host, info.platform||''); showToast('Found '+(info.name||host), 'ok'); }
+        if (!selectedServer) {
+          selectServer(host, port, info.name||host, info.platform||'');
+          showToast('Found '+(info.name||host), 'ok');
+          // Auto-connect if this is the last-used server.
+          var last = localStorage.getItem('vior_last');
+          var auto = localStorage.getItem('vior_autoconnect') !== '0';
+          if (auto && last === host+':'+port && !connected) {
+            setTimeout(function(){ if (!connected) doConnect(); }, 400);
+          }
+        }
       }).catch(function(){});
   }
 
@@ -921,6 +996,26 @@
         wsSend({type:'input', data:{event:'key', key:k}});
       }
     });
+  }
+
+  // ── Shortcut grid (WiFi-Mouse style) ──
+  var shortcutBtns = document.querySelectorAll('.shortcut-key');
+  for (var sk = 0; sk < shortcutBtns.length; sk++) {
+    (function(btn) {
+      var fired = false;
+      function send() {
+        var s = btn.getAttribute('data-shortcut');
+        if (!s) return;
+        wsSend({type:'input', data:{event:'key', key:s}});
+      }
+      btn.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        fired = true;
+        send();
+        setTimeout(function(){ fired = false; }, 400);
+      }, {passive:false});
+      btn.addEventListener('click', function() { if (!fired) send(); });
+    })(shortcutBtns[sk]);
   }
 
   // ── File Transfer ──

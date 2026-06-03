@@ -2,188 +2,188 @@
 
 # Vior
 
-**Extend your view. Stream, control, transfer.**
-
-Turn your phone or tablet into a second monitor. Stream, control, transfer — from any browser.
+**Phone → Mac/Linux/Windows. Extend display, file transfer, trackpad, keyboard, shortcuts. One app.**
 
 [![Build](https://github.com/subhashraveendran/Vior/actions/workflows/build.yml/badge.svg)](https://github.com/subhashraveendran/Vior/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.25-00ADD8.svg)](https://go.dev)
 
-[Documentation](https://subhashraveendran.github.io/Vior) | [Download](https://github.com/subhashraveendran/Vior/releases) | [Contributing](CONTRIBUTING.md)
+[Phase 2 docs](docs/phase-2.md) · [Downloads](https://github.com/subhashraveendran/Vior/releases) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
 ---
 
-## What is Vior?
+## What it does
 
-Vior creates a **virtual second monitor** on your computer and streams it to any device with a browser. Your phone becomes an extended display — drag windows onto it, use touch to control, and transfer files between devices.
+Turn your phone or tablet into:
+
+- **Second display** — extend or mirror your desktop. Touch on phone moves the cursor.
+- **WiFi mouse + keyboard** — trackpad with 2-finger scroll, soft keyboard, 20+ shortcut keys (Copy/Paste/Cmd+Tab/Spotlight/F-keys).
+- **File drop** — send files or photos between phone and desktop with progress + image previews.
+
+Cross-platform server (macOS / Linux / Windows). Auto-discovery on LAN. Auto-connect on launch.
 
 ```
- Computer                              Phone / Tablet
- ┌──────────────────────┐              ┌───────────────┐
- │  Vior Server         │   WiFi/USB   │  Browser      │
- │                      │              │               │
- │  Virtual Display ◄───┼──────────────┼─ Live Stream  │
- │  Screen Capture      │              │  Touch Input  │
- │  Input Injection     │              │  File Transfer│
- └──────────────────────┘              └───────────────┘
+ ┌────────────────────────┐         WiFi          ┌────────────────────┐
+ │ Desktop (Wails / CLI)  │ ◄─── WebSocket ─────► │ Phone / Tablet     │
+ │                        │                       │  (Capacitor APK)   │
+ │  Virtual Display       │ ◄─── MJPEG /snapshot  │   Display tab      │
+ │  Mouse / Keyboard      │ ◄─── input events     │   Files tab        │
+ │  ~/Downloads/Vior      │ ◄─── file chunks ────►│   Remote tab       │
+ └────────────────────────┘                       └────────────────────┘
 ```
 
-### How it works
+## Quick start
 
-1. Start Vior on your computer
-2. Phone connects automatically (or scan QR code)
-3. Phone reports its screen dimensions
-4. Vior creates a matching virtual display
-5. Stream begins — drag windows onto it like a real monitor
-
-## Install
-
-### CLI (Quick)
+### 1. Server (Mac / Linux / Windows)
 
 ```bash
-go install github.com/subhashraveendran/vior/cmd/vior@latest
-```
-
-### Desktop App
-
-Download from [Releases](https://github.com/subhashraveendran/Vior/releases) or build from source:
-
-```bash
+# Desktop app (Wails — recommended)
+# Download from Releases, or:
 git clone https://github.com/subhashraveendran/Vior.git
-cd Vior
-make desktop
-```
+cd Vior/desktop && wails build
 
-### Build from Source
-
-**Prerequisites:** Go 1.25+, [Bun](https://bun.sh), [Wails](https://wails.io)
-
-```bash
-# CLI only
-make build
-
-# Desktop app (macOS/Linux/Windows)
-make desktop
-
-# Mobile app (requires gogio)
-cd mobile && go run .
-```
-
-## Usage
-
-### Desktop App
-
-Launch the app. Click **Start Server**. Scan the QR code on your phone. Done.
-
-### CLI
-
-```bash
-# Start server — phone connects and display auto-configures
+# Or CLI
+go install github.com/subhashraveendran/vior/cmd/vior@latest
 vior start
-
-# Legacy mode — specify resolution manually
-vior start --virtual-width 1179 --virtual-height 2556
-
-# USB connection (Android)
-vior usb setup
-vior start
-
-# List displays
-vior displays
-
-# Stop
-vior stop
 ```
 
-### Phone / Tablet
+### 2. Mobile (Android)
 
-Open the URL shown by Vior in any browser. The stream starts automatically with touch forwarding.
+- Download `vior-mobile-Android.apk` from [Releases](https://github.com/subhashraveendran/Vior/releases).
+- Install. Open. Vior auto-discovers your computer on the same Wi-Fi and connects.
 
-For full-screen experience, tap the fullscreen button or add to home screen (PWA).
+iOS / browser fallback: open the URL the server prints in any browser.
+
+## Mobile app — 3 tabs
+
+| Tab | What it does |
+|-----|--------------|
+| **Display** | Auto-discover servers, pick Extend or Mirror mode, view live stream fullscreen with touch input. Auto-reconnect with exponential backoff. |
+| **Files** | Send any file or photo via native picker. Incoming offers show Accept / Reject. Progress bars, image thumbnails, Save button for received files. |
+| **Remote** | Trackpad (1-finger move + tap-click, 2-finger scroll + tap-rightclick). Soft keyboard for printable + special keys (BackSpace, Enter, arrows). 20+ shortcut buttons: Copy / Paste / Cut / Undo / Cmd+Tab / Spotlight / F-keys. |
+
+Auto-connect: app remembers last server and re-establishes the session automatically when you launch.
 
 ## Features
 
-| Feature | Description |
-|---------|------------|
-| **Auto Resolution** | Phone reports its screen size. Virtual display matches automatically. |
-| **Touch Control** | Touch on phone = mouse on computer. Full touch-to-mouse mapping. |
-| **Orientation** | Rotate phone to landscape — display resizes automatically. |
-| **File Transfer** | Drag files to send. Accept incoming files from phone. Preview images. |
-| **USB Mode** | Connect via USB for lower latency. ADB auto-downloaded if needed. |
-| **Auto Discovery** | UDP broadcast finds Vior servers on LAN automatically. |
-| **QR Code** | Scan to connect — no typing URLs. |
-| **Web Client** | Works in any browser. No app install on phone. |
-| **Cross-Platform** | macOS, Linux, Windows server. Any device with a browser as client. |
+| Feature | Status |
+|---|---|
+| Extend mode (virtual display matching phone resolution) | ✓ |
+| Mirror mode (capture main display, scaled to fit phone) | ✓ |
+| Touch input → mouse | ✓ |
+| Virtual trackpad with 2-finger scroll + tap shortcuts | ✓ |
+| Soft keyboard + 20 shortcut buttons (Cmd/Ctrl chord support) | ✓ |
+| Bidirectional file transfer with chunked progress | ✓ |
+| LAN auto-discovery (HTTP subnet scan + UDP broadcast) | ✓ |
+| Auto-connect to last-known server | ✓ |
+| QR code for browser fallback | ✓ |
+| USB Accessory Mode (no developer options needed) | ✓ (untested on shipping device) |
+| Android 15 edge-to-edge handled (WebView insets) | ✓ |
+| Production CI: macOS / Linux / Windows CLI + Wails + Android APK | ✓ |
+| H.264 video / audio forwarding / clipboard sync | Phase 3 |
+
+## Server CLI
+
+```bash
+vior start                         # auto-config; waits for phone
+vior start --port 8080             # explicit port
+vior displays                      # list connected displays
+vior display mirror 1              # mirror display 1 to main
+vior display extend 1              # extend display 1
+vior usb setup                     # forward ADB ports for USB connection
+vior virtual create 1920 1080      # create virtual display manually
+vior virtual destroy
+vior stop
+```
 
 ## Architecture
 
 ```
-vior/
-├── cmd/vior/cli/          CLI (Cobra)
-├── desktop/               Wails Desktop App (Go + React)
-├── mobile/                Gio Mobile App (Go)
-├── internal/
-│   ├── capture/           Screen capture (CGDisplayCreateImage / kbinani)
-│   ├── stream/            MJPEG HTTP server + WebSocket
-│   ├── virtual/           Virtual display (CGVirtualDisplay / xrandr / Win32)
-│   ├── input/             Mouse/keyboard injection (CGEvent / XTest / SendInput)
-│   ├── protocol/          WebSocket message protocol
-│   ├── discovery/         UDP LAN auto-discovery
-│   ├── filetransfer/      Bidirectional file transfer
-│   ├── adb/               ADB/USB helpers with auto-download
-│   ├── network/           QR code generation
-│   ├── config/            Configuration
-│   └── transfer/          TCP file transfer (legacy)
+cmd/vior/             CLI entry (Cobra)
+desktop/              Wails desktop app (Go + React + Framer Motion)
+  app.go              Frontend bridge, server lifecycle, file transfer
+  frontend/           React UI (idle / waiting / connected views)
+internal/
+  capture/            Screen capture (CG / X11 / kbinani-screenshot)
+  config/             Ports, defaults, free-port helper
+  discovery/          UDP broadcast + LAN IP detection
+  filetransfer/       Chunked transfer manager (48 KB / 5 ms throttle / SHA-256)
+  input/              Mouse + keyboard injection (CGEvent / XTest / SendInput)
+    touch.go          Touch + Mouse + Scroll handlers
+  network/            QR code generator
+  protocol/           WebSocket message types + session
+  session/            Configure() — shared extend/mirror setup
+  stream/             MJPEG + WebSocket + CORS server, /info, /snapshot
+  usb/                Android Open Accessory protocol (gousb)
+  virtual/            Virtual display creation (CGVirtualDisplay / xrandr / IDD)
+mobile-cap/
+  src/index.html      Entire mobile app (single file, ~1.2k LOC)
+  android/            Custom Java + manifest overlays (CI regenerates rest)
+docs/
+  phase-2.md          Phase 2 architecture, protocol, gaps, roadmap
+.github/workflows/
+  build.yml           Unified CI: CLI + Wails + APK across 3 OSes
 ```
 
-### Protocol
+## Protocol
 
-Vior uses WebSocket for signaling and MJPEG over HTTP for streaming:
+WebSocket signaling + MJPEG over HTTP for video + binary frames over AOA for USB.
 
+```jsonc
+// Phone → Server
+{"type":"hello",       "data":{"width":1080,"height":2400,"dpr":3,"name":"Phone","mode":"extend"}}
+{"type":"input",       "data":{"event":"touch", "action":"down", "x":540, "y":1200}}
+{"type":"input",       "data":{"event":"mouse", "action":"move", "dx":10, "dy":-5}}
+{"type":"input",       "data":{"event":"mouse", "action":"click"}}
+{"type":"input",       "data":{"event":"scroll","dx":0,"dy":-3}}
+{"type":"input",       "data":{"event":"key",   "key":"Cmd+c"}}
+{"type":"resize",      "data":{"width":2400,"height":1080,"dpr":3}}
+{"type":"file-offer",  "data":{"id":"abc","name":"photo.jpg","size":12345,"mimeType":"image/jpeg","preview":"data:..."}}
+{"type":"file-chunk",  "data":{"id":"abc","offset":0,"data":"<base64>"}}
+{"type":"file-complete","data":{"id":"abc","hash":"<sha256>"}}
+
+// Server → Phone
+{"type":"ready",       "data":{"streamUrl":"/stream","resolution":"1080x2400","sessionId":"s1"}}
+{"type":"file-accept", "data":{"id":"abc"}}
+{"type":"error",       "data":{"code":"perm_denied","message":"Screen recording permission required"}}
 ```
-Phone → Server:  {"type":"hello",  "data":{"width":1179,"height":2556,"dpr":3,"name":"iPhone"}}
-Server → Phone:  {"type":"ready",  "data":{"streamUrl":"/stream","resolution":"1179x2556"}}
-Phone → Server:  {"type":"input",  "data":{"event":"touch","action":"down","x":540,"y":1200}}
-Phone → Server:  {"type":"resize", "data":{"width":2556,"height":1179,"dpr":3}}
-```
 
-### Platform Support
+## Platform support
 
-| Platform | Virtual Display | Screen Capture | Input Control |
-|----------|----------------|---------------|---------------|
-| **macOS** | CGVirtualDisplay | CGDisplayCreateImage | CGEvent |
-| **Linux** | xrandr + dummy driver | kbinani/screenshot | X11 XTest |
-| **Windows** | Win32 + IDD driver | kbinani/screenshot | SendInput |
+| OS | Virtual display | Capture | Input |
+|---|---|---|---|
+| **macOS 13+** | CGVirtualDisplay | CGDisplayCreateImage | CGEvent (Unicode + modifier chords) |
+| **Linux** | xrandr + dummy driver | kbinani/screenshot | XTest |
+| **Windows 10+** | IDD driver (manual install) | kbinani/screenshot | SendInput |
 
-## Tech Stack
+## CI
 
-| Layer | Technology |
-|-------|-----------|
-| Language | Go 1.25 |
-| CLI | Cobra |
-| Desktop | Wails v2 + React + Framer Motion |
-| Mobile | Gio |
-| Streaming | MJPEG over HTTP |
+Single workflow (`build.yml`) builds and uploads:
+
+- `vior-cli-{macOS,Linux,Windows}` — Go binaries
+- `vior-desktop-{macOS,Linux,Windows}` — Wails apps
+- `vior-mobile-Android` — Capacitor APK
+
+`fail-fast: false`, all targets run in parallel. Mobile artifact is what you sideload to your phone.
+
+## Tech
+
+| Layer | Stack |
+|---|---|
+| Server | Go 1.25, cgo, gousb |
+| Desktop | Wails v2, React 19, Vite, Framer Motion |
+| Mobile | Capacitor 7 + plain HTML/CSS/JS (single file) |
+| Streaming | MJPEG over HTTP (Phase 2). H.264 planned for Phase 3. |
 | Signaling | WebSocket (gorilla/websocket) |
-| Discovery | UDP broadcast |
-| QR Codes | go-qrcode |
-| Build | Make + Vite + Bun |
+| Discovery | UDP broadcast (port 37680) + HTTP `/info` subnet scan |
+| QR | go-qrcode |
 
-## Requirements
+## Roadmap
 
-| Platform | Minimum |
-|----------|---------|
-| macOS | Ventura (13.0) |
-| Linux | X11 + xrandr |
-| Windows | 10+ build 1809 |
+Phase 3 candidates: H.264 (VideoToolbox / NVENC / VA-API), audio forwarding (Opus), clipboard sync, multi-client, pen pressure, Linux/Windows keyboard parity with the new macOS Unicode path. Full list in [`docs/phase-2.md`](docs/phase-2.md).
 
 ## License
 
-[MIT](LICENSE)
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and guidelines.
+MIT. See [LICENSE](LICENSE).

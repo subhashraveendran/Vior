@@ -85,6 +85,18 @@ static void postKeyCode(int keycode) {
 	CFRelease(up);
 }
 
+// Post a key with modifier flags (Cmd/Ctrl/Shift/Alt).
+static void postKeyCodeMods(int keycode, int flags) {
+	CGEventRef down = CGEventCreateKeyboardEvent(NULL, (CGKeyCode)keycode, true);
+	CGEventSetFlags(down, (CGEventFlags)flags);
+	CGEventPost(kCGHIDEventTap, down);
+	CFRelease(down);
+	CGEventRef up = CGEventCreateKeyboardEvent(NULL, (CGKeyCode)keycode, false);
+	CGEventSetFlags(up, (CGEventFlags)flags);
+	CGEventPost(kCGHIDEventTap, up);
+	CFRelease(up);
+}
+
 // Post a Unicode character as a synthetic key event. Works for any printable
 // character without needing a per-key virtual keycode mapping.
 static void postUnicode(const char *utf8) {
@@ -109,7 +121,10 @@ static void postUnicode(const char *utf8) {
 */
 import "C"
 
-import "unsafe"
+import (
+	"strings"
+	"unsafe"
+)
 
 type darwinController struct{}
 
@@ -137,15 +152,60 @@ func (c *darwinController) Click(button MouseButton) error {
 	return nil
 }
 
-// macOS virtual keycodes for named special keys. Source: Carbon/HIToolbox/Events.h.
+// macOS virtual keycodes (Carbon/HIToolbox/Events.h).
 var darwinKeyCodes = map[string]int{
-	"BackSpace": 51, "Return": 36, "Tab": 48, "Escape": 53, "Space": 49,
+	"BackSpace": 51, "Return": 36, "Enter": 36, "Tab": 48, "Escape": 53, "Esc": 53, "Space": 49,
 	"Up": 126, "Down": 125, "Left": 123, "Right": 124,
 	"Home": 115, "End": 119, "PageUp": 116, "PageDown": 121,
-	"Delete": 117, "F1": 122, "F2": 120, "F3": 99, "F4": 118,
+	"Delete": 117, "F1": 122, "F2": 120, "F3": 99, "F4": 118, "F5": 96, "F6": 97,
+	"F7": 98, "F8": 100, "F9": 101, "F10": 109, "F11": 103, "F12": 111,
+	// Letter keycodes for modifier chords (lowercase). US layout.
+	"a": 0, "b": 11, "c": 8, "d": 2, "e": 14, "f": 3, "g": 5, "h": 4, "i": 34,
+	"j": 38, "k": 40, "l": 37, "m": 46, "n": 45, "o": 31, "p": 35, "q": 12,
+	"r": 15, "s": 1, "t": 17, "u": 32, "v": 9, "w": 13, "x": 7, "y": 16, "z": 6,
+	"0": 29, "1": 18, "2": 19, "3": 20, "4": 21, "5": 23, "6": 22, "7": 26,
+	"8": 28, "9": 25,
 }
 
+// macOS CGEventFlags for modifiers.
+const (
+	flagCmd   = 1 << 20
+	flagShift = 1 << 17
+	flagAlt   = 1 << 19
+	flagCtrl  = 1 << 18
+	flagFn    = 1 << 23
+)
+
 func (c *darwinController) TypeKey(key string) error {
+	// Modifier chord: "Cmd+c", "Ctrl+Shift+t", "Cmd+Shift+4" etc.
+	if strings.Contains(key, "+") {
+		parts := strings.Split(key, "+")
+		var flags int
+		var last string
+		for _, p := range parts {
+			switch strings.ToLower(p) {
+			case "cmd", "meta", "win", "super":
+				flags |= flagCmd
+			case "shift":
+				flags |= flagShift
+			case "alt", "opt", "option":
+				flags |= flagAlt
+			case "ctrl", "control":
+				flags |= flagCtrl
+			case "fn":
+				flags |= flagFn
+			default:
+				last = p
+			}
+		}
+		if last == "" {
+			return nil
+		}
+		if code, ok := darwinKeyCodes[strings.ToLower(last)]; ok {
+			C.postKeyCodeMods(C.int(code), C.int(flags))
+			return nil
+		}
+	}
 	if code, ok := darwinKeyCodes[key]; ok {
 		C.postKeyCode(C.int(code))
 		return nil

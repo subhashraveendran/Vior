@@ -69,19 +69,30 @@
   .tab-pane.active { display:block; }
 
   /* ══ Bottom Tab Bar ═════════════════ */
+  /* Android: WebView root view gets system-bar padding from MainActivity
+     so the page never paints under the nav bar. We just need a normal
+     fixed-bottom tab bar with a small inner padding for visual breathing. */
   .tab-bar {
-    flex-shrink:0; display:flex;
-    padding:0 8px calc(4px + var(--safe-b));
+    position:fixed; bottom:0; left:0; right:0; z-index:9999;
+    display:flex;
+    padding:0 8px 4px;
     background:var(--bg-deep);
     border-top:1px solid var(--border);
-    position:relative; z-index:10;
+    pointer-events:auto;
   }
+  /* App shell needs bottom padding so content isn't hidden under fixed tab-bar. */
+  .app-shell { padding-bottom:64px; }
   .tab-item {
     flex:1; display:flex; flex-direction:column; align-items:center;
-    padding:8px 0 4px; gap:3px;
+    padding:10px 0 6px; gap:3px;
     background:none; border:none; color:var(--dim);
     transition:color 0.2s;
+    touch-action:manipulation;
+    cursor:pointer;
+    -webkit-user-select:none; user-select:none;
+    position:relative; z-index:1;
   }
+  .tab-item:active { background:rgba(255,255,255,0.04); }
   .tab-item.active { color:var(--indigo-l); }
   .tab-item svg { width:22px; height:22px; }
   .tab-item-label { font-size:10px; font-weight:600; letter-spacing:0.2px; }
@@ -568,20 +579,32 @@
     toastTimer = setTimeout(function() { $('toast').classList.remove('show'); }, 3000);
   }
 
-  // Tab switching
+  // Tab switching — bind both click + touchend (some WebViews drop click).
   var tabItems = document.querySelectorAll('.tab-item');
   console.log('Tab items found: ' + tabItems.length);
+  function switchTab(name) {
+    console.log('switchTab: ' + name);
+    var allTabs = document.querySelectorAll('.tab-item');
+    var allPanes = document.querySelectorAll('.tab-pane');
+    for (var i = 0; i < allTabs.length; i++) allTabs[i].classList.remove('active');
+    for (var j = 0; j < allPanes.length; j++) allPanes[j].classList.remove('active');
+    var btn = document.querySelector('.tab-item[data-tab="' + name + '"]');
+    if (btn) btn.classList.add('active');
+    var pane = $('tab-' + name);
+    if (pane) pane.classList.add('active');
+  }
   for (var ti = 0; ti < tabItems.length; ti++) {
     (function(btn) {
+      var fired = false;
+      btn.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        fired = true;
+        switchTab(btn.dataset.tab);
+        setTimeout(function() { fired = false; }, 400);
+      }, {passive:false});
       btn.addEventListener('click', function() {
-        console.log('Tab clicked: ' + btn.dataset.tab);
-        var allTabs = document.querySelectorAll('.tab-item');
-        var allPanes = document.querySelectorAll('.tab-pane');
-        for (var i = 0; i < allTabs.length; i++) allTabs[i].classList.remove('active');
-        for (var j = 0; j < allPanes.length; j++) allPanes[j].classList.remove('active');
-        btn.classList.add('active');
-        var pane = $('tab-' + btn.dataset.tab);
-        if (pane) pane.classList.add('active');
+        if (fired) return; // already handled by touchend
+        switchTab(btn.dataset.tab);
       });
     })(tabItems[ti]);
   }

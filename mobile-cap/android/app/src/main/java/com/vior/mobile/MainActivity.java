@@ -92,15 +92,16 @@ public class MainActivity extends BridgeActivity {
             }
         }, 1000);
 
-        // Fix Android 15 edge-to-edge: apply system bar insets as margins
-        // so WebView content is never hidden behind the navigation bar.
+        // Fix Android 15 edge-to-edge: apply system bar insets as padding on
+        // the WebView's root content view so CSS `env(safe-area-inset-bottom)`
+        // resolves to the real value and the bottom tab bar stays clickable.
+        // We use padding (not margin) and do NOT consume insets, so child
+        // views and touch propagation are unaffected.
         View webView = getBridge().getWebView();
         ViewCompat.setOnApplyWindowInsetsListener(webView, (v, insets) -> {
-            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) v.getLayoutParams();
-            params.bottomMargin = systemBars.bottom;
-            v.setLayoutParams(params);
-            return WindowInsetsCompat.CONSUMED;
+            Insets sys = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(sys.left, sys.top, sys.right, sys.bottom);
+            return insets;
         });
     }
 

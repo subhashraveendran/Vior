@@ -69,6 +69,15 @@ static void scrollMouse(Display *dpy, int dx, int dy) {
 	XFlush(dpy);
 }
 
+static void queryPointer(Display *dpy, int *outX, int *outY) {
+	if (!dpy) { *outX = 0; *outY = 0; return; }
+	Window root = DefaultRootWindow(dpy), child;
+	int rx, ry, wx, wy;
+	unsigned int mask;
+	XQueryPointer(dpy, root, &root, &child, &rx, &ry, &wx, &wy, &mask);
+	*outX = rx; *outY = ry;
+}
+
 static void pressKey(Display *dpy, const char *key) {
 	if (!dpy || !key) return;
 	KeySym ks = XStringToKeysym(key);
@@ -119,6 +128,12 @@ func (c *linuxController) TypeKey(key string) error {
 func (c *linuxController) Scroll(dx, dy int) error {
 	C.scrollMouse(c.dpy, C.int(dx), C.int(dy))
 	return nil
+}
+
+func (c *linuxController) CurrentMousePos() (int, int, error) {
+	var x, y C.int
+	C.queryPointer(c.dpy, &x, &y)
+	return int(x), int(y), nil
 }
 
 var _ Controller = (*linuxController)(nil)

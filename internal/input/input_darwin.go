@@ -5,6 +5,7 @@ package input
 /*
 #cgo LDFLAGS: -framework CoreGraphics -framework ApplicationServices
 
+#include <stdlib.h>
 #include <CoreGraphics/CoreGraphics.h>
 #include <ApplicationServices/ApplicationServices.h>
 
@@ -59,6 +60,14 @@ static void postMouseClick(int button) {
 	CFRelease(up);
 }
 
+static void getMousePos(int *outX, int *outY) {
+	CGEventRef e = CGEventCreate(NULL);
+	CGPoint p = CGEventGetLocation(e);
+	*outX = (int)p.x;
+	*outY = (int)p.y;
+	CFRelease(e);
+}
+
 static void postScroll(double dx, double dy) {
 	CGEventRef scroll = CGEventCreateScrollWheelEvent(NULL, kCGScrollEventUnitPixel, 1,
 		(int32_t)dy, (int32_t)dx);
@@ -66,18 +75,41 @@ static void postScroll(double dx, double dy) {
 	CFRelease(scroll);
 }
 
-static void postKeyPress(const char *key) {
-	CGEventRef down = CGEventCreateKeyboardEvent(NULL, 0, true);
-	CGEventRef up   = CGEventCreateKeyboardEvent(NULL, 0, false);
-
+// Post a synthetic key event using a raw virtual keycode.
+static void postKeyCode(int keycode) {
+	CGEventRef down = CGEventCreateKeyboardEvent(NULL, (CGKeyCode)keycode, true);
 	CGEventPost(kCGHIDEventTap, down);
-	CGEventPost(kCGHIDEventTap, up);
-
 	CFRelease(down);
+	CGEventRef up = CGEventCreateKeyboardEvent(NULL, (CGKeyCode)keycode, false);
+	CGEventPost(kCGHIDEventTap, up);
+	CFRelease(up);
+}
+
+// Post a Unicode character as a synthetic key event. Works for any printable
+// character without needing a per-key virtual keycode mapping.
+static void postUnicode(const char *utf8) {
+	if (!utf8 || !*utf8) return;
+	CFStringRef s = CFStringCreateWithCString(NULL, utf8, kCFStringEncodingUTF8);
+	CFIndex len = CFStringGetLength(s);
+	if (len > 32) len = 32;
+	UniChar buf[32];
+	CFStringGetCharacters(s, CFRangeMake(0, len), buf);
+	CFRelease(s);
+
+	CGEventRef down = CGEventCreateKeyboardEvent(NULL, 0, true);
+	CGEventKeyboardSetUnicodeString(down, len, buf);
+	CGEventPost(kCGHIDEventTap, down);
+	CFRelease(down);
+
+	CGEventRef up = CGEventCreateKeyboardEvent(NULL, 0, false);
+	CGEventKeyboardSetUnicodeString(up, len, buf);
+	CGEventPost(kCGHIDEventTap, up);
 	CFRelease(up);
 }
 */
 import "C"
+
+import "unsafe"
 
 type darwinController struct{}
 
@@ -105,14 +137,34 @@ func (c *darwinController) Click(button MouseButton) error {
 	return nil
 }
 
+// macOS virtual keycodes for named special keys. Source: Carbon/HIToolbox/Events.h.
+var darwinKeyCodes = map[string]int{
+	"BackSpace": 51, "Return": 36, "Tab": 48, "Escape": 53, "Space": 49,
+	"Up": 126, "Down": 125, "Left": 123, "Right": 124,
+	"Home": 115, "End": 119, "PageUp": 116, "PageDown": 121,
+	"Delete": 117, "F1": 122, "F2": 120, "F3": 99, "F4": 118,
+}
+
 func (c *darwinController) TypeKey(key string) error {
-	C.postKeyPress(C.CString(key))
+	if code, ok := darwinKeyCodes[key]; ok {
+		C.postKeyCode(C.int(code))
+		return nil
+	}
+	cs := C.CString(key)
+	defer C.free(unsafe.Pointer(cs))
+	C.postUnicode(cs)
 	return nil
 }
 
 func (c *darwinController) Scroll(dx, dy int) error {
 	C.postScroll(C.double(dx), C.double(dy))
 	return nil
+}
+
+func (c *darwinController) CurrentMousePos() (int, int, error) {
+	var x, y C.int
+	C.getMousePos(&x, &y)
+	return int(x), int(y), nil
 }
 
 var _ Controller = (*darwinController)(nil)

@@ -476,9 +476,11 @@
         <div id="trackpad" class="trackpad-area">
           <div class="trackpad-label">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="4"/><path d="M12 18h.01"/></svg>
-            Swipe to move cursor
+            <span>1 finger move · tap to click<br>2 finger swipe to scroll · 2 finger tap = right click</span>
           </div>
         </div>
+        <input type="text" id="kb-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
+
         <div class="remote-actions">
           <button id="click-btn" class="remote-btn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12l4 0M8 10v4"/><rect x="2" y="6" width="12" height="12" rx="2"/></svg>
@@ -825,15 +827,78 @@
   streamImg.addEventListener('touchmove',function(e){e.preventDefault();var p=mapT(e.changedTouches[0]);sendI('move',p.x,p.y);},{passive:false});
   streamImg.addEventListener('touchend',function(e){e.preventDefault();var p=mapT(e.changedTouches[0]);sendI('up',p.x,p.y);},{passive:false});
 
-  // Remote trackpad
+  // ── Remote trackpad ──
+  // 1 finger: move + tap-click. 2 finger: scroll + tap-rightclick.
   var trackpad = $('trackpad');
-  var lastX=0, lastY=0, tracking=false;
-  trackpad.addEventListener('touchstart',function(e){e.preventDefault();var t=e.touches[0];lastX=t.clientX;lastY=t.clientY;tracking=true;},{passive:false});
-  trackpad.addEventListener('touchmove',function(e){e.preventDefault();if(!tracking)return;var t=e.touches[0];var dx=t.clientX-lastX,dy=t.clientY-lastY;lastX=t.clientX;lastY=t.clientY;if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'input',data:{event:'mouse',action:'move',dx:dx*2,dy:dy*2}}));},{passive:false});
-  trackpad.addEventListener('touchend',function(e){e.preventDefault();tracking=false;},{passive:false});
-  $('click-btn').addEventListener('click',function(){if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'input',data:{event:'mouse',action:'click'}}));});
-  $('rclick-btn').addEventListener('click',function(){if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'input',data:{event:'mouse',action:'rightclick'}}));});
-  $('kb-btn').addEventListener('click',function(){ /* TODO: show keyboard input */ showToast('Keyboard coming soon','ok'); });
+  var tpLastX=0, tpLastY=0, tpFingers=0, tpMoved=false, tpStartT=0;
+  function wsSend(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+  trackpad.addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    tpFingers = e.touches.length;
+    tpMoved = false;
+    tpStartT = Date.now();
+    var t = e.touches[0];
+    tpLastX = t.clientX; tpLastY = t.clientY;
+  }, {passive:false});
+  trackpad.addEventListener('touchmove', function(e) {
+    e.preventDefault();
+    var t = e.touches[0];
+    var dx = t.clientX - tpLastX, dy = t.clientY - tpLastY;
+    tpLastX = t.clientX; tpLastY = t.clientY;
+    if (Math.abs(dx) + Math.abs(dy) > 2) tpMoved = true;
+    if (e.touches.length >= 2) {
+      // 2-finger scroll — divide for sensitivity.
+      wsSend({type:'input', data:{event:'scroll', dx:Math.round(dx/4), dy:Math.round(dy/4)}});
+    } else {
+      wsSend({type:'input', data:{event:'mouse', action:'move', dx:dx*2, dy:dy*2}});
+    }
+  }, {passive:false});
+  trackpad.addEventListener('touchend', function(e) {
+    e.preventDefault();
+    var dur = Date.now() - tpStartT;
+    if (!tpMoved && dur < 300) {
+      // Tap: 1-finger = click, 2-finger = right-click.
+      var action = tpFingers >= 2 ? 'rightclick' : 'click';
+      wsSend({type:'input', data:{event:'mouse', action:action}});
+    }
+    tpFingers = 0;
+  }, {passive:false});
+
+  $('click-btn').addEventListener('click', function() { wsSend({type:'input', data:{event:'mouse', action:'click'}}); });
+  $('rclick-btn').addEventListener('click', function() { wsSend({type:'input', data:{event:'mouse', action:'rightclick'}}); });
+
+  // ── Keyboard ──
+  // Hidden input gets focus to summon soft keyboard. Keys forwarded to server.
+  var kbInput = $('kb-input');
+  $('kb-btn').addEventListener('click', function() {
+    if (!kbInput) return;
+    kbInput.value = '';
+    kbInput.focus();
+    showToast('Keyboard ready — type to send', 'ok');
+  });
+  if (kbInput) {
+    kbInput.addEventListener('input', function(e) {
+      // Use beforeinput data if available; fallback to delta of value.
+      var data = e.data;
+      if (data) {
+        for (var i = 0; i < data.length; i++) {
+          wsSend({type:'input', data:{event:'key', key:data[i]}});
+        }
+      }
+      kbInput.value = '';
+    });
+    kbInput.addEventListener('keydown', function(e) {
+      // Special keys (backspace, enter, arrows) — input event doesn't fire for these.
+      var map = { 'Backspace':'BackSpace', 'Enter':'Return', 'Tab':'Tab',
+                  'ArrowUp':'Up', 'ArrowDown':'Down', 'ArrowLeft':'Left', 'ArrowRight':'Right',
+                  'Escape':'Escape' };
+      var k = map[e.key];
+      if (k) {
+        e.preventDefault();
+        wsSend({type:'input', data:{event:'key', key:k}});
+      }
+    });
+  }
 
   // ── File Transfer ──
   try {

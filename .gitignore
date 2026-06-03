@@ -9,7 +9,12 @@ build-errors.log
 *.out
 .DS_Store
 
-# Wails build artifacts
+# Go
+vior
+vior-desktop
+/vior*
+
+# Wails desktop build artifacts
 desktop/build/
 desktop/README.md
 desktop/.gitignore
@@ -17,3 +22,14 @@ desktop/wails.json.bak
 desktop/frontend/README.md
 desktop/frontend/index.ts
 desktop/frontend/package.json.md5
+desktop/frontend/dist/
+desktop/frontend/node_modules/
+
+# Capacitor mobile generated
+mobile-cap/node_modules/
+mobile-cap/android/build/
+mobile-cap/android/.gradle/
+mobile-cap/android/app/build/
+mobile-cap/android/local.properties
+mobile-cap/android/app/release/
+mobile-cap/www/

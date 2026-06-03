@@ -16,6 +16,7 @@ import (
 	"github.com/subhashraveendran/vior/internal/input"
 	"github.com/subhashraveendran/vior/internal/network"
 	"github.com/subhashraveendran/vior/internal/protocol"
+	"github.com/subhashraveendran/vior/internal/session"
 	"github.com/subhashraveendran/vior/internal/stream"
 	"github.com/subhashraveendran/vior/internal/virtual"
 )
@@ -244,118 +245,45 @@ type cliSessionHandler struct {
 	touchMapper *input.TouchMapper
 }
 
-func (h *cliSessionHandler) OnClientConnect(session *protocol.Session, hello *protocol.HelloMessage) error {
-	mode := hello.Mode
-	if mode == "" {
-		mode = "extend"
-	}
-	fmt.Printf("\nClient connected: %s %dx%d @%.1fx mode=%s\n", hello.Name, hello.Width, hello.Height, hello.DPR, mode)
+func (h *cliSessionHandler) OnClientConnect(sess *protocol.Session, hello *protocol.HelloMessage) error {
+	fmt.Printf("\nClient connected: %s %dx%d @%.1fx mode=%s\n", hello.Name, hello.Width, hello.Height, hello.DPR, hello.Mode)
 
-	// Tear down existing.
 	if h.session != nil {
 		h.session.Stop()
 		h.session = nil
 	}
-	virtual.Destroy()
 
-	// Check screen recording permission.
-	if err := capture.CheckScreenRecordingPermission(); err != nil {
-		return fmt.Errorf("permission denied: %w", err)
-	}
-
-	var captureIdx int
-	var resW, resH int
-
-	if mode == "mirror" {
-		// Mirror mode: capture main display directly.
-		displays, err := capture.ListDisplays()
-		if err != nil {
-			return fmt.Errorf("failed to list displays: %w", err)
-		}
-		captureIdx = 0
-		for i, d := range displays {
-			if d.IsMain {
-				captureIdx = i
-				break
-			}
-		}
-		resW = displays[captureIdx].Width
-		resH = displays[captureIdx].Height
-		fmt.Printf("Mirror mode: capturing main display (%dx%d)\n", resW, resH)
-	} else {
-		// Extend mode: create virtual display matching client resolution.
-		info := virtual.Info{
-			Width:       uint32(hello.Width),
-			Height:      uint32(hello.Height),
-			RefreshRate: config.DefaultRefreshRate,
-		}
-		displayID, err := virtual.CreateVirtualDisplay(info)
-		if err != nil {
-			return fmt.Errorf("failed to create virtual display: %w", err)
-		}
-		fmt.Printf("Created virtual display %dx%d\n", hello.Width, hello.Height)
-
-		time.Sleep(500 * time.Millisecond)
-
-		vdIdx := capture.FindDisplayIndexByID(displayID)
-		if vdIdx < 0 {
-			displays, err := capture.ListDisplays()
-			if err != nil {
-				return fmt.Errorf("failed to list displays: %w", err)
-			}
-			vdIdx = len(displays) - 1
-			log.Printf("Warning: display ID %d not found, using index %d", displayID, vdIdx)
-		}
-
-		if err := capture.UnmirrorDisplay(vdIdx); err != nil {
-			log.Printf("extend display warning: %v", err)
-		}
-
-		captureIdx = vdIdx
-		resW = hello.Width
-		resH = hello.Height
-	}
-
-	// Refresh display list for bounds.
-	displays, err := capture.ListDisplays()
+	setup, err := session.Configure(hello)
 	if err != nil {
-		return fmt.Errorf("failed to list displays: %w", err)
-	}
-	if captureIdx >= len(displays) {
-		return fmt.Errorf("display index %d out of range", captureIdx)
+		return err
 	}
 
-	// Start capture.
-	h.session = capture.NewSession(captureIdx, h.cfg.Quality, h.cfg.FrameRate)
+	h.session = capture.NewSession(setup.DisplayIndex, h.cfg.Quality, h.cfg.FrameRate)
 	if err := h.session.Start(); err != nil {
 		return fmt.Errorf("capture failed: %w", err)
 	}
-
-	// Hook up frames.
 	h.server.SetFrameCh(h.session.FrameCh)
+	h.touchMapper = input.NewTouchMapper(input.DefaultController, setup.DisplayBounds)
 
-	// Touch mapper.
-	d := displays[captureIdx]
-	h.touchMapper = input.NewTouchMapper(input.DefaultController, d.Bounds)
-
-	// Send ready.
-	session.Send(protocol.MsgReady, &protocol.ReadyMessage{
+	sess.Send(protocol.MsgReady, &protocol.ReadyMessage{
 		StreamURL:  config.DefaultStreamPath,
-		Resolution: fmt.Sprintf("%dx%d", resW, resH),
-		SessionID:  session.ID,
+		Resolution: fmt.Sprintf("%dx%d", setup.Width, setup.Height),
+		SessionID:  sess.ID,
 	})
 
-	fmt.Println("Streaming to client.")
+	fmt.Printf("Streaming to client (%s mode, %dx%d).\n", setup.Mode, setup.Width, setup.Height)
 	return nil
 }
 
-func (h *cliSessionHandler) OnClientInput(session *protocol.Session, msg *protocol.InputMessage) error {
+func (h *cliSessionHandler) OnClientInput(_ *protocol.Session, msg *protocol.InputMessage) error {
 	if h.touchMapper == nil {
 		return nil
 	}
 	switch msg.Event {
-	case "touch", "mouse":
+	case "touch":
 		return h.touchMapper.HandleTouch(msg.Action, msg.X, msg.Y)
+	case "mouse":
+		return h.touchMapper.HandleMouse(msg.Action, msg.DX, msg.DY)
 	case "scroll":
 		return h.touchMapper.HandleScroll(msg.DX, msg.DY)
 	case "key":

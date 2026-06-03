@@ -19,6 +19,7 @@ import (
 	"github.com/subhashraveendran/vior/internal/input"
 	"github.com/subhashraveendran/vior/internal/network"
 	"github.com/subhashraveendran/vior/internal/protocol"
+	"github.com/subhashraveendran/vior/internal/session"
 	"github.com/subhashraveendran/vior/internal/stream"
 	"github.com/subhashraveendran/vior/internal/usb"
 	"github.com/subhashraveendran/vior/internal/virtual"
@@ -202,119 +203,39 @@ func (a *App) GetServerStatus() ServerStatus {
 
 // ── WebSocket Session Handler (implements stream.SessionHandler) ────
 
-func (a *App) OnClientConnect(session *protocol.Session, hello *protocol.HelloMessage) error {
+func (a *App) OnClientConnect(sess *protocol.Session, hello *protocol.HelloMessage) error {
 	a.clientMu.Lock()
-	a.client = session
+	a.client = sess
 	a.clientMu.Unlock()
 
-	mode := hello.Mode
-	if mode == "" {
-		mode = "extend"
-	}
-	log.Printf("Client connected: %s %dx%d @%.1fx mode=%s", hello.Name, hello.Width, hello.Height, hello.DPR, mode)
+	log.Printf("Client connected: %s %dx%d @%.1fx mode=%s", hello.Name, hello.Width, hello.Height, hello.DPR, hello.Mode)
 
-	// Check screen recording permission first.
-	if err := capture.CheckScreenRecordingPermission(); err != nil {
-		return fmt.Errorf("permission denied: %w", err)
-	}
-
-	// Tear down any existing virtual display + capture.
+	// Tear down previous capture before reconfiguring.
 	if a.session != nil {
 		a.session.Stop()
 		a.session = nil
 	}
-	virtual.Destroy()
 
-	var captureIdx int
-	var resW, resH int
-
-	if mode == "mirror" {
-		// Mirror mode: capture main display, no virtual display needed.
-		displays, err := capture.ListDisplays()
-		if err != nil {
-			return fmt.Errorf("failed to list displays: %w", err)
-		}
-		// Find main display.
-		captureIdx = 0
-		for i, d := range displays {
-			if d.IsMain {
-				captureIdx = i
-				break
-			}
-		}
-		resW = displays[captureIdx].Width
-		resH = displays[captureIdx].Height
-		log.Printf("Mirror mode: capturing main display %d (%dx%d)", captureIdx, resW, resH)
-	} else {
-		// Extend mode: create virtual display matching client resolution.
-		info := virtual.Info{
-			Width:       uint32(hello.Width),
-			Height:      uint32(hello.Height),
-			RefreshRate: config.DefaultRefreshRate,
-		}
-		displayID, err := virtual.CreateVirtualDisplay(info)
-		if err != nil {
-			return fmt.Errorf("failed to create virtual display: %w", err)
-		}
-
-		// Small delay for display to register in the system.
-		time.Sleep(500 * time.Millisecond)
-
-		// Find the virtual display by its CGDirectDisplayID.
-		vdIdx := capture.FindDisplayIndexByID(displayID)
-		if vdIdx < 0 {
-			displays, err := capture.ListDisplays()
-			if err != nil {
-				return fmt.Errorf("failed to list displays: %w", err)
-			}
-			vdIdx = len(displays) - 1
-			log.Printf("Warning: could not find display by ID %d, using index %d", displayID, vdIdx)
-		}
-
-		// Set to extend mode.
-		if err := capture.UnmirrorDisplay(vdIdx); err != nil {
-			log.Printf("extend display warning: %v", err)
-		}
-
-		captureIdx = vdIdx
-		resW = hello.Width
-		resH = hello.Height
-	}
-
-	// Refresh display list to get correct bounds.
-	displays, err := capture.ListDisplays()
+	setup, err := session.Configure(hello)
 	if err != nil {
-		return fmt.Errorf("failed to list displays: %w", err)
-	}
-	if captureIdx >= len(displays) {
-		return fmt.Errorf("display index %d out of range", captureIdx)
+		return err
 	}
 
-	// Start capture session.
-	a.session = capture.NewSession(captureIdx, a.cfg.Quality, a.cfg.FrameRate)
+	a.session = capture.NewSession(setup.DisplayIndex, a.cfg.Quality, a.cfg.FrameRate)
 	if err := a.session.Start(); err != nil {
 		return fmt.Errorf("capture failed: %w", err)
 	}
-
-	// Hook up frames to server.
 	a.server.SetFrameCh(a.session.FrameCh)
+	a.touchMapper = input.NewTouchMapper(input.DefaultController, setup.DisplayBounds)
 
-	// Set up touch mapper — maps phone touch coordinates to the captured display's bounds.
-	d := displays[captureIdx]
-	a.touchMapper = input.NewTouchMapper(input.DefaultController, d.Bounds)
-
-	// Send ready message to client.
-	// For mirror, send main display resolution so phone knows the aspect ratio
-	// and can scale correctly with object-fit:contain.
-	session.Send(protocol.MsgReady, &protocol.ReadyMessage{
+	sess.Send(protocol.MsgReady, &protocol.ReadyMessage{
 		StreamURL:  config.DefaultStreamPath,
-		Resolution: fmt.Sprintf("%dx%d", resW, resH),
-		SessionID:  session.ID,
+		Resolution: fmt.Sprintf("%dx%d", setup.Width, setup.Height),
+		SessionID:  sess.ID,
 	})
 
-	// Notify desktop frontend.
 	runtime.EventsEmit(a.ctx, "client:connected", ClientInfo{
-		SessionID:      session.ID,
+		SessionID:      sess.ID,
 		Name:           hello.Name,
 		Width:          hello.Width,
 		Height:         hello.Height,
@@ -326,75 +247,53 @@ func (a *App) OnClientConnect(session *protocol.Session, hello *protocol.HelloMe
 	return nil
 }
 
-func (a *App) OnClientResize(session *protocol.Session, msg *protocol.ResizeMessage) error {
+func (a *App) OnClientResize(sess *protocol.Session, msg *protocol.ResizeMessage) error {
 	log.Printf("Client resized: %dx%d @%.1fx", msg.Width, msg.Height, msg.DPR)
 
-	// Stop current capture.
 	if a.session != nil {
 		a.session.Stop()
 		a.session = nil
 	}
-	virtual.Destroy()
-	time.Sleep(300 * time.Millisecond)
 
-	// Create new virtual display with new dimensions.
-	info := virtual.Info{
-		Width:       uint32(msg.Width),
-		Height:      uint32(msg.Height),
-		RefreshRate: config.DefaultRefreshRate,
+	// Treat resize as a fresh extend-mode setup with new dimensions.
+	hello := &protocol.HelloMessage{
+		Width:  msg.Width,
+		Height: msg.Height,
+		DPR:    msg.DPR,
+		Mode:   "extend",
 	}
-	displayID, err := virtual.CreateVirtualDisplay(info)
-	if err != nil {
-		return fmt.Errorf("resize virtual display failed: %w", err)
-	}
-	time.Sleep(500 * time.Millisecond)
-
-	vdIdx := capture.FindDisplayIndexByID(displayID)
-	if vdIdx < 0 {
-		displays, _ := capture.ListDisplays()
-		vdIdx = len(displays) - 1
-	}
-
-	capture.UnmirrorDisplay(vdIdx)
-
-	displays, err := capture.ListDisplays()
+	setup, err := session.Configure(hello)
 	if err != nil {
 		return err
 	}
-	if vdIdx >= len(displays) {
-		return fmt.Errorf("display index out of range")
-	}
 
-	a.session = capture.NewSession(vdIdx, a.cfg.Quality, a.cfg.FrameRate)
+	a.session = capture.NewSession(setup.DisplayIndex, a.cfg.Quality, a.cfg.FrameRate)
 	if err := a.session.Start(); err != nil {
 		return err
 	}
 	a.server.SetFrameCh(a.session.FrameCh)
+	a.touchMapper = input.NewTouchMapper(input.DefaultController, setup.DisplayBounds)
 
-	d := displays[vdIdx]
-	a.touchMapper = input.NewTouchMapper(input.DefaultController, d.Bounds)
-
-	// Send updated ready.
-	session.Send(protocol.MsgReady, &protocol.ReadyMessage{
+	sess.Send(protocol.MsgReady, &protocol.ReadyMessage{
 		StreamURL:  config.DefaultStreamPath,
-		Resolution: fmt.Sprintf("%dx%d", msg.Width, msg.Height),
-		SessionID:  session.ID,
+		Resolution: fmt.Sprintf("%dx%d", setup.Width, setup.Height),
+		SessionID:  sess.ID,
 	})
-
 	runtime.EventsEmit(a.ctx, "client:resized", map[string]any{
 		"width": msg.Width, "height": msg.Height,
 	})
-
 	return nil
 }
 
-func (a *App) OnClientInput(session *protocol.Session, msg *protocol.InputMessage) error {
+func (a *App) OnClientInput(_ *protocol.Session, msg *protocol.InputMessage) error {
 	if a.touchMapper == nil {
 		return nil
 	}
 	switch msg.Event {
-	case "touch", "mouse":
+	case "touch":
 		return a.touchMapper.HandleTouch(msg.Action, msg.X, msg.Y)
+	case "mouse":
+		return a.touchMapper.HandleMouse(msg.Action, msg.DX, msg.DY)
 	case "scroll":
 		return a.touchMapper.HandleScroll(msg.DX, msg.DY)
 	case "key":
@@ -403,16 +302,15 @@ func (a *App) OnClientInput(session *protocol.Session, msg *protocol.InputMessag
 	return nil
 }
 
-func (a *App) OnClientDisconnect(session *protocol.Session) {
-	log.Printf("Client disconnected: %s", session.ID)
+func (a *App) OnClientDisconnect(sess *protocol.Session) {
+	log.Printf("Client disconnected: %s", sess.ID)
 
 	a.clientMu.Lock()
-	if a.client == session {
+	if a.client == sess {
 		a.client = nil
 	}
 	a.clientMu.Unlock()
 
-	// Stop capture and destroy virtual display.
 	if a.session != nil {
 		a.session.Stop()
 		a.session = nil
@@ -420,55 +318,35 @@ func (a *App) OnClientDisconnect(session *protocol.Session) {
 	virtual.Destroy()
 	a.touchMapper = nil
 
-	// Notify desktop frontend.
-	runtime.EventsEmit(a.ctx, "client:disconnected", session.ID)
+	runtime.EventsEmit(a.ctx, "client:disconnected", sess.ID)
 }
 
 // ── USB Connection Handler ──────────────────────────────────────────
 
 func (a *App) handleUSBConnect(width, height int, dpr float32) {
 	// Check permissions.
-	if err := capture.CheckScreenRecordingPermission(); err != nil {
-		log.Printf("USB: permission denied: %v", err)
-		return
-	}
-
-	// Tear down existing.
 	if a.session != nil {
 		a.session.Stop()
 		a.session = nil
 	}
-	virtual.Destroy()
 
-	// Create virtual display.
-	info := virtual.Info{Width: uint32(width), Height: uint32(height), RefreshRate: 60}
-	displayID, err := virtual.CreateVirtualDisplay(info)
+	setup, err := session.Configure(&protocol.HelloMessage{
+		Width:  width,
+		Height: height,
+		DPR:    float64(dpr),
+		Mode:   "extend",
+	})
 	if err != nil {
-		log.Printf("USB: virtual display failed: %v", err)
-		return
-	}
-	time.Sleep(500 * time.Millisecond)
-
-	vdIdx := capture.FindDisplayIndexByID(displayID)
-	if vdIdx < 0 {
-		displays, _ := capture.ListDisplays()
-		vdIdx = len(displays) - 1
-	}
-	capture.UnmirrorDisplay(vdIdx)
-
-	displays, err := capture.ListDisplays()
-	if err != nil || vdIdx >= len(displays) {
-		log.Printf("USB: display list error")
+		log.Printf("USB: configure failed: %v", err)
 		return
 	}
 
-	// Start capture.
-	a.session = capture.NewSession(vdIdx, a.cfg.Quality, a.cfg.FrameRate)
-	a.session.Start()
-
-	// Touch mapper.
-	d := displays[vdIdx]
-	a.touchMapper = input.NewTouchMapper(input.DefaultController, d.Bounds)
+	a.session = capture.NewSession(setup.DisplayIndex, a.cfg.Quality, a.cfg.FrameRate)
+	if err := a.session.Start(); err != nil {
+		log.Printf("USB: capture failed: %v", err)
+		return
+	}
+	a.touchMapper = input.NewTouchMapper(input.DefaultController, setup.DisplayBounds)
 
 	// Send ready.
 	a.usbAcc.SendReady(width, height)

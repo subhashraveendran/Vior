@@ -18,6 +18,8 @@ type Controller interface {
 	Click(button MouseButton) error
 	TypeKey(key string) error
 	Scroll(dx, dy int) error
+	// CurrentMousePos returns the current absolute mouse cursor position.
+	CurrentMousePos() (int, int, error)
 }
 
 // DefaultController returns the platform-specific input controller.

@@ -1,0 +1,108 @@
+// Package session contains shared client-connection logic used by both
+// the desktop app (Wails) and the CLI server. It owns the capture-mode
+// decision (extend vs mirror) and virtual-display lifecycle.
+package session
+
+import (
+	"fmt"
+	"image"
+	"log"
+	"time"
+
+	"github.com/subhashraveendran/vior/internal/capture"
+	"github.com/subhashraveendran/vior/internal/config"
+	"github.com/subhashraveendran/vior/internal/protocol"
+	"github.com/subhashraveendran/vior/internal/virtual"
+)
+
+// Setup describes the active capture session after a client connects.
+type Setup struct {
+	Mode          string          // "extend" or "mirror"
+	DisplayIndex  int             // index in capture.ListDisplays()
+	DisplayBounds image.Rectangle // absolute screen coords of captured display
+	Width         int             // capture resolution width
+	Height        int             // capture resolution height
+}
+
+// Configure tears down any prior virtual display and prepares capture for
+// a newly-connected client based on the client's hello message.
+//
+// Mirror mode: captures the main display directly, no virtual display created.
+// Extend mode: creates a new virtual display matching the client's resolution.
+//
+// Caller is responsible for stopping the previous capture session before calling.
+func Configure(hello *protocol.HelloMessage) (*Setup, error) {
+	mode := hello.Mode
+	if mode == "" {
+		mode = "extend"
+	}
+
+	if err := capture.CheckScreenRecordingPermission(); err != nil {
+		return nil, fmt.Errorf("permission denied: %w", err)
+	}
+
+	// Always start from a clean slate.
+	virtual.Destroy()
+
+	var captureIdx, resW, resH int
+
+	if mode == "mirror" {
+		displays, err := capture.ListDisplays()
+		if err != nil {
+			return nil, fmt.Errorf("list displays: %w", err)
+		}
+		captureIdx = 0
+		for i, d := range displays {
+			if d.IsMain {
+				captureIdx = i
+				break
+			}
+		}
+		resW = displays[captureIdx].Width
+		resH = displays[captureIdx].Height
+	} else {
+		info := virtual.Info{
+			Width:       uint32(hello.Width),
+			Height:      uint32(hello.Height),
+			RefreshRate: config.DefaultRefreshRate,
+		}
+		displayID, err := virtual.CreateVirtualDisplay(info)
+		if err != nil {
+			return nil, fmt.Errorf("create virtual display: %w", err)
+		}
+		// Wait for the OS to register the new display.
+		time.Sleep(500 * time.Millisecond)
+
+		vdIdx := capture.FindDisplayIndexByID(displayID)
+		if vdIdx < 0 {
+			displays, err := capture.ListDisplays()
+			if err != nil {
+				return nil, fmt.Errorf("list displays: %w", err)
+			}
+			vdIdx = len(displays) - 1
+			log.Printf("session: display ID %d not found, falling back to last index %d", displayID, vdIdx)
+		}
+		if err := capture.UnmirrorDisplay(vdIdx); err != nil {
+			log.Printf("session: extend warning: %v", err)
+		}
+		captureIdx = vdIdx
+		resW = hello.Width
+		resH = hello.Height
+	}
+
+	displays, err := capture.ListDisplays()
+	if err != nil {
+		return nil, fmt.Errorf("list displays: %w", err)
+	}
+	if captureIdx >= len(displays) {
+		return nil, fmt.Errorf("display index %d out of range", captureIdx)
+	}
+
+	return &Setup{
+		Mode:          mode,
+		DisplayIndex:  captureIdx,
+		DisplayBounds: displays[captureIdx].Bounds,
+		Width:         resW,
+		Height:        resH,
+	}, nil
+}

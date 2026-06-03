@@ -3,7 +3,6 @@ module github.com/subhashraveendran/vior
 go 1.25.6
 
 require (
-	gioui.org v0.9.0
 	github.com/google/gousb v1.1.3
 	github.com/gorilla/websocket v1.5.3
 	github.com/kbinani/screenshot v0.0.0-20250624051815-089614a94018
@@ -14,12 +13,10 @@ require (
 )
 
 require (
-	gioui.org/shader v1.0.8 // indirect
 	git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 // indirect
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/gen2brain/shm v0.1.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
-	github.com/go-text/typesetting v0.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -45,7 +42,6 @@ require (
 	github.com/wailsapp/go-webview2 v1.0.22 // indirect
 	github.com/wailsapp/mimetype v1.4.1 // indirect
 	golang.org/x/crypto v0.33.0 // indirect
-	golang.org/x/exp/shiny v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
 	golang.org/x/net v0.35.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.37.0 // indirect

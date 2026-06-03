@@ -9,10 +9,13 @@ import (
 )
 
 var (
-	user32    = syscall.NewLazyDLL("user32.dll")
-	sendInput = user32.NewProc("SendInput")
-	setCursor = user32.NewProc("SetCursorPos")
+	user32       = syscall.NewLazyDLL("user32.dll")
+	sendInput    = user32.NewProc("SendInput")
+	setCursor    = user32.NewProc("SetCursorPos")
+	getCursorPos = user32.NewProc("GetCursorPos")
 )
+
+type winPoint struct{ X, Y int32 }
 
 const (
 	inputMouse    = 0
@@ -132,6 +135,12 @@ func (c *winController) Scroll(dx, dy int) error {
 		callSendInput(makeMouseInput(mouseeventfHWheel, uintptr(int32(dx)*120)))
 	}
 	return nil
+}
+
+func (c *winController) CurrentMousePos() (int, int, error) {
+	var p winPoint
+	getCursorPos.Call(uintptr(unsafe.Pointer(&p)))
+	return int(p.X), int(p.Y), nil
 }
 
 var _ Controller = (*winController)(nil)

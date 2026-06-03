@@ -45,6 +45,27 @@ func (t *TouchMapper) HandleScroll(dx, dy float64) error {
 	return t.controller.Scroll(int(dx), int(dy))
 }
 
+// HandleMouse processes a relative-mouse event from the Remote tab.
+// Supports: action "move" (dx/dy relative), "click", "rightclick", "middleclick".
+func (t *TouchMapper) HandleMouse(action string, dx, dy float64) error {
+	switch action {
+	case "move":
+		x, y, err := t.controller.CurrentMousePos()
+		if err != nil {
+			return err
+		}
+		return t.controller.MoveMouse(x+int(dx), y+int(dy))
+	case "click":
+		return t.controller.Click(ButtonLeft)
+	case "rightclick":
+		return t.controller.Click(ButtonRight)
+	case "middleclick":
+		return t.controller.Click(ButtonMiddle)
+	default:
+		return fmt.Errorf("unknown mouse action: %s", action)
+	}
+}
+
 // SetDisplayBounds updates the display bounds (e.g. after display reconfiguration).
 func (t *TouchMapper) SetDisplayBounds(bounds image.Rectangle) {
 	t.displayBounds = bounds

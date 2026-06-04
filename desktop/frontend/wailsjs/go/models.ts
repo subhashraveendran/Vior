@@ -99,6 +99,7 @@ export namespace main {
 	    usbAvailable: boolean;
 	    usbConnected: boolean;
 	    uptime: number;
+	    pairCode: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ServerStatus(source);
@@ -115,6 +116,7 @@ export namespace main {
 	        this.usbAvailable = source["usbAvailable"];
 	        this.usbConnected = source["usbConnected"];
 	        this.uptime = source["uptime"];
+	        this.pairCode = source["pairCode"];
 	    }
 	}
 	export class StreamConfig {
@@ -258,6 +260,7 @@ export namespace protocol {
 	    dpr: number;
 	    name: string;
 	    mode: string;
+	    pairCode?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new HelloMessage(source);
@@ -270,6 +273,7 @@ export namespace protocol {
 	        this.dpr = source["dpr"];
 	        this.name = source["name"];
 	        this.mode = source["mode"];
+	        this.pairCode = source["pairCode"];
 	    }
 	}
 	export class InputMessage {

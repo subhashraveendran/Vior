@@ -535,13 +535,33 @@
   .accent-swatch {
     flex: 1; height: 48px; border-radius: var(--r-sm);
     background: var(--swatch-color); border: 1px solid var(--border);
-    display: grid; place-items: center; cursor: pointer;
+    display: grid; place-items: center; cursor: pointer; color: #12100c;
     transition: transform .14s, border-color .14s;
   }
   .accent-swatch:active { transform: scale(0.96); }
   .accent-swatch.active { border: 2px solid var(--text-1); }
-  .accent-swatch::after { content: ''; display: block; width: 20px; height: 20px; background-image: var(--check-bg); opacity: 0; }
-  .accent-swatch.active::after { opacity: 1; }
+  .accent-swatch svg { opacity: 0; }
+  .accent-swatch.active svg { opacity: 1; }
+
+  /* ── Style remaps ── */
+  [data-vior-style="instrument"] {
+    --r-xs: 2px; --r-sm: 3px; --r: 4px; --r-lg: 6px;
+    --border: rgba(255,255,255,0.10); --border-strong: rgba(255,255,255,0.18);
+    --surface-1: #0f1318; --surface-2: #141a20; --surface-3: #1b232b;
+  }
+  [data-vior-style="soft"] {
+    --bg: #100d0c; --surface-0: #100d0c;
+    --surface-1: #1a1614; --surface-2: #211b18; --surface-3: #2b231f;
+    --border: rgba(255,255,255,0.07); --border-strong: rgba(255,255,255,0.13);
+    --text-2: #a89e96; --text-3: #6e645c;
+    --r-xs: 8px; --r-sm: 12px; --r: 16px; --r-lg: 22px;
+  }
+  [data-vior-density="compact"] { --sp: 3.4px; }
+  [data-vior-density="comfy"]   { --sp: 4.8px; }
+  [data-vior-motion="off"] *, [data-vior-motion="off"] *::before, [data-vior-motion="off"] *::after {
+    animation: none !important; transition-duration: 0.001ms !important;
+  }
+  [data-vior-motion="subtle"] * { animation-duration: 2s !important; }
 
   /* ── Radar (loading discovery) ── */
   .radar-search {
@@ -915,6 +935,7 @@
       </button>
     </div>
     <div class="sheet-body">
+      <div id="settings-main">
       <div class="section-label">Stream quality</div>
       <div class="seg" id="seg-preset" style="grid-template-columns: repeat(3, 1fr);">
         <button class="seg-btn" data-preset="performance"><div class="seg-btn-row"><span>Performance</span></div><div class="seg-sub" style="margin-left: 0;">Lower latency</div></button>
@@ -936,16 +957,6 @@
           </label>
         </div>
       </div>
-      <div class="section-label" style="margin-top: 22px;">Accent</div>
-      <div class="card" style="overflow: hidden; padding: 15px;">
-        <div style="display: flex; gap: 10px;" id="accent-row">
-          <button class="accent-swatch" data-accent="#ff8a4c" data-on="#1a0e06" title="Orange"></button>
-          <button class="accent-swatch" data-accent="#4cc2ff" data-on="#06121a" title="Blue"></button>
-          <button class="accent-swatch" data-accent="#46d39a" data-on="#06140e" title="Green"></button>
-          <button class="accent-swatch" data-accent="#e8e8ea" data-on="#0b0d10" title="White"></button>
-        </div>
-      </div>
-
       <div class="section-label" style="margin-top: 22px;">About</div>
       <div class="card" style="overflow: hidden;">
         <div style="display: flex; align-items: center; padding: 15px; gap: 13px;">
@@ -960,7 +971,80 @@
           </div>
         </div>
       </div>
-    </div>
+
+      <div class="section-label" style="margin-top: 22px;">Appearance</div>
+      <button class="card" id="open-appearance" style="width: 100%; text-align: left; cursor: pointer; border: 1px solid var(--border); padding: 15px; display: flex; align-items: center; gap: 13px; background: var(--surface-1);">
+        <span style="width: 34px; height: 34px; flex: none; border-radius: var(--r-sm); background: var(--accent); display: grid; place-items: center; color: var(--on-accent);">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        </span>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 14px; font-weight: 600; color: var(--text-1);">Theme &amp; motion</div>
+          <div class="mono" style="font-size: 11.5px; color: var(--text-3); margin-top: 2px; text-transform: capitalize;" id="appearance-summary">precise · orange · regular · expressive</div>
+        </div>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-3);"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+      </div>
+      <!-- /#settings-main -->
+
+      <!-- ── Appearance subscreen ── -->
+      <div id="appearance-view" class="hidden" style="padding: 16px;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+          <button id="appearance-back" style="width: 38px; height: 38px; flex: none; border-radius: var(--r-sm); background: var(--surface-2); border: 1px solid var(--border); color: var(--text-1); display: grid; place-items: center; cursor: pointer;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div style="flex: 1;">
+            <div style="font-size: 17px; font-weight: 600; color: var(--text-1);">Appearance</div>
+            <div style="font-size: 12.5px; color: var(--text-3); margin-top: 1px;">Theme, accent, density &amp; motion</div>
+          </div>
+        </div>
+
+        <div class="section-label">Preview</div>
+        <div class="inset" style="padding: 14px; display: flex; align-items: center; gap: 12px;">
+          <span class="glyph" style="width: 26px; height: 26px;">
+            <span class="g-screen" style="width: 19.5px; height: 14px; border-radius: 4px;"></span>
+            <span class="g-stand" style="width: 6.5px; height: 2px; top: 17px; left: 6.5px;"></span>
+            <span class="g-phone" style="width: 10px; height: 15.5px; border-radius: 3px;"></span>
+          </span>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+            <span style="height: 7px; width: 72%; border-radius: var(--r-pill); background: var(--text-3);"></span>
+            <span style="height: 7px; width: 46%; border-radius: var(--r-pill); background: var(--surface-3);"></span>
+          </div>
+          <span style="display: inline-flex; align-items: center; gap: 7px; padding: 8px 13px; border-radius: var(--r); background: var(--accent); color: var(--on-accent); font-size: 12.5px; font-weight: 600;">
+            <span class="dot dot-pulse" style="background: var(--on-accent);"></span>Connect
+          </span>
+        </div>
+
+        <div class="section-label" style="margin-top: 20px;">Style</div>
+        <div class="seg" id="seg-style" style="grid-template-columns: repeat(3, 1fr);">
+          <button class="seg-btn" data-style="precise"><div class="seg-btn-row"><span>Precise</span></div></button>
+          <button class="seg-btn" data-style="instrument"><div class="seg-btn-row"><span>Instrument</span></div></button>
+          <button class="seg-btn" data-style="soft"><div class="seg-btn-row"><span>Soft</span></div></button>
+        </div>
+
+        <div class="section-label" style="margin-top: 18px;">Accent</div>
+        <div style="display: flex; gap: 10px;" id="accent-row">
+          <button class="accent-swatch" data-accent="#ff8a4c" data-on="#1a0e06" title="Orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l4.5 4.5L19.5 6.5"/></svg></button>
+          <button class="accent-swatch" data-accent="#4cc2ff" data-on="#06121a" title="Blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l4.5 4.5L19.5 6.5"/></svg></button>
+          <button class="accent-swatch" data-accent="#46d39a" data-on="#06140e" title="Green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l4.5 4.5L19.5 6.5"/></svg></button>
+          <button class="accent-swatch" data-accent="#e8e8ea" data-on="#0b0d10" title="White"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l4.5 4.5L19.5 6.5"/></svg></button>
+        </div>
+
+        <div class="section-label" style="margin-top: 18px;">Density</div>
+        <div class="seg" id="seg-density" style="grid-template-columns: repeat(3, 1fr);">
+          <button class="seg-btn" data-density="compact"><div class="seg-btn-row"><span>Compact</span></div></button>
+          <button class="seg-btn" data-density="regular"><div class="seg-btn-row"><span>Regular</span></div></button>
+          <button class="seg-btn" data-density="comfy"><div class="seg-btn-row"><span>Comfy</span></div></button>
+        </div>
+
+        <div class="section-label" style="margin-top: 18px;">Motion</div>
+        <div class="seg" id="seg-motion" style="grid-template-columns: repeat(3, 1fr);">
+          <button class="seg-btn" data-motion="expressive"><div class="seg-btn-row"><span>Expressive</span></div></button>
+          <button class="seg-btn" data-motion="subtle"><div class="seg-btn-row"><span>Subtle</span></div></button>
+          <button class="seg-btn" data-motion="off"><div class="seg-btn-row"><span>Off</span></div></button>
+        </div>
+
+        <button class="btn btn-primary btn-block" id="appearance-done" style="margin-top: 26px;">Done</button>
+      </div>
   </div>
 </div>
 
@@ -1721,9 +1805,37 @@
   }
   document.querySelectorAll('.accent-swatch').forEach(function (b) {
     b.style.setProperty('--swatch-color', b.dataset.accent);
-    b.addEventListener('click', function () { applyAccent(b.dataset.accent); });
+    b.addEventListener('click', function () { applyAccent(b.dataset.accent); updateAppearanceSummary(); });
   });
   applyAccent(localStorage.getItem('vior_accent') || '#ff8a4c');
+
+  // ── Appearance subscreen ──
+  function applyStyle(v) { document.documentElement.setAttribute('data-vior-style', v); localStorage.setItem('vior_style', v); setSegActive('seg-style', 'style', v); }
+  function applyDensity(v) { document.documentElement.setAttribute('data-vior-density', v); localStorage.setItem('vior_density', v); setSegActive('seg-density', 'density', v); }
+  function applyMotion(v) { document.documentElement.setAttribute('data-vior-motion', v); localStorage.setItem('vior_motion', v); setSegActive('seg-motion', 'motion', v); }
+  function setSegActive(segId, attr, v) {
+    var seg = $(segId); if (!seg) return;
+    seg.querySelectorAll('.seg-btn').forEach(function (b) { b.classList.toggle('active', b.dataset[attr] === v); });
+  }
+  function updateAppearanceSummary() {
+    var style = localStorage.getItem('vior_style') || 'precise';
+    var density = localStorage.getItem('vior_density') || 'regular';
+    var motion = localStorage.getItem('vior_motion') || 'expressive';
+    var hex = (localStorage.getItem('vior_accent') || '#ff8a4c').toLowerCase();
+    var name = { '#ff8a4c': 'orange', '#4cc2ff': 'blue', '#46d39a': 'green', '#e8e8ea': 'white' }[hex] || 'custom';
+    var sum = $('appearance-summary'); if (sum) sum.textContent = style + ' · ' + name + ' · ' + density + ' · ' + motion;
+  }
+  document.querySelectorAll('#seg-style .seg-btn').forEach(function (b) { b.addEventListener('click', function () { applyStyle(b.dataset.style); updateAppearanceSummary(); }); });
+  document.querySelectorAll('#seg-density .seg-btn').forEach(function (b) { b.addEventListener('click', function () { applyDensity(b.dataset.density); updateAppearanceSummary(); }); });
+  document.querySelectorAll('#seg-motion .seg-btn').forEach(function (b) { b.addEventListener('click', function () { applyMotion(b.dataset.motion); updateAppearanceSummary(); }); });
+  applyStyle(localStorage.getItem('vior_style') || 'precise');
+  applyDensity(localStorage.getItem('vior_density') || 'regular');
+  applyMotion(localStorage.getItem('vior_motion') || 'expressive');
+  updateAppearanceSummary();
+
+  $('open-appearance').addEventListener('click', function () { $('settings-main').classList.add('hidden'); $('appearance-view').classList.remove('hidden'); });
+  $('appearance-back').addEventListener('click', function () { $('appearance-view').classList.add('hidden'); $('settings-main').classList.remove('hidden'); });
+  $('appearance-done').addEventListener('click', function () { $('appearance-view').classList.add('hidden'); $('settings-main').classList.remove('hidden'); });
 
   // auto-connect toggle
   var ac = $('auto-connect-toggle');

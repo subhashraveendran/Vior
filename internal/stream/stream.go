@@ -4,6 +4,8 @@ package stream
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net"
@@ -18,6 +20,21 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/subhashraveendran/vior/internal/protocol"
 )
+
+// pairCode is a short hex string generated at server start. Printed to the
+// terminal and exposed via /info + embedded in the QR for verification.
+var pairCode = generatePairCode()
+
+func generatePairCode() string {
+	b := make([]byte, 3)
+	if _, err := rand.Read(b); err != nil {
+		return "000000"
+	}
+	return strings.ToUpper(hex.EncodeToString(b))
+}
+
+// PairCode returns the active 6-char hex pair code.
+func PairCode() string { return pairCode }
 
 const (
 	// maxClients limits concurrent MJPEG stream connections.
@@ -315,7 +332,7 @@ func (s *MJPEGServer) handleStream(w http.ResponseWriter, r *http.Request) {
 func (s *MJPEGServer) handleInfo(w http.ResponseWriter, r *http.Request) {
 	name := friendlyDeviceName()
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, `{"name":"%s","version":"%s","platform":"%s"}`, name, "0.1.0", friendlyPlatform())
+	fmt.Fprintf(w, `{"name":"%s","version":"%s","platform":"%s","pairCode":"%s"}`, name, "0.1.0", friendlyPlatform(), pairCode)
 }
 
 func friendlyDeviceName() string {

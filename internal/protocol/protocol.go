@@ -30,11 +30,12 @@ type Envelope struct {
 // HelloMessage is sent by the client after WebSocket connection.
 // It reports the client device's screen dimensions.
 type HelloMessage struct {
-	Width  int     `json:"width"`
-	Height int     `json:"height"`
-	DPR    float64 `json:"dpr"`
-	Name   string  `json:"name"`
-	Mode   string  `json:"mode"` // "extend" or "mirror"
+	Width    int     `json:"width"`
+	Height   int     `json:"height"`
+	DPR      float64 `json:"dpr"`
+	Name     string  `json:"name"`
+	Mode     string  `json:"mode"` // "extend" or "mirror"
+	PairCode string  `json:"pairCode,omitempty"`
 }
 
 // ReadyMessage is sent by the server after virtual display creation succeeds.

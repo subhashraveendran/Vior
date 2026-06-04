@@ -198,6 +198,9 @@ func (a *App) GetServerStatus() ServerStatus {
 	s.USBAvailable = usbStatus.Available
 	s.USBConnected = usbStatus.Connected
 
+	// Pair code (printed alongside URL for trusted-network pairing).
+	s.PairCode = stream.PairCode()
+
 	return s
 }
 
@@ -620,6 +623,7 @@ type ServerStatus struct {
 	USBAvailable  bool   `json:"usbAvailable"`
 	USBConnected  bool   `json:"usbConnected"`
 	Uptime        int    `json:"uptime"`
+	PairCode      string `json:"pairCode"`
 }
 
 // ── File Transfer ───────────────────────────────────────────────────

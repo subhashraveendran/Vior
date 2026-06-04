@@ -159,6 +159,12 @@ function WaitingScreen({ status, onStop, onCopy }) {
             <span className="mono" style={{ fontSize: 17, fontWeight: 500 }}>{url || `:${status?.port}`}</span>
             <button className="btn btn-ghost btn-sm" onClick={onCopy}>{Icons.copy(15)}Copy</button>
           </div>
+          {status?.pairCode && (
+            <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+              <div className="label" style={{ marginBottom: 6 }}>Pair code</div>
+              <span className="mono" style={{ fontSize: 22, fontWeight: 600, letterSpacing: '0.18em', color: 'var(--accent)' }}>{status.pairCode}</span>
+            </div>
+          )}
           <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
           <div style={{ display: 'flex', gap: 18 }}>
             <button style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)', fontSize: 13, fontWeight: 600 }}>{Icons.usb(16)} Connect via USB</button>
@@ -323,6 +329,85 @@ function applyAccent(hex) {
   localStorage.setItem('vior_accent', p.hex)
 }
 
+// ── Theme/Appearance popup ──
+function AppearancePanel({ accent, setAccent, onClose }) {
+  const [style, setStyle] = useState(localStorage.getItem('vior_style') || 'precise')
+  const [density, setDensity] = useState(localStorage.getItem('vior_density') || 'regular')
+  const [motion, setMotion] = useState(localStorage.getItem('vior_motion') || 'expressive')
+  useEffect(() => {
+    document.documentElement.setAttribute('data-vior-style', style); localStorage.setItem('vior_style', style)
+  }, [style])
+  useEffect(() => {
+    document.documentElement.setAttribute('data-vior-density', density); localStorage.setItem('vior_density', density)
+  }, [density])
+  useEffect(() => {
+    document.documentElement.setAttribute('data-vior-motion', motion); localStorage.setItem('vior_motion', motion)
+  }, [motion])
+  const Seg = ({ value, onChange, opts }) => (
+    <div className="seg" style={{ gridTemplateColumns: `repeat(${opts.length},1fr)` }}>
+      {opts.map(o => (
+        <button key={o} className={`seg-btn ${value === o ? 'active' : ''}`} onClick={() => onChange(o)}>
+          <div className="seg-row"><span style={{ textTransform: 'capitalize' }}>{o}</span></div>
+        </button>
+      ))}
+    </div>
+  )
+  return (
+    <div className="scroll settings-wrap">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ width: 38, padding: 0, minHeight: 38 }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 17, fontWeight: 600 }}>Appearance</div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-3)', marginTop: 1 }}>Theme, accent, density &amp; motion</div>
+        </div>
+      </div>
+
+      <div className="label" style={{ marginBottom: 12 }}>Preview</div>
+      <div className="inset" style={{ padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Glyph size={26} />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span style={{ height: 7, width: '72%', borderRadius: 'var(--r-pill)', background: 'var(--text-3)' }} />
+          <span style={{ height: 7, width: '46%', borderRadius: 'var(--r-pill)', background: 'var(--surface-3)' }} />
+        </div>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 'var(--r)', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 12.5, fontWeight: 600 }}>
+          <span className="dot dot-pulse" style={{ background: 'var(--on-accent)' }} /> Connect
+        </span>
+      </div>
+
+      <div className="label" style={{ marginTop: 20, marginBottom: 12 }}>Style</div>
+      <Seg value={style} onChange={setStyle} opts={['precise', 'instrument', 'soft']} />
+
+      <div className="label" style={{ marginTop: 18, marginBottom: 12 }}>Accent</div>
+      <div style={{ display: 'flex', gap: 10 }}>
+        {ACCENTS.map(a => (
+          <button key={a.hex} title={a.name}
+            onClick={() => { applyAccent(a.hex); setAccent(a.hex) }}
+            style={{
+              flex: 1, height: 48, borderRadius: 'var(--r-sm)', cursor: 'pointer',
+              background: a.hex,
+              border: accent === a.hex ? '2px solid var(--text-1)' : '1px solid var(--border)',
+              display: 'grid', placeItems: 'center', color: a.on,
+            }}>
+            {accent === a.hex && Icons.check(18)}
+          </button>
+        ))}
+      </div>
+
+      <div className="label" style={{ marginTop: 18, marginBottom: 12 }}>Density</div>
+      <Seg value={density} onChange={setDensity} opts={['compact', 'regular', 'comfy']} />
+
+      <div className="label" style={{ marginTop: 18, marginBottom: 12 }}>Motion</div>
+      <Seg value={motion} onChange={setMotion} opts={['expressive', 'subtle', 'off']} />
+
+      <button className="btn btn-primary btn-block" style={{ marginTop: 26 }} onClick={onClose}>Done</button>
+    </div>
+  )
+}
+
+const accentName = (hex) => (ACCENTS.find(a => a.hex.toLowerCase() === (hex || '').toLowerCase())?.name) || 'Custom'
+
 // ── Settings ──
 function SettingsScreen({ config, onChange, accent, setAccent }) {
   const presets = [
@@ -339,7 +424,14 @@ function SettingsScreen({ config, onChange, accent, setAccent }) {
   const cur = presets.find(p => p.q === config.quality && p.f === config.frameRate)?.id || 'balanced'
   const [res, setRes] = useState('auto')
   const [usb, setUsb] = useState(true)
-  const [auto, setAuto] = useState(true)
+  const [adb, setAdb] = useState(true)
+  const [appearance, setAppearance] = useState(false)
+  const style = localStorage.getItem('vior_style') || 'precise'
+  const density = localStorage.getItem('vior_density') || 'regular'
+  const motion = localStorage.getItem('vior_motion') || 'expressive'
+
+  if (appearance) return <AppearancePanel accent={accent} setAccent={setAccent} onClose={() => setAppearance(false)} />
+
   return (
     <div className="scroll settings-wrap">
       <div className="label" style={{ marginBottom: 12 }}>Stream quality</div>
@@ -382,22 +474,6 @@ function SettingsScreen({ config, onChange, accent, setAccent }) {
         ))}
       </div>
 
-      <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>Accent</div>
-      <div className="card" style={{ padding: 15, display: 'flex', gap: 10 }}>
-        {ACCENTS.map(a => (
-          <button key={a.hex} title={a.name}
-            onClick={() => { applyAccent(a.hex); setAccent(a.hex) }}
-            style={{
-              flex: 1, height: 48, borderRadius: 'var(--r-sm)', cursor: 'pointer',
-              background: a.hex,
-              border: accent === a.hex ? '2px solid var(--text-1)' : '1px solid var(--border)',
-              display: 'grid', placeItems: 'center', color: a.on,
-            }}>
-            {accent === a.hex && Icons.check(18)}
-          </button>
-        ))}
-      </div>
-
       <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>Connectivity</div>
       <div className="card">
         <div className="settings-row">
@@ -409,14 +485,37 @@ function SettingsScreen({ config, onChange, accent, setAccent }) {
             <span className="toggle-knob" style={{ transform: `translateX(${usb ? 17 : 0}px)` }} />
           </button>
         </div>
+      </div>
+
+      <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>Displays</div>
+      <div className="card">
+        <div className="settings-row">
+          <span style={{ color: 'var(--text-3)' }}>{Icons.monitor2(18)}</span>
+          <div className="settings-row-body">
+            <div className="settings-row-title">Built-in Retina Display</div>
+            <div className="settings-row-sub">2560 × 1600</div>
+          </div>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', padding: '4px 9px', borderRadius: 'var(--r-pill)', background: 'var(--accent-weak)' }}>Primary</span>
+        </div>
+        <div className="settings-row">
+          <span style={{ color: 'var(--text-3)' }}>{Icons.monitor2(18)}</span>
+          <div className="settings-row-body">
+            <div className="settings-row-title">DELL U2720Q</div>
+            <div className="settings-row-sub">3840 × 2160</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>USB / ADB</div>
+      <div className="card">
         <div className="settings-row">
           <div className="settings-row-body">
-            <div className="settings-row-title">Auto-start on launch</div>
-            <div className="settings-row-sub">Begin broadcasting when Vior opens</div>
+            <div className="settings-row-title">{adb ? '1 device attached' : 'No bridge installed'}</div>
+            <div className="settings-row-sub">{adb ? 'Pixel 8 Pro · usb-2' : 'platform-tools not found'}</div>
           </div>
-          <button className={`toggle ${auto ? 'toggle-on' : 'toggle-off'}`} onClick={() => setAuto(!auto)}>
-            <span className="toggle-knob" style={{ transform: `translateX(${auto ? 17 : 0}px)` }} />
-          </button>
+          {adb
+            ? <button className="btn btn-ghost btn-sm" onClick={() => setAdb(true)}>{Icons.refresh(17)} Restart</button>
+            : <button className="btn btn-primary btn-sm" onClick={() => setAdb(true)}>{Icons.download(17)} Install</button>}
         </div>
       </div>
 
@@ -428,9 +527,21 @@ function SettingsScreen({ config, onChange, accent, setAccent }) {
             <div className="settings-row-title">Vior</div>
             <div className="settings-row-sub">Phase 2 · open source</div>
           </div>
-          <a href="https://github.com/subhashraveendran/Vior" target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>GitHub</a>
+          <a href="https://github.com/subhashraveendran/Vior" target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>Check for updates</a>
         </div>
       </div>
+
+      <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>Appearance</div>
+      <button onClick={() => setAppearance(true)} className="card" style={{ width: '100%', textAlign: 'left', cursor: 'pointer' }}>
+        <div className="settings-row">
+          <span style={{ width: 34, height: 34, flex: 'none', borderRadius: 'var(--r-sm)', background: 'var(--accent)', display: 'grid', placeItems: 'center', color: 'var(--on-accent)' }}>{Icons.display(17)}</span>
+          <div className="settings-row-body">
+            <div className="settings-row-title">Theme &amp; motion</div>
+            <div className="settings-row-sub" style={{ textTransform: 'capitalize' }}>{style} · {accentName(accent)} · {density} · {motion}</div>
+          </div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-3)' }}><path d="M9 5l7 7-7 7"/></svg>
+        </div>
+      </button>
     </div>
   )
 }

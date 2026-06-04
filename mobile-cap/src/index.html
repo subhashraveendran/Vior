@@ -638,10 +638,18 @@
           <div class="empty-title">No servers found</div>
           <div class="empty-body">Make sure Vior is running on your computer and both devices share the same Wi-Fi network.</div>
         </div>
+        <button class="btn btn-primary btn-block" id="scan-qr-btn" style="margin-bottom: 14px;">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2M20 14v6M14 20h2"/></svg>
+          Scan QR Code
+        </button>
         <div class="section-label">Connect manually</div>
         <div class="field">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 14.5l5-5"/><path d="M8 11l-2 2a3.2 3.2 0 0 0 4.5 4.5l2-2"/><path d="M16 13l2-2A3.2 3.2 0 0 0 13.5 6.5l-2 2"/></svg>
           <input id="manual-ip" type="text" placeholder="192.168.1.24" inputmode="url">
+        </div>
+        <div class="field" style="margin-top: 10px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>
+          <input id="manual-pair" type="text" placeholder="Pair code (optional)" inputmode="text" maxlength="6" autocomplete="off" autocapitalize="characters" style="text-transform: uppercase; letter-spacing: 0.18em;">
         </div>
         <div style="display: flex; gap: 10px; margin-top: 14px;">
           <button class="btn btn-ghost btn-block" id="rescan-btn">
@@ -1151,6 +1159,34 @@
 
   $('disc-refresh').addEventListener('click', startDiscovery);
   $('rescan-btn').addEventListener('click', startDiscovery);
+
+  // ── QR scanner (Capacitor MLKit) ──
+  $('scan-qr-btn').addEventListener('click', async function () {
+    try {
+      var mlkit = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.BarcodeScanning;
+      if (!mlkit) { toast('error', 'Scanner unavailable', 'Plugin not installed.'); return; }
+      var perm = await mlkit.requestPermissions();
+      if (perm.camera !== 'granted') { toast('error', 'Camera denied', 'Allow camera in system settings.'); return; }
+      var result = await mlkit.scan({ formats: ['QR_CODE'] });
+      if (!result || !result.barcodes || !result.barcodes.length) return;
+      var raw = result.barcodes[0].rawValue || '';
+      // Parse URL or vior://host:port?pair=CODE
+      var url = raw, code = '';
+      var m = raw.match(/^vior:\/\/([\d.]+)(?::(\d+))?(?:\?pair=([A-F0-9]+))?/i);
+      if (m) { url = 'http://' + m[1] + ':' + (m[2] || '8080'); code = m[3] || ''; }
+      else {
+        var u = raw.match(/^https?:\/\/([\d.]+)(?::(\d+))?/i);
+        if (u) { url = 'http://' + u[1] + ':' + (u[2] || '8080'); }
+        var pm = raw.match(/[?&]pair=([A-F0-9]+)/i); if (pm) code = pm[1];
+      }
+      var hp = url.replace(/^https?:\/\//, '').split(':');
+      if (code) $('manual-pair').value = code.toUpperCase();
+      selectServer(hp[0], parseInt(hp[1] || '8080'), hp[0], '');
+      doConnect();
+    } catch (e) {
+      toast('error', 'Scan failed', String(e && e.message || e));
+    }
+  });
   $('manual-ip').addEventListener('input', function (e) { $('manual-go').disabled = !e.target.value.trim(); });
   $('manual-go').addEventListener('click', function () {
     var v = $('manual-ip').value.trim();
@@ -1185,9 +1221,10 @@
 
     ws.onopen = function () {
       var dpr = window.devicePixelRatio || 1;
+      var pair = ($('manual-pair') && $('manual-pair').value || '').toUpperCase().trim();
       ws.send(JSON.stringify({ type: 'hello', data: {
         width: Math.round(screen.width * dpr), height: Math.round(screen.height * dpr),
-        dpr: dpr, name: 'Vior Mobile', mode: selectedMode
+        dpr: dpr, name: 'Vior Mobile', mode: selectedMode, pairCode: pair
       }}));
     };
 

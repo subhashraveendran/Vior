@@ -330,7 +330,15 @@ function SettingsScreen({ config, onChange, accent, setAccent }) {
     { id: 'balanced', label: 'Balanced', sub: 'Recommended', q: 80, f: 30 },
     { id: 'quality', label: 'Quality', sub: 'Sharper image', q: 92, f: 30 },
   ]
+  const resolutions = [
+    { id: 'auto', label: 'Auto', sub: 'Match the display' },
+    { id: '2560', label: '2560 × 1600', sub: 'Retina' },
+    { id: '1920', label: '1920 × 1200', sub: '' },
+    { id: '1280', label: '1280 × 800', sub: 'Bandwidth saver' },
+  ]
   const cur = presets.find(p => p.q === config.quality && p.f === config.frameRate)?.id || 'balanced'
+  const [res, setRes] = useState('auto')
+  const [usb, setUsb] = useState(true)
   const [auto, setAuto] = useState(true)
   return (
     <div className="scroll settings-wrap">
@@ -341,6 +349,35 @@ function SettingsScreen({ config, onChange, accent, setAccent }) {
             onClick={() => onChange({ ...config, quality: p.q, frameRate: p.f })}>
             <div className="seg-row"><span>{p.label}</span></div>
             <div className="seg-sub" style={{ marginLeft: 0 }}>{p.sub}</div>
+          </button>
+        ))}
+      </div>
+
+      <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>Resolution</div>
+      <div className="card" style={{ overflow: 'hidden' }}>
+        {resolutions.map((r, i) => (
+          <button key={r.id} onClick={() => setRes(r.id)} style={{
+            display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
+            padding: '13px 15px', background: res === r.id ? 'var(--accent-weak)' : 'transparent',
+            border: 'none', borderTop: i ? '1px solid var(--border)' : 'none', cursor: 'pointer',
+          }}>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--text-1)' }}>{r.label}</span>
+              {r.sub && <span className="mono" style={{ display: 'block', fontSize: 11.5, color: 'var(--text-3)', marginTop: 2 }}>{r.sub}</span>}
+            </span>
+            {res === r.id
+              ? <span style={{ color: 'var(--accent)' }}>{Icons.check(18)}</span>
+              : <span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px solid var(--border-strong)', flex: 'none' }} />}
+          </button>
+        ))}
+      </div>
+
+      <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>Frame rate</div>
+      <div className="seg" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        {['30', '60'].map(v => (
+          <button key={v} className={`seg-btn ${String(config.frameRate) === v ? 'active' : ''}`}
+            onClick={() => onChange({ ...config, frameRate: parseInt(v) })}>
+            <div className="seg-row"><span>{v} fps</span></div>
           </button>
         ))}
       </div>
@@ -363,6 +400,15 @@ function SettingsScreen({ config, onChange, accent, setAccent }) {
 
       <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>Connectivity</div>
       <div className="card">
+        <div className="settings-row">
+          <div className="settings-row-body">
+            <div className="settings-row-title">Allow USB connections</div>
+            <div className="settings-row-sub">Connect over cable when Wi-Fi drops</div>
+          </div>
+          <button className={`toggle ${usb ? 'toggle-on' : 'toggle-off'}`} onClick={() => setUsb(!usb)}>
+            <span className="toggle-knob" style={{ transform: `translateX(${usb ? 17 : 0}px)` }} />
+          </button>
+        </div>
         <div className="settings-row">
           <div className="settings-row-body">
             <div className="settings-row-title">Auto-start on launch</div>

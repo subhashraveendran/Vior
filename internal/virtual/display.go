@@ -17,17 +17,6 @@ type Info struct {
 	HiDPI       bool
 }
 
-// DefaultForResolution returns config matching a target device resolution.
-// For example, an iPhone 15 Pro (1179×2556) → virtual display at 393×852 logical.
-func DefaultForResolution(width, height uint32) Info {
-	return Info{
-		Width:       width,
-		Height:      height,
-		RefreshRate: 60,
-		HiDPI:       false,
-	}
-}
-
 // CreateVirtualDisplay creates a virtual display suitable for streaming to a
 // phone or tablet, matching the target device's dimensions.
 //

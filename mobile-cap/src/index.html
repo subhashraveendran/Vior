@@ -1190,6 +1190,10 @@
   // ── Tab switch ──
   function switchTab(name) {
     currentTab = name;
+    // Always release camera when navigating away — leaving the scanner
+    // hot in the background is what causes the next acquire to fail with
+    // NotReadableError. `stopQRScan` is defined later and is idempotent.
+    if (typeof stopQRScan === 'function') stopQRScan();
     var items = document.querySelectorAll('.tab-item');
     for (var i = 0; i < items.length; i++) items[i].classList.toggle('active', items[i].dataset.tab === name);
     var panes = document.querySelectorAll('.pane');
@@ -1364,16 +1368,66 @@
     doConnect();
   }
   function stopQRScan() {
+    // Idempotent — safe to call from anywhere (cancel button, error path,
+    // tab switch, visibilitychange, pagehide, successful detect). Without
+    // this guard, double-invocation could fight with an in-flight start.
+    if (!qrRunning && !qrStream) { $('qr-modal').classList.add('hidden'); return; }
     qrRunning = false;
-    if (qrStream) { qrStream.getTracks().forEach(function (t) { t.stop(); }); qrStream = null; }
+    if (qrStream) {
+      try { qrStream.getTracks().forEach(function (t) { try { t.stop(); } catch (_) {} }); } catch (_) {}
+      qrStream = null;
+    }
+    var v = $('qr-video');
+    if (v) { try { v.pause(); } catch (_) {} v.srcObject = null; }
     $('qr-modal').classList.add('hidden');
+  }
+  // Layered camera acquisition: try the strictest constraint first so we
+  // get the rear camera on multi-camera devices, then fall back. Honor
+  // tablets often refuse `facingMode: { exact: 'environment' }` with
+  // OverconstrainedError; the fallback paths handle that.
+  async function acquireCamera() {
+    var tries = [
+      { video: { facingMode: { exact: 'environment' } } },
+      { video: { facingMode: 'environment' } },
+      { video: true }
+    ];
+    var lastErr;
+    for (var i = 0; i < tries.length; i++) {
+      try { return await navigator.mediaDevices.getUserMedia(tries[i]); }
+      catch (e) {
+        lastErr = e;
+        // Only iterate on constraint-shape errors — other errors (permission,
+        // hardware busy, missing device) will not be solved by relaxing.
+        if (e && e.name !== 'OverconstrainedError' && e.name !== 'TypeError') break;
+      }
+    }
+    throw lastErr;
   }
   async function startQRScan() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       toast('error', 'Camera unsupported', 'getUserMedia unavailable on this WebView.'); return;
     }
+    // jsQR is loaded with `defer` — if the user taps Scan QR before the
+    // script finishes parsing, jsQR will be undefined. Wait for load.
+    if (!window.jsQR && !('BarcodeDetector' in window)) {
+      await new Promise(function (r) {
+        if (document.readyState === 'complete') r();
+        else window.addEventListener('load', r, { once: true });
+      });
+    }
     try {
-      qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      try {
+        qrStream = await acquireCamera();
+      } catch (e1) {
+        // NotReadableError typically means the camera device is held by a
+        // previous (un-stopped) MediaStreamTrack in this WebView. Tear down
+        // any stale stream and retry once after a short delay.
+        if (e1 && e1.name === 'NotReadableError') {
+          stopQRScan();
+          await new Promise(function (r) { setTimeout(r, 250); });
+          qrStream = await acquireCamera();
+        } else { throw e1; }
+      }
       var video = $('qr-video');
       video.srcObject = qrStream;
       await video.play();
@@ -1389,6 +1443,8 @@
       var name = (e && e.name) || '';
       if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
         toast('error', 'Camera blocked', 'Allow camera in System Settings → Apps → Vior.');
+      } else if (name === 'NotReadableError') {
+        toast('error', 'Camera busy', 'Camera in use by another app — close it and retry.');
       } else if (name === 'NotFoundError') {
         toast('error', 'No camera', 'No camera device found.');
       } else {
@@ -1424,6 +1480,12 @@
   }
   $('scan-qr-btn').addEventListener('click', startQRScan);
   $('qr-cancel').addEventListener('click', stopQRScan);
+  // Release the camera whenever the page is backgrounded or torn down —
+  // Android WebView does not automatically stop MediaStreamTracks when
+  // the app goes to the background, and a lingering track will refuse
+  // the next acquire with NotReadableError.
+  document.addEventListener('visibilitychange', function () { if (document.hidden) stopQRScan(); });
+  window.addEventListener('pagehide', stopQRScan);
   $('manual-ip').addEventListener('input', function (e) { $('manual-go').disabled = !e.target.value.trim(); });
   $('manual-go').addEventListener('click', function () {
     var v = $('manual-ip').value.trim();

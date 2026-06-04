@@ -9,7 +9,6 @@ import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.PermissionRequest;
-import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 
 import androidx.core.app.ActivityCompat;
@@ -19,6 +18,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.BridgeWebChromeClient;
 
 /**
  * Main activity — handles both normal launch and USB accessory auto-launch.
@@ -117,13 +117,39 @@ public class MainActivity extends BridgeActivity {
                     new String[]{Manifest.permission.CAMERA}, 1001);
         }
 
-        // Auto-grant WebView resource requests (camera/mic) — required for
-        // navigator.mediaDevices.getUserMedia inside the Capacitor WebView.
+        // Install a WebChromeClient that preserves Capacitor's full behaviour
+        // (file uploads, dialogs, permission flow) but ensures camera/mic
+        // resource requests are honoured. We extend BridgeWebChromeClient
+        // rather than replacing it with a raw WebChromeClient — replacing it
+        // breaks the Capacitor bridge in subtle ways (dialogs, geolocation,
+        // file chooser) and skips the runtime CAMERA permission check, which
+        // is why getUserMedia was failing with NotReadableError on Android 15
+        // ("cannot open camera \"0\" without camera permission").
         WebView wv = getBridge().getWebView();
-        wv.setWebChromeClient(new WebChromeClient() {
+        wv.setWebChromeClient(new BridgeWebChromeClient(getBridge()) {
             @Override
-            public void onPermissionRequest(PermissionRequest request) {
-                runOnUiThread(() -> request.grant(request.getResources()));
+            public void onPermissionRequest(final PermissionRequest request) {
+                // If the CAMERA runtime permission is already granted we can
+                // short-circuit and grant immediately, avoiding a second
+                // prompt for the same permission inside the WebView.
+                String[] res = request.getResources();
+                boolean wantsCamera = false;
+                for (String r : res) {
+                    if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(r)) {
+                        wantsCamera = true;
+                        break;
+                    }
+                }
+                if (wantsCamera && ContextCompat.checkSelfPermission(
+                        MainActivity.this, Manifest.permission.CAMERA)
+                        == PackageManager.PERMISSION_GRANTED) {
+                    runOnUiThread(() -> request.grant(res));
+                    return;
+                }
+                // Otherwise defer to Capacitor's implementation which routes
+                // through the modern ActivityResultLauncher and prompts for
+                // the underlying Android runtime permission as needed.
+                super.onPermissionRequest(request);
             }
         });
     }

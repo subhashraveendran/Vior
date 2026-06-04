@@ -1,458 +1,317 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vior — Extend Your View</title>
-    <meta name="description" content="Turn your phone or tablet into a second monitor. No cables. No app install. Just works.">
-    <style>
-        :root {
-            --bg: #0c0d12;
-            --surface: #14161c;
-            --border: #1e2029;
-            --text: #c9cdd3;
-            --text-dim: #5c6170;
-            --heading: #f0f1f3;
-            --primary: #6366f1;
-            --primary-light: #818cf8;
-            --green: #34d399;
-            --code-bg: #0f1117;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vior — Phone to Mac, Linux, Windows. One app.</title>
+<meta name="description" content="Vior turns your phone into a second display, trackpad, keyboard, and file drop for your Mac, Linux, or Windows computer. One app, no cables, no fuss.">
+<meta name="theme-color" content="#0b0d10">
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+<link rel="icon" type="image/png" href="img/icon.png">
+<link rel="apple-touch-icon" href="img/icon.png">
 
-        html {
-            background: var(--bg);
-            color: var(--text);
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-            font-size: 16px;
-            line-height: 1.7;
-            -webkit-font-smoothing: antialiased;
-            scroll-behavior: smooth;
-        }
+<meta property="og:title" content="Vior — Phone to Mac, Linux, Windows">
+<meta property="og:description" content="Extend display, file transfer, trackpad, keyboard, shortcuts. One app.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="img/icon.png">
+<meta name="twitter:card" content="summary_large_image">
 
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 0 24px;
-        }
-
-        /* Hero */
-        .hero {
-            text-align: center;
-            padding: 80px 0 60px;
-        }
-
-        .hero h1 {
-            font-size: 48px;
-            font-weight: 800;
-            letter-spacing: -1px;
-            background: linear-gradient(135deg, var(--primary-light), var(--primary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 12px;
-        }
-
-        .hero .tagline {
-            font-size: 20px;
-            color: var(--text-dim);
-            margin-bottom: 32px;
-        }
-
-        .hero .buttons {
-            display: flex;
-            gap: 12px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            padding: 12px 28px;
-            border-radius: 10px;
-            font-size: 15px;
-            font-weight: 600;
-            text-decoration: none;
-            transition: all 0.2s;
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            color: #fff;
-        }
-        .btn-primary:hover { background: #5b52e0; transform: translateY(-1px); }
-
-        .btn-secondary {
-            background: var(--surface);
-            color: var(--text);
-            border: 1px solid var(--border);
-        }
-        .btn-secondary:hover { border-color: var(--primary); color: var(--primary-light); }
-
-        /* Nav */
-        nav {
-            position: sticky;
-            top: 0;
-            background: rgba(12, 13, 18, 0.9);
-            backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--border);
-            z-index: 100;
-            padding: 12px 0;
-        }
-
-        nav .container {
-            display: flex;
-            align-items: center;
-            gap: 24px;
-        }
-
-        nav .logo {
-            font-size: 18px;
-            font-weight: 800;
-            color: var(--primary-light);
-            text-decoration: none;
-        }
-
-        nav a {
-            color: var(--text-dim);
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 500;
-            transition: color 0.15s;
-        }
-        nav a:hover { color: var(--heading); }
-
-        /* Sections */
-        section {
-            padding: 60px 0;
-            border-bottom: 1px solid var(--border);
-        }
-
-        h2 {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--heading);
-            margin-bottom: 24px;
-            letter-spacing: -0.5px;
-        }
-
-        h3 {
-            font-size: 18px;
-            font-weight: 600;
-            color: var(--heading);
-            margin: 24px 0 12px;
-        }
-
-        p { margin-bottom: 16px; }
-
-        /* Steps */
-        .steps {
-            counter-reset: step;
-            list-style: none;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .step {
-            counter-increment: step;
-            display: flex;
-            gap: 16px;
-            align-items: flex-start;
-        }
-
-        .step::before {
-            content: counter(step);
-            min-width: 32px;
-            height: 32px;
-            background: var(--primary);
-            color: #fff;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            font-weight: 700;
-            flex-shrink: 0;
-        }
-
-        .step-content h3 { margin-top: 2px; }
-
-        /* Code */
-        pre {
-            background: var(--code-bg);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 16px 20px;
-            overflow-x: auto;
-            font-family: "SF Mono", Menlo, monospace;
-            font-size: 14px;
-            line-height: 1.6;
-            margin: 16px 0;
-        }
-
-        code {
-            font-family: "SF Mono", Menlo, monospace;
-            font-size: 14px;
-            background: var(--code-bg);
-            padding: 2px 6px;
-            border-radius: 4px;
-        }
-
-        /* Cards */
-        .card-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 16px;
-            margin-top: 16px;
-        }
-
-        .card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 20px;
-        }
-
-        .card h3 { margin-top: 0; }
-        .card p { margin-bottom: 0; color: var(--text-dim); font-size: 14px; }
-
-        /* Table */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 16px 0;
-            font-size: 14px;
-        }
-
-        th, td {
-            padding: 10px 14px;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-        }
-
-        th {
-            color: var(--text-dim);
-            font-weight: 600;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        /* Footer */
-        footer {
-            padding: 40px 0;
-            text-align: center;
-            color: var(--text-dim);
-            font-size: 14px;
-        }
-
-        footer a { color: var(--primary-light); text-decoration: none; }
-
-        @media (max-width: 600px) {
-            .hero h1 { font-size: 36px; }
-            .hero .tagline { font-size: 16px; }
-            .card-grid { grid-template-columns: 1fr; }
-        }
-    </style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<nav>
-    <div class="container">
-        <a href="#" class="logo">Vior</a>
-        <a href="#install">Install</a>
-        <a href="#desktop">Desktop App</a>
-        <a href="#cli">CLI</a>
-        <a href="#phone">Phone Setup</a>
-        <a href="#features">Features</a>
-        <a href="https://github.com/subhashraveendran/Vior">GitHub</a>
+<!-- ── Nav ── -->
+<nav class="nav">
+  <div class="wrap nav-row">
+    <a href="#" class="nav-brand">
+      <span class="glyph">
+        <span class="g-screen"></span>
+        <span class="g-stand"></span>
+        <span class="g-phone"></span>
+      </span>
+      Vior
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#shots">Screens</a>
+      <a href="#how">How it works</a>
+      <a href="#platforms">Platforms</a>
+      <a href="https://github.com/subhashraveendran/Vior">GitHub</a>
+      <a href="https://github.com/subhashraveendran/Vior/releases" class="nav-cta">Download</a>
     </div>
+  </div>
 </nav>
 
-<div class="container">
+<!-- ── Hero ── -->
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <div class="eyebrow">
+        <span class="dot"></span> v0.4 · phase 2 shipped
+      </div>
 
-<div class="hero">
-    <h1>Vior</h1>
-    <p class="tagline">Turn your phone into a second monitor.<br>Stream, control, transfer — from any browser.</p>
-    <div class="buttons">
-        <a href="#install" class="btn btn-primary">Get Started</a>
-        <a href="https://github.com/subhashraveendran/Vior" class="btn btn-secondary">View on GitHub</a>
+      <div class="wordmark">
+        <span class="glyph big">
+          <span class="g-screen"></span>
+          <span class="g-stand"></span>
+          <span class="g-phone"></span>
+        </span>
+        <h1>Vior</h1>
+      </div>
+
+      <p class="tagline">
+        Phone <strong>→</strong> Mac, Linux, Windows.<br>
+        Extend display, file transfer, trackpad, keyboard, shortcuts.
+        <strong>One app.</strong>
+      </p>
+
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="https://github.com/subhashraveendran/Vior/releases">
+          Download
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v14"/><path d="m6 11 6 6 6-6"/><path d="M5 21h14"/></svg>
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/subhashraveendran/Vior">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a11.5 11.5 0 0 0-3.63 22.41c.57.1.79-.25.79-.56v-2c-3.21.7-3.89-1.37-3.89-1.37-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.69 1.25 3.34.96.1-.74.4-1.25.72-1.54-2.57-.29-5.26-1.28-5.26-5.7 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.18 1.84 1.18 3.1 0 4.43-2.69 5.4-5.26 5.69.41.35.78 1.04.78 2.11v3.13c0 .3.21.66.79.55A11.5 11.5 0 0 0 12 .5z"/></svg>
+          GitHub
+        </a>
+      </div>
+
+      <div class="hero-meta">
+        <span><span class="tick">✓</span> macOS</span>
+        <span><span class="tick">✓</span> Linux</span>
+        <span><span class="tick">✓</span> Windows</span>
+        <span><span class="tick">✓</span> Android</span>
+        <span class="mono">MIT licensed</span>
+      </div>
     </div>
-</div>
 
-<section id="install">
-    <h2>Installation</h2>
-
-    <h3>Option 1: Download Desktop App</h3>
-    <p>Download the latest release for your platform from <a href="https://github.com/subhashraveendran/Vior/releases" style="color: var(--primary-light)">GitHub Releases</a>.</p>
-
-    <h3>Option 2: Install CLI</h3>
-    <p>If you have Go installed:</p>
-    <pre>go install github.com/subhashraveendran/vior/cmd/vior@latest</pre>
-
-    <h3>Option 3: Build from Source</h3>
-    <pre>git clone https://github.com/subhashraveendran/Vior.git
-cd Vior
-make build      # CLI only
-make desktop    # Desktop app</pre>
-</section>
-
-<section id="desktop">
-    <h2>Desktop App — Step by Step</h2>
-
-    <ol class="steps">
-        <li class="step">
-            <div class="step-content">
-                <h3>Launch Vior</h3>
-                <p>Open the Vior app. You'll see the idle screen with a "Start Server" button.</p>
-            </div>
-        </li>
-        <li class="step">
-            <div class="step-content">
-                <h3>Start the Server</h3>
-                <p>Click <strong>Start Server</strong>. Vior picks a free port automatically and starts listening for connections. A QR code appears.</p>
-            </div>
-        </li>
-        <li class="step">
-            <div class="step-content">
-                <h3>Connect Your Phone</h3>
-                <p>On your phone, scan the QR code or click "Use web browser" to see the URL. Open it in any browser. The phone reports its screen dimensions automatically.</p>
-            </div>
-        </li>
-        <li class="step">
-            <div class="step-content">
-                <h3>Use It</h3>
-                <p>Vior creates a virtual display matching your phone's resolution. Drag windows onto it from your computer. Touch on the phone controls the cursor. Rotate for landscape.</p>
-            </div>
-        </li>
-        <li class="step">
-            <div class="step-content">
-                <h3>Transfer Files</h3>
-                <p>Switch to the <strong>Files</strong> tab in the connected view. Click <strong>Send File</strong> or drag files onto the app to transfer them to your phone.</p>
-            </div>
-        </li>
-        <li class="step">
-            <div class="step-content">
-                <h3>Disconnect</h3>
-                <p>Click <strong>Disconnect</strong> to stop. The virtual display is automatically removed.</p>
-            </div>
-        </li>
-    </ol>
-</section>
-
-<section id="cli">
-    <h2>CLI — Step by Step</h2>
-
-    <h3>Basic Usage</h3>
-    <pre># Start server — waits for phone to connect
-vior start
-
-# Phone connects → virtual display created → streaming begins
-# Press Ctrl+C to stop</pre>
-
-    <h3>Manual Resolution (Legacy Mode)</h3>
-    <pre># Skip WebSocket handshake, set resolution manually
-vior start --virtual-width 1179 --virtual-height 2556</pre>
-
-    <h3>USB Connection</h3>
-    <pre># Check ADB status
-vior usb status
-
-# Set up USB forwarding
-vior usb setup
-
-# Then start normally
-vior start</pre>
-
-    <h3>Display Management</h3>
-    <pre># List all displays
-vior displays
-
-# Mirror display 1 onto display 0
-vior display mirror --source 1 --target 0
-
-# Set display 1 to extended mode
-vior display extend 1</pre>
-
-    <h3>All Options</h3>
-    <pre>vior start [flags]
-  -p, --port int          Port (default: auto)
-  -q, --quality int       JPEG quality 1-100 (default: 80)
-  -f, --fps int           Frames per second (default: 30)
-  -d, --display int       Display index (default: 0)
-      --no-websocket      Legacy mode (no WebSocket handshake)
-      --no-discovery      Disable UDP broadcast</pre>
-</section>
-
-<section id="phone">
-    <h2>Phone / Tablet Setup</h2>
-
-    <h3>Web Browser (Any Device)</h3>
-    <ol class="steps">
-        <li class="step"><div class="step-content"><h3>Open Browser</h3><p>Open Safari, Chrome, or any browser on your phone.</p></div></li>
-        <li class="step"><div class="step-content"><h3>Enter URL or Scan QR</h3><p>Type the URL shown by Vior, or scan the QR code from the desktop app.</p></div></li>
-        <li class="step"><div class="step-content"><h3>Stream Starts</h3><p>The stream begins automatically. Your phone reports its screen dimensions and Vior creates a matching virtual display.</p></div></li>
-        <li class="step"><div class="step-content"><h3>Touch & Fullscreen</h3><p>Touch the screen to control the cursor. Tap the fullscreen button for immersive mode. Rotate for landscape.</p></div></li>
-    </ol>
-
-    <h3>USB Connection (Android)</h3>
-    <ol class="steps">
-        <li class="step"><div class="step-content"><h3>Enable USB Debugging</h3><p>On your Android phone: Settings &rarr; Developer Options &rarr; USB Debugging &rarr; On.</p></div></li>
-        <li class="step"><div class="step-content"><h3>Connect USB Cable</h3><p>Plug your phone into your computer with a USB cable.</p></div></li>
-        <li class="step"><div class="step-content"><h3>Enable USB in Vior</h3><p>In Settings, toggle USB on. Or run <code>vior usb setup</code> in CLI. ADB downloads automatically if needed.</p></div></li>
-        <li class="step"><div class="step-content"><h3>Open Browser</h3><p>On your phone, open <code>http://localhost:8080</code> — it connects over USB.</p></div></li>
-    </ol>
-</section>
-
-<section id="features">
-    <h2>Features</h2>
-
-    <div class="card-grid">
-        <div class="card">
-            <h3>Auto Resolution</h3>
-            <p>Phone reports its screen size. Virtual display matches automatically. No presets needed.</p>
-        </div>
-        <div class="card">
-            <h3>Touch Control</h3>
-            <p>Touch on phone maps to mouse on computer. Tap, drag, scroll — all forwarded in real-time.</p>
-        </div>
-        <div class="card">
-            <h3>Orientation</h3>
-            <p>Rotate phone to landscape. Display resizes automatically. Works both ways.</p>
-        </div>
-        <div class="card">
-            <h3>File Transfer</h3>
-            <p>Send files in both directions. Drag & drop on desktop. Image previews. Progress tracking.</p>
-        </div>
-        <div class="card">
-            <h3>USB Mode</h3>
-            <p>Connect via USB for lower latency. ADB auto-downloads. No manual setup needed.</p>
-        </div>
-        <div class="card">
-            <h3>Works Everywhere</h3>
-            <p>Any browser on any device. No app install on phone. macOS, Linux, Windows server.</p>
-        </div>
+    <div class="radar">
+      <div class="radar-ring r1"></div>
+      <div class="radar-ring r2"></div>
+      <div class="radar-ring r3"></div>
+      <div class="radar-ping"></div>
+      <div class="radar-ping delay"></div>
+      <div class="radar-tick t1"></div>
+      <div class="radar-tick t2"></div>
+      <div class="radar-tick t3"></div>
+      <div class="radar-core">
+        <span class="glyph big" style="transform: scale(1.6);">
+          <span class="g-screen"></span>
+          <span class="g-stand"></span>
+          <span class="g-phone"></span>
+        </span>
+      </div>
     </div>
+  </div>
+</header>
+
+<!-- ── Features ── -->
+<section class="section" id="features">
+  <div class="wrap">
+    <div class="section-label">// what it does</div>
+    <h2 class="section-title">Three jobs. Done well.</h2>
+    <p class="section-sub">No subscriptions, no cloud round-trip, no proprietary protocol. Your phone, your computer, your network.</p>
+
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">&lt;/&gt;</div>
+        <h3>Extend display</h3>
+        <p>Use your phone or tablet as a real second monitor. MJPEG over LAN, ~30 FPS, auto resolution matching.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">↗</div>
+        <h3>WiFi mouse + keyboard</h3>
+        <p>Trackpad gestures, full keyboard, and 40+ system shortcuts (Cmd+Tab, mission control, media). WiFi-Mouse-style, but open.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">⇄</div>
+        <h3>File drop</h3>
+        <p>Drag a file onto the app or tap Send on the phone. Direct LAN transfer, progress bar, image previews.</p>
+      </div>
+    </div>
+  </div>
 </section>
 
-<section>
-    <h2>Platform Support</h2>
-    <table>
+<!-- ── Screenshots ── -->
+<section class="section" id="shots">
+  <div class="wrap">
+    <div class="section-label">// see it</div>
+    <h2 class="section-title">Built like a product, not a script.</h2>
+    <p class="section-sub">Cool dark theme, Geist throughout, orange where it matters. The mobile app and desktop app share one design language.</p>
+
+    <div class="shots">
+      <div class="shot">
+        <div class="phone-frame">
+          <img src="img/mobile-display.png" alt="Vior mobile — Display tab with QR scan and manual connect">
+        </div>
+        <div class="shot-label"><strong>Display</strong>discover &amp; connect</div>
+      </div>
+      <div class="shot">
+        <div class="phone-frame">
+          <img src="img/mobile-files.png" alt="Vior mobile — Files tab waiting for a session">
+        </div>
+        <div class="shot-label"><strong>Files</strong>drop &amp; receive</div>
+      </div>
+      <div class="shot">
+        <div class="phone-frame">
+          <img src="img/mobile-remote.png" alt="Vior mobile — Remote tab with trackpad and shortcuts">
+        </div>
+        <div class="shot-label"><strong>Remote</strong>trackpad &amp; shortcuts</div>
+      </div>
+      <div class="shot shot-desktop">
+        <div class="mac-frame">
+          <img src="img/desktop-connected.png" alt="Vior desktop — Server tab ready to broadcast">
+        </div>
+        <div class="shot-label"><strong>Desktop</strong>start server, share QR</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── How it works ── -->
+<section class="section" id="how">
+  <div class="wrap">
+    <div class="section-label">// flow</div>
+    <h2 class="section-title">Three taps to connected.</h2>
+    <p class="section-sub">Zero configuration. Auto-discovery over UDP, auto-reconnect, auto-resolution.</p>
+
+    <div class="steps">
+      <div class="step">
+        <h3>Start the server</h3>
+        <p>Open Vior on your computer. One button — <code>Start Server</code>. A QR code appears.</p>
+      </div>
+      <div class="step">
+        <h3>Open the mobile app</h3>
+        <p>Vior auto-discovers any server on your LAN. Tap to connect, or scan the QR.</p>
+      </div>
+      <div class="step">
+        <h3>Stream &amp; control</h3>
+        <p>Use the phone as a second display, send files, or jump to the Remote tab for trackpad + shortcuts.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Platforms ── -->
+<section class="section" id="platforms">
+  <div class="wrap">
+    <div class="section-label">// runs on</div>
+    <h2 class="section-title">Everywhere you work.</h2>
+    <p class="section-sub">Native virtual display on macOS, Linux, and Windows. Android client built on Capacitor — iOS is on the roadmap.</p>
+
+    <div class="platforms">
+      <table>
         <thead>
-            <tr><th>Platform</th><th>Virtual Display</th><th>Screen Capture</th><th>Status</th></tr>
+          <tr>
+            <th>Platform</th>
+            <th>Server</th>
+            <th>Mobile client</th>
+            <th>Build</th>
+          </tr>
         </thead>
         <tbody>
-            <tr><td>macOS 13+</td><td>CGVirtualDisplay</td><td>CGDisplayCreateImage</td><td style="color: var(--green)">Full support</td></tr>
-            <tr><td>Linux (X11)</td><td>xrandr + dummy driver</td><td>kbinani/screenshot</td><td style="color: #f59e0b">Partial</td></tr>
-            <tr><td>Windows 10+</td><td>Win32 + IDD driver</td><td>kbinani/screenshot</td><td style="color: #f59e0b">Partial</td></tr>
+          <tr>
+            <td class="os">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16.36 1.43a4.16 4.16 0 0 0-2.83 1.5 3.86 3.86 0 0 0-1 2.97 3.51 3.51 0 0 0 2.74-1.43 4.13 4.13 0 0 0 1.09-3.04zM20.5 17.36a9.83 9.83 0 0 1-.97 1.74c-.6.86-1.42 2.02-2.55 2.03-1 .01-1.28-.66-2.65-.66s-1.68.65-2.65.67c-1.1.04-1.93-.93-2.53-1.78-1.65-2.41-2.92-6.8-1.22-9.78a4.6 4.6 0 0 1 3.87-2.36c1.04-.02 2.02.7 2.65.7s1.82-.87 3.07-.74a4.4 4.4 0 0 1 3.45 1.87 4.27 4.27 0 0 0-2.05 3.58 4.16 4.16 0 0 0 2.58 3.81z"/></svg>
+              macOS 13+
+            </td>
+            <td><span class="tick">✓ CGVirtualDisplay</span></td>
+            <td><span class="tick">✓ Web + Android</span></td>
+            <td class="ver">universal binary</td>
+          </tr>
+          <tr>
+            <td class="os">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18c-2 0-3-1-3-3V8a6 6 0 0 1 12 0v7c0 2-1 3-3 3"/><path d="M9 18c0 2 1 3 3 3s3-1 3-3"/><circle cx="10" cy="9" r=".5" fill="currentColor"/><circle cx="14" cy="9" r=".5" fill="currentColor"/></svg>
+              Linux (X11)
+            </td>
+            <td><span class="tick">✓ xrandr + dummy</span></td>
+            <td><span class="tick">✓ Web + Android</span></td>
+            <td class="ver">amd64 · arm64</td>
+          </tr>
+          <tr>
+            <td class="os">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.7 10.5 4.6v7.4H3V5.7zM11.5 4.5 21 3v9.1h-9.5V4.5zM3 13h7.5v7.4L3 19.3V13zm8.5 0H21V21l-9.5-1.4V13z"/></svg>
+              Windows 10+
+            </td>
+            <td><span class="tick">✓ IDD driver</span></td>
+            <td><span class="tick">✓ Web + Android</span></td>
+            <td class="ver">amd64</td>
+          </tr>
+          <tr>
+            <td class="os">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 12.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm-11 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm10.7-6.4 1.4-2.4a.3.3 0 0 0-.5-.3l-1.4 2.4a8.6 8.6 0 0 0-7.4 0L7.9 3.4a.3.3 0 0 0-.5.3l1.4 2.4A7.6 7.6 0 0 0 4 12h16a7.6 7.6 0 0 0-4.8-5.9zM4 13v5a2 2 0 0 0 2 2h1v2a1 1 0 1 0 2 0v-2h6v2a1 1 0 1 0 2 0v-2h1a2 2 0 0 0 2-2v-5H4z"/></svg>
+              Android 9+
+            </td>
+            <td class="ver">—</td>
+            <td><span class="tick">✓ Capacitor APK</span></td>
+            <td class="ver">aarch64</td>
+          </tr>
         </tbody>
-    </table>
+      </table>
+    </div>
+  </div>
 </section>
 
-</div>
+<!-- ── Tech stack ── -->
+<section class="section">
+  <div class="wrap">
+    <div class="section-label">// stack</div>
+    <h2 class="section-title">Built with boring, durable tools.</h2>
+    <p class="section-sub">No frameworks-of-the-week. Everything below has been in production for years.</p>
 
+    <div class="chips">
+      <span class="chip"><span class="chip-dot"></span>Go 1.25</span>
+      <span class="chip"><span class="chip-dot"></span>Wails v2</span>
+      <span class="chip"><span class="chip-dot"></span>Capacitor 7</span>
+      <span class="chip"><span class="chip-dot"></span>React 19</span>
+      <span class="chip"><span class="chip-dot"></span>WebSocket</span>
+      <span class="chip"><span class="chip-dot"></span>MJPEG over HTTP</span>
+      <span class="chip"><span class="chip-dot"></span>mDNS / UDP discovery</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ── -->
 <footer>
-    <p>Built by <a href="https://github.com/subhashraveendran">Subhash Raveendran</a>. Licensed under <a href="https://github.com/subhashraveendran/Vior/blob/main/LICENSE">MIT</a>.</p>
+  <div class="wrap">
+    <div class="foot-row">
+      <div class="foot-brand">
+        <span class="wm">
+          <span class="glyph">
+            <span class="g-screen"></span>
+            <span class="g-stand"></span>
+            <span class="g-phone"></span>
+          </span>
+          Vior
+        </span>
+        <span>One app to make your phone and computer work together. MIT licensed, open source, no telemetry.</span>
+      </div>
+      <div class="foot-links">
+        <div class="foot-col">
+          <h4>Product</h4>
+          <a href="https://github.com/subhashraveendran/Vior/releases">Download</a>
+          <a href="#shots">Screenshots</a>
+          <a href="#platforms">Platforms</a>
+        </div>
+        <div class="foot-col">
+          <h4>Docs</h4>
+          <a href="https://github.com/subhashraveendran/Vior/blob/main/docs/master-plan.md">Master plan</a>
+          <a href="https://github.com/subhashraveendran/Vior/blob/main/docs/phase-2.md">Phase 2</a>
+          <a href="https://github.com/subhashraveendran/Vior#readme">README</a>
+        </div>
+        <div class="foot-col">
+          <h4>Source</h4>
+          <a href="https://github.com/subhashraveendran/Vior">GitHub</a>
+          <a href="https://github.com/subhashraveendran/Vior/issues">Issues</a>
+          <a href="https://github.com/subhashraveendran/Vior/blob/main/LICENSE">MIT License</a>
+        </div>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 Subhash Raveendran</span>
+      <span>built with Go, Wails, Capacitor</span>
+    </div>
+  </div>
 </footer>
 
 </body>

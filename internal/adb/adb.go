@@ -101,20 +101,6 @@ func TeardownForward(remotePort int) error {
 	return nil
 }
 
-// TeardownAllForwards removes all reverse port forwardings.
-func TeardownAllForwards() error {
-	path := adbPath()
-	if path == "" {
-		return fmt.Errorf("adb not available")
-	}
-	cmd := exec.Command(path, "reverse", "--remove-all")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("adb reverse remove-all failed: %s (%w)", strings.TrimSpace(string(out)), err)
-	}
-	return nil
-}
-
 // EnsureADB downloads ADB if not available. Returns nil if already available.
 func EnsureADB() error {
 	if adbPath() != "" {

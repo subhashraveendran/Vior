@@ -257,6 +257,7 @@ export namespace protocol {
 	    height: number;
 	    dpr: number;
 	    name: string;
+	    mode: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new HelloMessage(source);
@@ -268,6 +269,7 @@ export namespace protocol {
 	        this.height = source["height"];
 	        this.dpr = source["dpr"];
 	        this.name = source["name"];
+	        this.mode = source["mode"];
 	    }
 	}
 	export class InputMessage {

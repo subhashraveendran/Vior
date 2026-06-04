@@ -356,7 +356,7 @@ function SettingsScreen({ config, onChange, accent, setAccent }) {
               border: accent === a.hex ? '2px solid var(--text-1)' : '1px solid var(--border)',
               display: 'grid', placeItems: 'center', color: a.on,
             }}>
-            {accent === a.hex && Icons.check(18)()}
+            {accent === a.hex && Icons.check(18)}
           </button>
         ))}
       </div>

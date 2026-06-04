@@ -68,6 +68,26 @@ button { font-family: inherit; cursor: pointer; }
 .spin { animation: vSpin 0.9s linear infinite; }
 @keyframes vSpin { to { transform: rotate(360deg); } }
 
+/* ── Style remaps (Appearance picker) ── */
+[data-vior-style="instrument"] {
+  --r-xs: 2px; --r-sm: 3px; --r: 4px; --r-lg: 6px;
+  --border: rgba(255,255,255,0.10); --border-strong: rgba(255,255,255,0.18);
+  --surface-1: #0f1318; --surface-2: #141a20; --surface-3: #1b232b;
+}
+[data-vior-style="soft"] {
+  --bg: #100d0c; --surface-0: #100d0c;
+  --surface-1: #1a1614; --surface-2: #211b18; --surface-3: #2b231f;
+  --border: rgba(255,255,255,0.07); --border-strong: rgba(255,255,255,0.13);
+  --text-2: #a89e96; --text-3: #6e645c;
+  --r-xs: 8px; --r-sm: 12px; --r: 16px; --r-lg: 22px;
+}
+[data-vior-density="compact"] { --sp: 3.4px; }
+[data-vior-density="comfy"]   { --sp: 4.8px; }
+[data-vior-motion="off"] *, [data-vior-motion="off"] *::before, [data-vior-motion="off"] *::after {
+  animation: none !important; transition-duration: 0.001ms !important;
+}
+[data-vior-motion="subtle"] * { animation-duration: 2s !important; }
+
 /* ── buttons ── */
 .btn {
   font-family: var(--font-sans); font-weight: 600; font-size: 15px; letter-spacing: -0.01em;

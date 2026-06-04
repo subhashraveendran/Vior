@@ -532,6 +532,17 @@
   .sheet-body { padding: 16px 16px 22px; overflow-y: auto; scrollbar-width: none; }
   .sheet-body::-webkit-scrollbar { display: none; }
 
+  .accent-swatch {
+    flex: 1; height: 48px; border-radius: var(--r-sm);
+    background: var(--swatch-color); border: 1px solid var(--border);
+    display: grid; place-items: center; cursor: pointer;
+    transition: transform .14s, border-color .14s;
+  }
+  .accent-swatch:active { transform: scale(0.96); }
+  .accent-swatch.active { border: 2px solid var(--text-1); }
+  .accent-swatch::after { content: ''; display: block; width: 20px; height: 20px; background-image: var(--check-bg); opacity: 0; }
+  .accent-swatch.active::after { opacity: 1; }
+
   /* ── Radar (loading discovery) ── */
   .radar-search {
     padding: 56px 32px; display: flex; flex-direction: column; align-items: center; text-align: center;
@@ -917,6 +928,16 @@
           </label>
         </div>
       </div>
+      <div class="section-label" style="margin-top: 22px;">Accent</div>
+      <div class="card" style="overflow: hidden; padding: 15px;">
+        <div style="display: flex; gap: 10px;" id="accent-row">
+          <button class="accent-swatch" data-accent="#ff8a4c" data-on="#1a0e06" title="Orange"></button>
+          <button class="accent-swatch" data-accent="#4cc2ff" data-on="#06121a" title="Blue"></button>
+          <button class="accent-swatch" data-accent="#46d39a" data-on="#06140e" title="Green"></button>
+          <button class="accent-swatch" data-accent="#e8e8ea" data-on="#0b0d10" title="White"></button>
+        </div>
+      </div>
+
       <div class="section-label" style="margin-top: 22px;">About</div>
       <div class="card" style="overflow: hidden;">
         <div style="display: flex; align-items: center; padding: 15px; gap: 13px;">
@@ -1639,6 +1660,33 @@
   $('settings-btn').addEventListener('click', function () { $('settings-sheet').classList.remove('hidden'); });
   $('settings-close').addEventListener('click', function () { $('settings-sheet').classList.add('hidden'); });
   $('settings-sheet').addEventListener('click', function (e) { if (e.target === $('settings-sheet')) $('settings-sheet').classList.add('hidden'); });
+
+  // accent picker
+  var ACCENT_PRESETS = [
+    { color: '#ff8a4c', on: '#1a0e06', weak: 'rgba(255,138,76,0.14)', line: 'rgba(255,138,76,0.40)' },
+    { color: '#4cc2ff', on: '#06121a', weak: 'rgba(76,194,255,0.14)', line: 'rgba(76,194,255,0.40)' },
+    { color: '#46d39a', on: '#06140e', weak: 'rgba(70,211,154,0.14)', line: 'rgba(70,211,154,0.40)' },
+    { color: '#e8e8ea', on: '#0b0d10', weak: 'rgba(232,232,234,0.14)', line: 'rgba(232,232,234,0.40)' },
+  ];
+  function applyAccent(hex) {
+    var p = ACCENT_PRESETS.find(function (x) { return x.color === hex; }) || ACCENT_PRESETS[0];
+    var r = document.documentElement.style;
+    r.setProperty('--accent', p.color);
+    r.setProperty('--accent-2', p.color);
+    r.setProperty('--on-accent', p.on);
+    r.setProperty('--accent-weak', p.weak);
+    r.setProperty('--accent-line', p.line);
+    localStorage.setItem('vior_accent', p.color);
+    document.querySelectorAll('.accent-swatch').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.accent === p.color);
+      b.style.setProperty('--swatch-color', b.dataset.accent);
+    });
+  }
+  document.querySelectorAll('.accent-swatch').forEach(function (b) {
+    b.style.setProperty('--swatch-color', b.dataset.accent);
+    b.addEventListener('click', function () { applyAccent(b.dataset.accent); });
+  });
+  applyAccent(localStorage.getItem('vior_accent') || '#ff8a4c');
 
   // auto-connect toggle
   var ac = $('auto-connect-toggle');

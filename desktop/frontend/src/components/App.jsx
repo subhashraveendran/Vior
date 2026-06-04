@@ -305,8 +305,26 @@ function FilesPane({ onSendFile, client }) {
   )
 }
 
+// ── accent presets ──
+const ACCENTS = [
+  { hex: '#ff8a4c', on: '#1a0e06', weak: 'rgba(255,138,76,0.14)', line: 'rgba(255,138,76,0.40)', name: 'Orange' },
+  { hex: '#4cc2ff', on: '#06121a', weak: 'rgba(76,194,255,0.14)', line: 'rgba(76,194,255,0.40)', name: 'Blue' },
+  { hex: '#46d39a', on: '#06140e', weak: 'rgba(70,211,154,0.14)', line: 'rgba(70,211,154,0.40)', name: 'Green' },
+  { hex: '#e8e8ea', on: '#0b0d10', weak: 'rgba(232,232,234,0.14)', line: 'rgba(232,232,234,0.40)', name: 'White' },
+]
+function applyAccent(hex) {
+  const p = ACCENTS.find(a => a.hex === hex) || ACCENTS[0]
+  const r = document.documentElement.style
+  r.setProperty('--accent', p.hex)
+  r.setProperty('--accent-2', p.hex)
+  r.setProperty('--on-accent', p.on)
+  r.setProperty('--accent-weak', p.weak)
+  r.setProperty('--accent-line', p.line)
+  localStorage.setItem('vior_accent', p.hex)
+}
+
 // ── Settings ──
-function SettingsScreen({ config, onChange }) {
+function SettingsScreen({ config, onChange, accent, setAccent }) {
   const presets = [
     { id: 'performance', label: 'Performance', sub: 'Lower latency', q: 60, f: 60 },
     { id: 'balanced', label: 'Balanced', sub: 'Recommended', q: 80, f: 30 },
@@ -323,6 +341,22 @@ function SettingsScreen({ config, onChange }) {
             onClick={() => onChange({ ...config, quality: p.q, frameRate: p.f })}>
             <div className="seg-row"><span>{p.label}</span></div>
             <div className="seg-sub" style={{ marginLeft: 0 }}>{p.sub}</div>
+          </button>
+        ))}
+      </div>
+
+      <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>Accent</div>
+      <div className="card" style={{ padding: 15, display: 'flex', gap: 10 }}>
+        {ACCENTS.map(a => (
+          <button key={a.hex} title={a.name}
+            onClick={() => { applyAccent(a.hex); setAccent(a.hex) }}
+            style={{
+              flex: 1, height: 48, borderRadius: 'var(--r-sm)', cursor: 'pointer',
+              background: a.hex,
+              border: accent === a.hex ? '2px solid var(--text-1)' : '1px solid var(--border)',
+              display: 'grid', placeItems: 'center', color: a.on,
+            }}>
+            {accent === a.hex && Icons.check(18)()}
           </button>
         ))}
       </div>
@@ -400,6 +434,9 @@ export default function App() {
   const [showUpdate, setShowUpdate] = useState(false)
   const [showPerms, setShowPerms] = useState(false)
   const [toasts, setToasts] = useState([])
+  const [accent, setAccent] = useState(localStorage.getItem('vior_accent') || '#ff8a4c')
+
+  useEffect(() => { applyAccent(accent) }, [])
   const idRef = useRef(100)
 
   const toast = useCallback((tone, title, msg) => {
@@ -472,7 +509,7 @@ export default function App() {
   const sidebarState = connected ? ['dot-ok', 'Connected'] : running ? ['dot-ok', 'Running'] : ['dot-idle', 'Stopped']
 
   let body
-  if (nav === 'settings') body = <SettingsScreen config={config} onChange={updateConfig} />
+  if (nav === 'settings') body = <SettingsScreen config={config} onChange={updateConfig} accent={accent} setAccent={setAccent} />
   else if (!running) body = <IdleScreen onStart={start} showUpdate={showUpdate} onUpdate={() => setShowUpdate(false)} onDismiss={() => setShowUpdate(false)} />
   else if (!connected) body = <WaitingScreen status={serverStatus} onStop={stop} onCopy={copyUrl} />
   else body = <ConnectedScreen status={serverStatus} client={client} mode={mode} setMode={setMode} onDisconnect={stop} onSendFile={sendFile} errorState={errorState} onRetry={() => setErrorState(false)} onStop={stop} />

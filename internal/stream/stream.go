@@ -71,7 +71,6 @@ type MJPEGServer struct {
 }
 
 // NewMJPEGServer creates a new MJPEG streaming server.
-// handler can be nil for legacy mode (no WebSocket support).
 func NewMJPEGServer(host string, port int, frameCh <-chan []byte, handler SessionHandler) *MJPEGServer {
 	return &MJPEGServer{
 		port:    port,

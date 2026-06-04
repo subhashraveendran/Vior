@@ -68,6 +68,14 @@ static void getMousePos(int *outX, int *outY) {
 	CFRelease(e);
 }
 
+// Force the system cursor visible on the main display. Phone-driven mouse
+// moves can park the pointer on a virtual display where macOS hides it;
+// calling CGDisplayShowCursor restores visibility on next host interaction.
+static void showCursor(void) {
+	CGAssociateMouseAndMouseCursorPosition(true);
+	CGDisplayShowCursor(kCGDirectMainDisplay);
+}
+
 static void postScroll(double dx, double dy) {
 	CGEventRef scroll = CGEventCreateScrollWheelEvent(NULL, kCGScrollEventUnitPixel, 1,
 		(int32_t)dy, (int32_t)dx);
@@ -134,6 +142,7 @@ func newController() Controller {
 
 func (c *darwinController) MoveMouse(x, y int) error {
 	C.postMouseMove(C.double(x), C.double(y))
+	C.showCursor()
 	return nil
 }
 

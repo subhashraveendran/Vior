@@ -218,6 +218,7 @@ jobs:
           cp -r android/app/src/main/java                          /tmp/vior-custom/java               2>/dev/null || true
           cp -r android/app/src/main/res/xml                       /tmp/vior-custom/xml                2>/dev/null || true
           cp -r android/app/src/main/res/drawable                  /tmp/vior-custom/drawable           2>/dev/null || true
+          cp -r android/app/src/main/res/drawable-anydpi-v24       /tmp/vior-custom/drawable-anydpi-v24 2>/dev/null || true
           cp -r android/app/src/main/res/mipmap-anydpi-v26         /tmp/vior-custom/mipmap-anydpi-v26  2>/dev/null || true
           cp -r android/app/src/main/res/values                    /tmp/vior-custom/values             2>/dev/null || true
           cp    android/app/src/main/AndroidManifest.xml           /tmp/vior-custom/AndroidManifest.xml 2>/dev/null || true
@@ -233,6 +234,8 @@ jobs:
           cp -r /tmp/vior-custom/xml/*                             android/app/src/main/res/xml/                    2>/dev/null || true
           mkdir -p android/app/src/main/res/drawable
           cp -r /tmp/vior-custom/drawable/*                        android/app/src/main/res/drawable/               2>/dev/null || true
+          mkdir -p android/app/src/main/res/drawable-anydpi-v24
+          cp -r /tmp/vior-custom/drawable-anydpi-v24/*             android/app/src/main/res/drawable-anydpi-v24/    2>/dev/null || true
           mkdir -p android/app/src/main/res/mipmap-anydpi-v26
           cp -r /tmp/vior-custom/mipmap-anydpi-v26/*               android/app/src/main/res/mipmap-anydpi-v26/      2>/dev/null || true
           # Merge values (don't blow away cap defaults — copy each file by name)

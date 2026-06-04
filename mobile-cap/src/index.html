@@ -1250,7 +1250,7 @@
         '<span class="server-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4.5" width="19" height="12.5" rx="1.6"/><path d="M2.5 13.5h19"/><path d="M9 21h6"/></svg></span>' +
         '<span class="server-body">' +
           '<span class="server-name">' + esc(info.name || host) + '</span>' +
-          '<span class="server-meta">' + esc(host) + ':' + port + '</span>' +
+          '<span class="server-meta">' + esc(host) + '</span>' +
         '</span>' +
         '<span class="server-right">' +
           '<span>' + esc(info.platform || 'Server') + '</span>' +
@@ -1331,7 +1331,14 @@
       qrRunning = true;
       tickQR();
     } catch (e) {
-      toast('error', 'Camera denied', String(e && e.message || e));
+      var name = (e && e.name) || '';
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        toast('error', 'Camera blocked', 'Enable camera permission in app settings, then retry.');
+      } else if (name === 'NotFoundError') {
+        toast('error', 'No camera', 'No camera device found.');
+      } else {
+        toast('error', 'Camera failed', String(e && e.message || e));
+      }
       stopQRScan();
     }
   }
@@ -1407,7 +1414,7 @@
         setConnState('online');
         showView('connected');
         $('scard-name').textContent = serverName;
-        $('scard-meta').textContent = host + ':' + port;
+        $('scard-meta').textContent = serverPlatform || host;
         $('stat-mode').textContent = selectedMode === 'mirror' ? 'Mirror' : 'Extend';
         $('stat-res').textContent = serverRes;
         $('stat-status').textContent = 'Live';

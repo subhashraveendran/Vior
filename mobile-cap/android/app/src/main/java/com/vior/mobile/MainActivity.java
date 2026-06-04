@@ -1,13 +1,19 @@
 package com.vior.mobile;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.Base64;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.PermissionRequest;
+import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -102,6 +108,23 @@ public class MainActivity extends BridgeActivity {
             Insets sys = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(sys.left, sys.top, sys.right, sys.bottom);
             return insets;
+        });
+
+        // Request CAMERA permission proactively so the QR scanner works.
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.CAMERA}, 1001);
+        }
+
+        // Auto-grant WebView resource requests (camera/mic) — required for
+        // navigator.mediaDevices.getUserMedia inside the Capacitor WebView.
+        WebView wv = getBridge().getWebView();
+        wv.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onPermissionRequest(PermissionRequest request) {
+                runOnUiThread(() -> request.grant(request.getResources()));
+            }
         });
     }
 

@@ -240,6 +240,13 @@ jobs:
           cp -r /tmp/vior-custom/mipmap-anydpi-v26/*               android/app/src/main/res/mipmap-anydpi-v26/      2>/dev/null || true
           # Merge values (don't blow away cap defaults — copy each file by name)
           cp -r /tmp/vior-custom/values/*                          android/app/src/main/res/values/                 2>/dev/null || true
+          # Restore custom AndroidManifest.xml — without this, `npx cap add android`
+          # regenerates a stock manifest that lacks CAMERA / ACCESS_NETWORK_STATE /
+          # ACCESS_WIFI_STATE / the USB-accessory intent filter, which silently
+          # breaks the QR scanner (getUserMedia → NotReadableError on Android 15
+          # because the runtime CAMERA permission can never be granted) and
+          # USB auto-launch.
+          cp    /tmp/vior-custom/AndroidManifest.xml               android/app/src/main/AndroidManifest.xml         2>/dev/null || true
 
       - name: Build debug APK
         run: |

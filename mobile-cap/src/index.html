@@ -3,1126 +3,1674 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0c0d12">
+<meta name="theme-color" content="#0b0d10">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Vior</title>
 <link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0c0d12; --bg-deep: #0a0b10;
-    --surface: #14161c; --surface2: #181a22;
-    --border: #1e2029; --border-h: #262833;
-    --text: #c9cdd3; --dim: #5c6170; --dim2: #3a3e48;
-    --head: #f0f1f3; --white: #ffffff;
-    --indigo: #6366f1; --indigo-l: #818cf8; --indigo-d: #4f46e5;
-    --green: #34d399; --red: #ef4444; --amber: #f59e0b;
-    --safe-t: env(safe-area-inset-top, 0px);
-    --safe-b: env(safe-area-inset-bottom, 0px);
-    --tab-h: 60px;
-  }
-  *,*::before,*::after { margin:0; padding:0; box-sizing:border-box; }
-  html,body {
-    height:100%; background:var(--bg); color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif;
-    -webkit-font-smoothing:antialiased; -webkit-text-size-adjust:100%;
-    overflow:hidden; -webkit-tap-highlight-color:transparent;
-  }
-  button { font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
-  input { font-family:inherit; }
-  .mono { font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; }
-  .hidden { display:none!important; }
+    --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-  body::before {
-    content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
-    background-image:radial-gradient(circle,var(--border) 1px,transparent 1px);
-    background-size:14px 14px; opacity:0.035;
+    --bg: #0b0d10;
+    --surface-0: #0b0d10;
+    --surface-1: #121519;
+    --surface-2: #171b21;
+    --surface-3: #1f262e;
+    --hover: rgba(255,255,255,0.05);
+    --press: rgba(255,255,255,0.09);
+
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.15);
+
+    --text-1: #eef1f5;
+    --text-2: #9aa4b1;
+    --text-3: #626c79;
+
+    --accent: #ff8a4c;
+    --accent-2: #ff7a36;
+    --on-accent: #1a0e06;
+    --accent-weak: rgba(255,138,76,0.14);
+    --accent-line: rgba(255,138,76,0.40);
+
+    --ok: #46d39a;
+    --warn: #f3c14b;
+    --err: #ff6f6f;
+    --idle: #5b6573;
+
+    --r-xs: 5px;
+    --r-sm: 8px;
+    --r: 11px;
+    --r-lg: 15px;
+    --r-pill: 999px;
+
+    --sp: 4px;
+    --shadow-1: 0 1px 2px rgba(0,0,0,0.4);
+    --shadow-2: 0 12px 32px rgba(0,0,0,0.45);
+
+    --ease: cubic-bezier(.2,.7,.3,1);
+    --dur: 1;
   }
 
-  /* ══ App Shell ══════════════════════ */
-  .app-shell { position:absolute; inset:0; display:flex; flex-direction:column; z-index:1; }
-
-  /* Header */
-  .app-header {
-    padding:calc(10px + var(--safe-t)) 18px 0;
-    display:flex; align-items:center; gap:11px; flex-shrink:0;
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; background: var(--bg); color: var(--text-1);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%;
+    overflow: hidden; -webkit-tap-highlight-color: transparent;
   }
-  .brand-mark {
-    width:34px; height:34px; border-radius:9px;
-    background:linear-gradient(135deg,#6366f1,#4f46e5);
-    display:flex; align-items:center; justify-content:center;
-    box-shadow:0 4px 14px -2px rgba(99,102,241,0.45); flex-shrink:0;
-  }
-  .brand-mark svg { width:18px; height:18px; }
-  .brand-title { font-size:20px; font-weight:700; color:var(--head); letter-spacing:-0.4px; flex:1; }
-  .conn-badge {
-    padding:5px 10px; border-radius:6px; font-size:10.5px; font-weight:600;
-    display:flex; align-items:center; gap:5px;
-    background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.2); color:var(--green);
-  }
-  .conn-badge.off { background:var(--surface); border-color:var(--border); color:var(--dim); }
-  .conn-badge-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
+  button { font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  input { font-family: inherit; }
+  .mono { font-family: var(--font-mono); }
+  .hidden { display: none !important; }
 
-  /* Tab content area */
-  .tab-content { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; }
-  .tab-pane { display:none; }
-  .tab-pane.active { display:block; }
+  .label {
+    font-family: var(--font-sans);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    font-size: 11px;
+    color: var(--text-3);
+  }
 
-  /* ══ Bottom Tab Bar ═════════════════ */
-  /* Android: WebView root view gets system-bar padding from MainActivity
-     so the page never paints under the nav bar. We just need a normal
-     fixed-bottom tab bar with a small inner padding for visual breathing. */
+  /* ── Status dot ── */
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
+  .dot-ok { background: var(--ok); box-shadow: 0 0 0 4px rgba(70,211,154,0.16); }
+  .dot-warn { background: var(--warn); box-shadow: 0 0 0 4px rgba(243,193,75,0.16); }
+  .dot-err { background: var(--err); box-shadow: 0 0 0 4px rgba(255,111,111,0.16); }
+  .dot-idle { background: var(--idle); }
+  .dot-pulse { animation: pulse 1.8s var(--ease) infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(70,211,154,0.45); } 50% { box-shadow: 0 0 0 7px rgba(70,211,154,0); } }
+
+  /* ── Spinner ── */
+  .spin {
+    width: 22px; height: 22px; border-radius: 50%; display: inline-block;
+    border: 2.4px solid var(--surface-3); border-top-color: var(--accent);
+    animation: vSpin 0.9s linear infinite;
+  }
+  @keyframes vSpin { to { transform: rotate(360deg); } }
+
+  /* ── Card / inset ── */
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--r-lg); }
+  .inset { background: var(--surface-0); border: 1px solid var(--border); border-radius: var(--r); }
+
+  /* ── Buttons ── */
+  .btn {
+    font-family: var(--font-sans);
+    font-weight: 600; font-size: 15px; letter-spacing: -0.01em;
+    border: 1px solid transparent; border-radius: var(--r);
+    padding: 0 calc(var(--sp) * 4); min-height: 48px;
+    display: inline-flex; align-items: center; justify-content: center; gap: calc(var(--sp) * 2);
+    transition: background .16s var(--ease), border-color .16s, transform .12s, box-shadow .2s, color .16s;
+    user-select: none; white-space: nowrap;
+  }
+  .btn:active { transform: translateY(1px) scale(0.995); }
+  .btn-primary {
+    background: var(--accent); color: var(--on-accent);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.18) inset, 0 6px 18px rgba(255,138,76,0.18);
+  }
+  .btn-primary:active { background: var(--accent-2); }
+  .btn-ghost { background: var(--surface-2); color: var(--text-1); border-color: var(--border); }
+  .btn-ghost:active { background: var(--surface-3); }
+  .btn-quiet { background: transparent; color: var(--text-2); }
+  .btn-quiet:active { background: var(--hover); color: var(--text-1); }
+  .btn-danger { background: transparent; color: var(--err); border-color: rgba(255,111,111,0.3); }
+  .btn-danger:active { background: rgba(255,111,111,0.10); }
+  .btn:disabled { opacity: 0.4; }
+  .btn-sm { min-height: 38px; font-size: 13.5px; border-radius: var(--r-sm); padding: 0 calc(var(--sp) * 3); }
+  .btn-block { width: 100%; }
+  .btn svg { flex: none; }
+
+  /* ── App shell ── */
+  .app-shell {
+    position: absolute;
+    top: env(safe-area-inset-top, 0);
+    left: env(safe-area-inset-left, 0);
+    right: env(safe-area-inset-right, 0);
+    bottom: 0;
+    display: flex; flex-direction: column;
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0));
+  }
+
+  /* ── Header ── */
+  .header {
+    flex: none;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px 13px;
+    border-bottom: 1px solid var(--border);
+  }
+  .wordmark {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-weight: 600; font-size: 19px; letter-spacing: -0.02em; color: var(--text-1);
+  }
+  .glyph { position: relative; width: 20px; height: 20px; flex: none; display: inline-block; }
+  .g-screen { position: absolute; left: 0; top: 1.6px; width: 15px; height: 11px; border: 2px solid var(--text-1); border-radius: 3px; background: rgba(238,241,245,0.09); }
+  .g-stand { position: absolute; left: 5px; top: 13.3px; width: 5px; height: 2px; background: var(--text-1); opacity: 0.85; border-radius: 1px; }
+  .g-phone { position: absolute; right: 0; bottom: 0; width: 8px; height: 12px; border-radius: 2.5px; background: linear-gradient(155deg, color-mix(in srgb, var(--accent) 82%, white), var(--accent)); box-shadow: 0 0 0 3px var(--bg); }
+  .header-right { display: flex; align-items: center; gap: 9px; }
+
+  /* ── Connection chip ── */
+  .conn-chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 5px 11px 5px 9px; border-radius: var(--r-pill);
+    background: var(--surface-2); border: 1px solid var(--border);
+    font-size: 12.5px; font-weight: 600; color: var(--text-2); white-space: nowrap;
+  }
+  .icon-btn {
+    width: 36px; height: 36px; flex: none;
+    border-radius: var(--r-sm);
+    background: var(--surface-2); border: 1px solid var(--border);
+    color: var(--text-2);
+    display: grid; place-items: center;
+  }
+
+  /* ── Content ── */
+  .content { flex: 1; position: relative; overflow: hidden; }
+  .pane { display: none; height: 100%; }
+  .pane.active { display: flex; flex-direction: column; }
+
+  /* ── Tab bar ── */
   .tab-bar {
-    position:fixed; bottom:0; left:0; right:0; z-index:9999;
-    display:flex;
-    padding:0 8px 4px;
-    background:var(--bg-deep);
-    border-top:1px solid var(--border);
-    pointer-events:auto;
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999;
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    border-top: 1px solid var(--border);
+    background: var(--surface-0);
+    padding: 0 0 max(6px, env(safe-area-inset-bottom, 0));
   }
-  /* App shell needs bottom padding so content isn't hidden under fixed tab-bar. */
-  .app-shell { padding-bottom:64px; }
   .tab-item {
-    flex:1; display:flex; flex-direction:column; align-items:center;
-    padding:10px 0 6px; gap:3px;
-    background:none; border:none; color:var(--dim);
-    transition:color 0.2s;
-    touch-action:manipulation;
-    cursor:pointer;
-    -webkit-user-select:none; user-select:none;
-    position:relative; z-index:1;
+    background: none; border: none; padding: 11px 0 9px;
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    min-height: 56px;
+    color: var(--text-3);
+    transition: color .16s;
+    touch-action: manipulation;
+    position: relative;
   }
-  .tab-item:active { background:rgba(255,255,255,0.04); }
-  .tab-item.active { color:var(--indigo-l); }
-  .tab-item svg { width:22px; height:22px; }
-  .tab-item-label { font-size:10px; font-weight:600; letter-spacing:0.2px; }
-  .tab-item .tab-dot {
-    position:absolute; top:6px; right:calc(50% - 16px);
-    width:5px; height:5px; border-radius:50%; background:var(--green);
+  .tab-item.active { color: var(--accent); }
+  .tab-item::before {
+    content: ''; position: absolute; top: 0; left: 50%;
+    transform: translateX(-50%) scaleX(0);
+    width: 26px; height: 2.5px; border-radius: 2px; background: var(--accent);
+    transition: transform .22s var(--ease);
+  }
+  .tab-item.active::before { transform: translateX(-50%) scaleX(1); }
+  .tab-item-label { font-size: 11px; font-weight: 600; }
+
+  /* ── Section label ── */
+  .section-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+
+  /* ── Server row ── */
+  .server-row {
+    width: 100%; display: flex; align-items: center; gap: 12px; text-align: left;
+    padding: 12px; border-radius: var(--r);
+    background: var(--surface-1); border: 1px solid var(--border);
+    transition: background .16s, border-color .16s;
+    color: var(--text-1); font-family: inherit;
+  }
+  .server-row.selected { background: var(--accent-weak); border-color: var(--accent-line); }
+  .server-icon {
+    width: 40px; height: 40px; flex: none; border-radius: var(--r-sm);
+    background: var(--surface-3); display: grid; place-items: center;
+    color: var(--text-2);
+  }
+  .server-row.selected .server-icon { color: var(--accent); }
+  .server-body { flex: 1; min-width: 0; }
+  .server-name { font-size: 15px; font-weight: 600; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .server-meta { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); margin-top: 2px; }
+  .server-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 11px; color: var(--text-3); }
+
+  /* ── Discovery list ── */
+  .disc-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 16px 20px 0; }
+  .disc-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .disc-refresh { background: none; border: none; color: var(--text-3); display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px; }
+  .disc-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 9px; padding-bottom: 12px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .disc-list::-webkit-scrollbar { display: none; }
+
+  /* ── Mode + connect dock ── */
+  .dock {
+    flex: none; padding: 12px 20px 20px; border-top: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 12px;
   }
 
-  /* ══ Display Tab ════════════════════ */
-  .scan-bar {
-    padding:12px 18px 10px; display:flex; align-items:center; gap:10px;
+  /* ── Segmented control ── */
+  .seg {
+    display: grid; gap: 4px;
+    background: var(--surface-0); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 4px;
   }
-  .scan-dot {
-    width:8px; height:8px; border-radius:50%; background:var(--indigo);
-    position:relative; flex-shrink:0;
+  .seg-btn {
+    border: none; background: transparent; padding: 10px 8px;
+    border-radius: calc(var(--r) - 4px); text-align: left;
+    color: var(--text-2);
+    display: flex; flex-direction: column; gap: 2px;
+    transition: background .16s;
   }
-  .scan-dot.scanning::after {
-    content:''; position:absolute; inset:-4px; border-radius:50%;
-    border:1.5px solid var(--indigo); animation:scan-ring 2.2s ease-out infinite;
-  }
-  .scan-dot.found { background:var(--green); }
-  .scan-dot.found::after { display:none; }
-  .scan-dot.none { background:var(--amber); }
-  .scan-dot.none::after { display:none; }
-  .scan-label { font-size:13px; color:var(--dim); font-weight:500; }
-  @keyframes scan-ring { 0%{transform:scale(1);opacity:0.6} 100%{transform:scale(2.8);opacity:0} }
-  .divider { height:1px; background:var(--border); margin:0 18px; }
+  .seg-btn.active { background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border-strong); color: var(--text-1); }
+  .seg-btn-row { display: flex; align-items: center; gap: 8px; }
+  .seg-btn-row span:last-child { font-size: 14px; font-weight: 600; }
+  .seg-btn.active .seg-icon { color: var(--accent); }
+  .seg-icon { color: var(--text-3); display: inline-flex; }
+  .seg-sub { font-size: 11.5px; color: var(--text-3); margin-top: 3px; margin-left: 25px; }
 
-  /* Server cards */
-  .server-list { padding:12px 16px; }
-  .srv-card {
-    padding:14px; border-radius:12px; background:var(--surface);
-    box-shadow:inset 0 1px 0 var(--border-h),inset 0 -1px 0 var(--bg-deep),0 0 0 1px var(--border);
-    display:flex; align-items:center; gap:12px; margin-bottom:8px;
-    transition:box-shadow 0.25s,transform 0.15s;
+  /* ── Empty state ── */
+  .empty {
+    padding: 56px 32px;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
   }
-  .srv-card:active { transform:scale(0.98); }
-  .srv-card.selected {
-    box-shadow:inset 0 1px 0 var(--border-h),inset 0 -1px 0 var(--bg-deep),
-      0 0 0 1.5px var(--indigo),0 4px 24px -4px rgba(99,102,241,0.35);
+  .empty-icon {
+    width: 60px; height: 60px; border-radius: var(--r-lg);
+    background: var(--surface-2); border: 1px solid var(--border);
+    display: grid; place-items: center; color: var(--text-3); margin-bottom: 18px;
   }
-  .srv-icon-box {
-    width:42px; height:42px; border-radius:10px; background:var(--bg-deep);
-    box-shadow:inset 0 1px 0 var(--border-h),0 0 0 1px var(--border);
-    display:flex; align-items:center; justify-content:center; flex-shrink:0;
-  }
-  .srv-icon-box svg { width:20px; height:20px; color:var(--dim); }
-  .srv-card.selected .srv-icon-box svg { color:var(--indigo-l); }
-  .srv-body { flex:1; min-width:0; }
-  .srv-name { font-size:14px; font-weight:600; color:var(--head); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .srv-meta { font-size:11px; color:var(--dim); margin-top:2px; display:flex; align-items:center; gap:5px; }
-  .srv-meta-dot { width:3px; height:3px; border-radius:50%; background:var(--dim2); }
-  .srv-chevron svg { color:var(--dim2); }
-  .srv-card.selected .srv-chevron svg { color:var(--indigo-l); }
+  .empty-title { font-size: 17px; font-weight: 600; color: var(--text-1); }
+  .empty-body { font-size: 13.5px; color: var(--text-2); margin-top: 7px; line-height: 1.5; max-width: 270px; }
 
-  /* Search / empty */
-  .search-state,.empty-state { padding:36px 28px; display:flex; flex-direction:column; align-items:center; text-align:center; }
-  .radar { width:72px; height:72px; position:relative; margin-bottom:20px; }
-  .radar-ring { position:absolute; border-radius:50%; border:1.5px solid var(--indigo); animation:radar-expand 2.4s ease-out infinite; }
-  .radar-ring:nth-child(1) { inset:18px; } .radar-ring:nth-child(2) { inset:9px; animation-delay:0.6s; }
-  .radar-ring:nth-child(3) { inset:0; animation-delay:1.2s; }
-  .radar-core { position:absolute; top:50%; left:50%; width:10px; height:10px; margin:-5px 0 0 -5px; border-radius:50%; background:var(--indigo); box-shadow:0 0 16px rgba(99,102,241,0.5); }
-  @keyframes radar-expand { 0%{opacity:0.6;transform:scale(0.5)} 100%{opacity:0;transform:scale(1.6)} }
-  .search-title,.empty-title { font-size:16px; font-weight:600; color:var(--head); margin-bottom:5px; }
-  .search-desc,.empty-desc { font-size:13px; color:var(--dim); line-height:1.5; max-width:240px; }
-  .empty-icon-box { width:56px; height:56px; border-radius:14px; background:var(--surface); box-shadow:inset 0 1px 0 var(--border-h),0 0 0 1px var(--border); display:flex; align-items:center; justify-content:center; margin-bottom:16px; }
-  .empty-icon-box svg { width:24px; height:24px; color:var(--dim); }
+  /* ── Field ── */
+  .field {
+    display: flex; align-items: center; gap: 8px; padding: 0 14px;
+    min-height: 48px; background: var(--surface-0); border: 1px solid var(--border);
+    border-radius: var(--r); color: var(--text-3);
+  }
+  .field input {
+    flex: 1; min-width: 0; background: transparent; border: none; outline: none;
+    color: var(--text-1); font-size: 15px; font-family: var(--font-mono);
+  }
+  .field input::placeholder { color: var(--text-3); }
 
-  /* Manual IP */
-  .manual-section { padding:12px 16px 0; }
-  .manual-row { display:flex; gap:8px; }
-  .manual-input { flex:1; height:42px; padding:0 12px; border-radius:8px; background:var(--surface); border:1px solid var(--border); color:var(--head); font-size:14px; outline:none; }
-  .manual-input::placeholder { color:var(--dim2); }
-  .manual-input:focus { border-color:var(--indigo); }
-  .manual-go { height:42px; padding:0 16px; border-radius:8px; background:var(--surface2); border:1px solid var(--border); color:var(--text); font-size:13px; font-weight:600; }
-  .retry-btn { width:100%; height:38px; margin-top:8px; border-radius:8px; background:none; border:1px solid var(--border); color:var(--dim); font-size:12px; font-weight:500; }
+  /* ── Connecting overlay ── */
+  .connecting {
+    position: absolute; inset: 0; z-index: 40;
+    background: var(--surface-0);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 32px;
+  }
+  .conn-spinner-wrap { position: relative; width: 92px; height: 92px; margin-bottom: 26px; display: grid; place-items: center; }
+  .conn-spinner-ring { position: absolute; inset: 0; border-radius: 50%; border: 3px solid var(--surface-3); border-top-color: var(--accent); animation: vSpin .9s linear infinite; }
+  .conn-spinner-core {
+    width: 60px; height: 60px; border-radius: var(--r-lg);
+    background: var(--surface-2); border: 1px solid var(--border);
+    display: grid; place-items: center; color: var(--accent);
+  }
+  .conn-spinner-core.failed { background: rgba(255,111,111,0.12); border-color: rgba(255,111,111,0.4); color: var(--err); }
+  .conn-title { font-size: 18px; font-weight: 600; color: var(--text-1); }
+  .conn-sub { font-size: 14px; color: var(--text-2); margin-top: 6px; text-align: center; line-height: 1.5; }
+  .conn-sub b { color: var(--text-1); font-weight: 600; }
+  .bar { height: 6px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; position: relative; }
+  .bar-indef::before {
+    content: ''; position: absolute; top: 0; bottom: 0; left: -40%; width: 40%;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: vIndef 1.3s var(--ease) infinite;
+  }
+  @keyframes vIndef { from { left: -40%; } to { left: 100%; } }
 
-  /* Mode + connect */
-  .bottom-panel { padding:10px 16px 12px; background:linear-gradient(0deg,var(--bg) 60%,transparent); }
-  .section-label { font-size:10.5px; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:1px; padding:0 2px 8px; }
-  .mode-row { display:flex; gap:8px; margin-bottom:12px; }
-  .mode-card {
-    flex:1; padding:12px 8px; border-radius:10px; background:var(--surface);
-    box-shadow:inset 0 1px 0 var(--border-h),inset 0 -1px 0 var(--bg-deep),0 0 0 1px var(--border);
-    text-align:center; transition:box-shadow 0.25s,transform 0.15s;
+  /* ── Server card (connected) ── */
+  .scard-wrap { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  .recon-banner {
+    display: flex; align-items: center; gap: 11px;
+    padding: 12px 14px; border-radius: var(--r);
+    background: rgba(243,193,75,0.10); border: 1px solid rgba(243,193,75,0.35);
   }
-  .mode-card:active { transform:scale(0.97); }
-  .mode-card.active { box-shadow:inset 0 1px 0 var(--border-h),0 0 0 1.5px var(--indigo),0 4px 20px -4px rgba(99,102,241,0.35); }
-  .mode-card-icon {
-    width:34px; height:34px; border-radius:8px; background:var(--bg-deep);
-    box-shadow:inset 0 1px 0 var(--border-h),0 0 0 1px var(--border);
-    display:flex; align-items:center; justify-content:center; margin:0 auto 6px;
+  .recon-title { font-size: 13.5px; font-weight: 600; color: var(--warn); }
+  .recon-sub { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
+  .scard { padding: 20px; }
+  .scard-head { display: flex; align-items: center; gap: 13px; }
+  .scard-icon {
+    width: 46px; height: 46px; border-radius: var(--r);
+    background: var(--surface-3); display: grid; place-items: center; color: var(--accent);
   }
-  .mode-card-icon svg { width:16px; height:16px; color:var(--dim); }
-  .mode-card.active .mode-card-icon { background:rgba(99,102,241,0.08); box-shadow:0 0 0 1px rgba(99,102,241,0.3); }
-  .mode-card.active .mode-card-icon svg { color:var(--indigo-l); }
-  .mode-name { font-size:13px; font-weight:600; color:var(--head); }
-  .mode-card.active .mode-name { color:var(--indigo-l); }
-  .mode-desc { font-size:10px; color:var(--dim); margin-top:1px; }
-  .connect-btn {
-    width:100%; height:46px; border-radius:8px; border:none;
-    background:linear-gradient(180deg,#7376f4,#5a5ee3); color:var(--white);
-    font-size:14px; font-weight:600;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.25),0 0 0 1px rgba(99,102,241,0.6),0 8px 28px -4px rgba(99,102,241,0.55);
-    transition:opacity 0.2s,transform 0.15s;
-  }
-  .connect-btn:active { transform:scale(0.98); }
-  .connect-btn:disabled { opacity:0.3; box-shadow:none; }
-  .error-text { text-align:center; padding:8px 0 0; font-size:13px; color:var(--red); font-weight:500; }
+  .scard-name { font-size: 16.5px; font-weight: 600; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .scard-meta { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); margin-top: 2px; }
+  .scard-divider { height: 1px; background: var(--border); margin: 16px 0 4px; }
+  .stat-row { display: flex; gap: 12px; padding-top: 12px; }
+  .stat { flex: 1; min-width: 0; }
+  .stat-val { font-family: var(--font-mono); font-size: 21px; font-weight: 600; color: var(--text-1); letter-spacing: -0.02em; line-height: 1; }
+  .stat-unit { font-size: 12px; color: var(--text-3); margin-left: 2px; font-family: var(--font-sans); }
+  .stat-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 6px; }
 
-  /* Connected info in display tab */
-  .connected-info { padding:16px; }
-  .connected-card {
-    padding:16px; border-radius:12px; background:var(--surface);
-    box-shadow:inset 0 1px 0 var(--border-h),inset 0 -1px 0 var(--bg-deep),0 0 0 1px var(--border);
-  }
-  .connected-header { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
-  .connected-name { font-size:16px; font-weight:600; color:var(--head); }
-  .connected-meta { font-size:12px; color:var(--dim); margin-top:2px; }
-  .stats-row { display:flex; gap:8px; margin-bottom:14px; }
-  .stat-box {
-    flex:1; padding:10px; border-radius:8px; background:var(--bg-deep);
-    box-shadow:inset 0 1px 0 var(--border-h),0 0 0 1px var(--border); text-align:center;
-  }
-  .stat-label { font-size:10px; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:0.8px; }
-  .stat-val { font-size:15px; font-weight:600; color:var(--head); margin-top:2px; }
-  .view-stream-btn {
-    width:100%; height:44px; border-radius:8px; border:none;
-    background:linear-gradient(180deg,#7376f4,#5a5ee3); color:var(--white);
-    font-size:14px; font-weight:600; margin-bottom:8px;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.25),0 0 0 1px rgba(99,102,241,0.6),0 6px 20px -4px rgba(99,102,241,0.5);
-  }
-  .view-stream-btn:active { transform:scale(0.98); }
-  .disconnect-btn {
-    width:100%; height:40px; border-radius:8px;
-    background:none; border:1px solid var(--border);
-    color:var(--dim); font-size:13px; font-weight:500;
-  }
-  .disconnect-btn:active { background:var(--surface); color:var(--red); border-color:var(--red); }
-
-  /* ══ Files Tab ══════════════════════ */
-  .tab-placeholder {
-    padding:48px 32px; display:flex; flex-direction:column;
-    align-items:center; text-align:center;
-  }
-  .tab-placeholder-icon {
-    width:56px; height:56px; border-radius:14px; background:var(--surface);
-    box-shadow:inset 0 1px 0 var(--border-h),0 0 0 1px var(--border);
-    display:flex; align-items:center; justify-content:center; margin-bottom:16px;
-  }
-  .tab-placeholder-icon svg { width:24px; height:24px; color:var(--dim); }
-  .tab-placeholder-title { font-size:16px; font-weight:600; color:var(--head); margin-bottom:4px; }
-  .tab-placeholder-desc { font-size:13px; color:var(--dim); line-height:1.5; max-width:240px; }
-
-  .files-content { padding:16px; }
-  .file-action-row { display:flex; gap:8px; margin-bottom:16px; }
-  .file-action-btn {
-    flex:1; height:52px; border-radius:10px; background:var(--surface);
-    box-shadow:inset 0 1px 0 var(--border-h),0 0 0 1px var(--border);
-    border:none; color:var(--text); display:flex; flex-direction:column;
-    align-items:center; justify-content:center; gap:4px;
-    transition:transform 0.15s;
-  }
-  .file-action-btn:active { transform:scale(0.97); }
-  .file-action-btn svg { width:20px; height:20px; color:var(--indigo-l); }
-  .file-action-btn span { font-size:11px; font-weight:600; }
-  .file-section-title { font-size:11px; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:0.8px; padding:4px 0 10px; }
-  .file-empty { padding:24px; text-align:center; font-size:13px; color:var(--dim2); }
-  .file-item { padding:12px; border-radius:10px; background:var(--surface); box-shadow:inset 0 1px 0 var(--border-h),0 0 0 1px var(--border); display:flex; align-items:center; gap:12px; margin-bottom:8px; }
-  .file-thumb { width:42px; height:42px; border-radius:8px; background:var(--bg-deep); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; }
-  .file-thumb img { width:100%; height:100%; object-fit:cover; }
-  .file-thumb svg { width:20px; height:20px; color:var(--dim); }
-  .file-body { flex:1; min-width:0; }
-  .file-name { font-size:13px; font-weight:600; color:var(--head); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .file-size { font-size:11px; color:var(--dim); margin-top:2px; }
-  .file-progress { width:100%; height:3px; border-radius:2px; background:var(--border); margin-top:6px; overflow:hidden; }
-  .file-progress-bar { height:100%; border-radius:2px; background:var(--indigo); transition:width 0.2s; }
-  .file-actions { display:flex; gap:6px; flex-shrink:0; }
-  .file-accept-btn,.file-reject-btn { width:32px; height:32px; border-radius:8px; border:none; display:flex; align-items:center; justify-content:center; }
-  .file-accept-btn { background:rgba(52,211,153,0.1); color:var(--green); }
-  .file-reject-btn { background:rgba(239,68,68,0.1); color:var(--red); }
-  .file-done-badge { font-size:10px; font-weight:600; color:var(--green); padding:4px 8px; border-radius:6px; background:rgba(52,211,153,0.1); }
-
-  /* ══ Remote Tab ═════════════════════ */
-  .remote-content { padding:12px; display:flex; flex-direction:column; gap:10px; min-height:100%; }
-  .trackpad-area {
-    height:30vh; min-height:160px; border-radius:12px; background:var(--surface);
-    box-shadow:inset 0 1px 0 var(--border-h),inset 0 -1px 0 var(--bg-deep),0 0 0 1px var(--border);
-    display:flex; align-items:center; justify-content:center;
-    touch-action:none; position:relative; flex-shrink:0;
-  }
-  .trackpad-label {
-    font-size:12px; color:var(--dim2); pointer-events:none;
-    display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center;
-    padding:0 16px; line-height:1.5;
-  }
-  .trackpad-label svg { width:28px; height:28px; color:var(--dim2); }
-  .remote-actions { display:flex; gap:8px; flex-shrink:0; }
-  .remote-btn {
-    flex:1; height:42px; border-radius:8px; background:var(--surface);
-    box-shadow:inset 0 1px 0 var(--border-h),0 0 0 1px var(--border);
-    border:none; color:var(--text); font-size:12px; font-weight:600;
-    display:flex; align-items:center; justify-content:center; gap:6px;
-    transition:transform 0.15s;
-    touch-action:manipulation;
-  }
-  .remote-btn:active { transform:scale(0.97); background:var(--border); }
-  .remote-btn svg { width:16px; height:16px; color:var(--indigo-l); }
-
-  /* Shortcut grid (WiFi-Mouse style) */
-  .shortcut-section { display:flex; flex-direction:column; gap:6px; }
-  .shortcut-grid {
-    display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;
-  }
-  .shortcut-key {
-    height:40px; border-radius:8px; background:var(--surface);
-    box-shadow:inset 0 1px 0 var(--border-h),0 0 0 1px var(--border);
-    border:none; color:var(--text); font-size:11.5px; font-weight:600;
-    display:flex; align-items:center; justify-content:center;
-    transition:transform 0.1s,background 0.15s;
-    touch-action:manipulation;
-    -webkit-user-select:none; user-select:none;
-  }
-  .shortcut-key:active { transform:scale(0.96); background:var(--indigo); color:white; }
-  .shortcut-key.wide { grid-column:span 2; }
-  .shortcut-key.media { color:var(--indigo-l); }
-  .shortcut-key.danger:active { background:var(--red); }
-
-  /* ══ Stream Fullscreen ══════════════ */
+  /* ── Stream fullscreen ── */
   .stream-fs {
-    position:fixed; inset:0; z-index:50; background:#000;
-    opacity:0; pointer-events:none; transition:opacity 0.3s;
+    position: fixed; inset: 0; z-index: 50;
+    background: #05070a;
+    opacity: 0; pointer-events: none; transition: opacity .3s var(--ease);
   }
-  .stream-fs.active { opacity:1; pointer-events:auto; }
-  #stream-img { width:100%; height:100%; object-fit:contain; touch-action:none; background:#000; }
-  .stream-overlay { position:fixed; inset:0; z-index:51; pointer-events:none; transition:opacity 0.4s; }
-  .stream-overlay.dimmed { opacity:0; }
+  .stream-fs.active { opacity: 1; pointer-events: auto; }
+  #stream-img { width: 100%; height: 100%; object-fit: contain; touch-action: none; background: #000; cursor: pointer; }
+  .stream-loading {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+    background: rgba(5,7,10,0.55);
+  }
+  .stream-loading-spin { width: 30px; height: 30px; border: 2.4px solid var(--surface-3); border-top-color: var(--accent); border-radius: 50%; animation: vSpin .9s linear infinite; }
+  .stream-loading-text { font-size: 14px; color: var(--text-1); font-weight: 600; }
+  .stream-loading-sub { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
   .stream-top {
-    position:absolute; top:0; left:0; right:0;
-    padding:calc(8px + var(--safe-t)) 14px 16px;
-    display:flex; align-items:center; gap:10px;
-    background:linear-gradient(180deg,rgba(0,0,0,0.75),transparent);
-    pointer-events:auto;
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: calc(14px + env(safe-area-inset-top, 0)) 14px 28px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.6), transparent);
+    display: flex; align-items: center; gap: 12px;
+    transition: transform .3s var(--ease), opacity .3s var(--ease);
   }
-  .stream-back {
-    width:34px; height:34px; border-radius:50%;
-    background:rgba(255,255,255,0.1); backdrop-filter:blur(12px);
-    border:1px solid rgba(255,255,255,0.08); color:var(--white);
-    display:flex; align-items:center; justify-content:center;
+  .stream-bot {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 28px 14px calc(16px + env(safe-area-inset-bottom, 0));
+    background: linear-gradient(0deg, rgba(0,0,0,0.6), transparent);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    transition: transform .3s var(--ease), opacity .3s var(--ease);
   }
-  .stream-back:active { background:rgba(255,255,255,0.2); }
-  .stream-device { flex:1; font-size:14px; font-weight:600; color:var(--white); }
-  .stream-badge {
-    padding:4px 10px; border-radius:6px;
-    background:rgba(255,255,255,0.1); backdrop-filter:blur(12px);
-    border:1px solid rgba(255,255,255,0.08);
-    font-size:10.5px; font-weight:600; color:rgba(255,255,255,0.65);
-    text-transform:uppercase; letter-spacing:0.5px;
+  .stream-overlay.dimmed .stream-top { transform: translateY(-110%); opacity: 0; }
+  .stream-overlay.dimmed .stream-bot { transform: translateY(110%); opacity: 0; }
+  .stream-pillbtn {
+    width: 40px; height: 40px; border-radius: var(--r-sm);
+    background: rgba(255,255,255,0.12); backdrop-filter: blur(8px);
+    border: none; color: #fff; display: grid; place-items: center;
   }
-  .stream-bottom-bar {
-    position:absolute; bottom:0; left:0; right:0;
-    padding:16px 16px calc(12px + var(--safe-b)); display:flex; justify-content:center;
-    background:linear-gradient(0deg,rgba(0,0,0,0.75),transparent);
-    pointer-events:auto;
+  .stream-name { font-size: 14.5px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stream-mode { font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.7); }
+  .stream-live-pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+    border-radius: var(--r-pill); background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(8px); font-size: 11.5px; font-weight: 600; color: #fff;
   }
-  .stream-pill { display:flex; align-items:center; gap:8px; padding:8px 16px; border-radius:999px; background:rgba(255,255,255,0.08); backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.06); }
-  .pill-dot { width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 8px rgba(52,211,153,0.4); }
-  .pill-dot.reconnecting { background:var(--amber); box-shadow:0 0 8px rgba(245,158,11,0.3); animation:blink 1s ease-in-out infinite; }
-  .pill-text { font-size:12px; font-weight:600; color:rgba(255,255,255,0.8); }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
-  .stream-loading { position:absolute; inset:0; z-index:52; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; background:#000; }
-  .stream-loading-spinner { width:36px; height:36px; border:2px solid #222; border-top-color:var(--indigo); border-radius:50%; animation:spin 0.9s linear infinite; }
-  .stream-loading-text { font-size:13px; color:var(--dim); }
+  .stream-stats { display: flex; gap: 14px; font-family: var(--font-mono); font-size: 11.5px; color: rgba(255,255,255,0.85); }
+  .stream-disc {
+    display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 14px;
+    border-radius: var(--r-sm); background: rgba(255,111,111,0.18);
+    border: 1px solid rgba(255,111,111,0.4); color: #ffb0b0;
+    font-weight: 600; font-size: 13px; backdrop-filter: blur(8px);
+  }
 
-  /* ══ Connecting Overlay ═════════════ */
-  .connecting-overlay {
-    position:fixed; inset:0; z-index:40; background:var(--bg);
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px;
-    opacity:0; pointer-events:none; transition:opacity 0.3s;
+  /* ── Files ── */
+  .files { padding: 20px; height: 100%; overflow-y: auto; scrollbar-width: none; }
+  .files::-webkit-scrollbar { display: none; }
+  .files-actions { display: flex; gap: 11px; }
+  .file-action-btn {
+    flex: 1; min-height: 60px;
+    background: var(--surface-2); color: var(--text-1);
+    border: 1px solid var(--border); border-radius: var(--r);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+    font-size: 13.5px; font-weight: 600;
+    touch-action: manipulation;
   }
-  .connecting-overlay.active { opacity:1; pointer-events:auto; }
-  .spinner { width:72px; height:72px; position:relative; }
-  .spinner-track { position:absolute; inset:0; border:2px solid var(--border); border-top-color:var(--indigo); border-radius:50%; animation:spin 0.9s linear infinite; }
-  .spinner-core { position:absolute; top:50%; left:50%; width:10px; height:10px; margin:-5px 0 0 -5px; border-radius:50%; background:var(--indigo); box-shadow:0 0 20px rgba(99,102,241,0.4); }
-  @keyframes spin { to{transform:rotate(360deg)} }
-  .connecting-title { font-size:16px; font-weight:600; color:var(--head); }
-  .connecting-sub { font-size:13px; color:var(--dim); }
-  .cancel-btn { margin-top:8px; padding:10px 28px; border-radius:8px; background:none; border:1px solid var(--border); color:var(--dim); font-size:12.5px; font-weight:500; }
+  .file-action-btn:active { background: var(--surface-3); }
+  .incoming-card {
+    padding: 16px;
+    background: var(--accent-weak); border: 1px solid var(--accent-line);
+    border-radius: var(--r-lg);
+  }
+  .incoming-head { display: flex; align-items: center; gap: 12px; }
+  .incoming-icon { width: 40px; height: 40px; flex: none; border-radius: var(--r-sm); background: var(--surface-1); display: grid; place-items: center; color: var(--accent); }
+  .incoming-name { font-size: 14.5px; font-weight: 600; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .incoming-meta { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-2); margin-top: 2px; }
+  .incoming-buttons { display: flex; gap: 10px; margin-top: 14px; }
+  .transfer-row { padding: 12px; }
+  .transfer-head { display: flex; align-items: center; gap: 12px; }
+  .transfer-icon { width: 38px; height: 38px; flex: none; border-radius: var(--r-sm); background: var(--surface-3); display: grid; place-items: center; }
+  .transfer-name { font-size: 14px; font-weight: 600; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .transfer-meta { display: flex; align-items: center; gap: 7px; margin-top: 3px; }
+  .transfer-status { font-size: 11.5px; font-weight: 600; }
+  .transfer-size { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+  .bar-inner {
+    height: 6px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; position: relative; margin-top: 11px;
+  }
+  .bar-inner > i {
+    position: absolute; inset: 0 auto 0 0; border-radius: inherit;
+    background: linear-gradient(90deg, var(--accent-2), var(--accent));
+    transition: width .3s var(--ease);
+  }
 
-  /* ══ Toast ═══════════════════════════ */
+  /* ── Remote ── */
+  .remote { height: 100%; display: flex; flex-direction: column; position: relative; }
+  .remote-mode { padding: 16px 20px 0; }
+  .remote-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 16px 20px 20px; }
+  .trackpad-area {
+    flex: 1; min-height: 0; display: flex; gap: 8px;
+  }
+  .trackpad {
+    flex: 1; position: relative; border-radius: var(--r-lg); overflow: hidden;
+    background: var(--surface-1); border: 1px solid var(--border);
+    touch-action: none; user-select: none;
+    background-image: radial-gradient(var(--border) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  .trackpad-hint {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    pointer-events: none;
+  }
+  .trackpad-hint-inner { display: flex; flex-direction: column; align-items: center; gap: 9px; color: var(--text-3); }
+  .trackpad-hint-text { font-size: 13px; font-weight: 500; }
+  .trackpad-delta {
+    font-family: var(--font-mono); font-size: 14px; color: var(--accent);
+    background: var(--surface-0); padding: 6px 12px; border-radius: var(--r-pill);
+    border: 1px solid var(--accent-line);
+  }
+  .scroll-strip {
+    width: 40px; flex: none; border-radius: var(--r-lg);
+    border: 1px solid var(--border); background: var(--surface-1);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    color: var(--text-3); touch-action: none; user-select: none;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .scroll-strip.active { background: var(--accent-weak); border-color: var(--accent-line); color: var(--accent); }
+  .click-bar { display: flex; gap: 9px; }
+  .click-btn {
+    flex: 1; min-height: 56px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r);
+    color: var(--text-1); font-size: 14px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: background .12s;
+    touch-action: manipulation;
+  }
+  .click-btn:active { background: var(--press); }
+  .keycap {
+    min-height: 48px;
+    background: var(--surface-2); color: var(--text-1);
+    border: 1px solid var(--border); border-radius: var(--r-sm);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    padding: 4px 6px; font-family: var(--font-sans);
+    transition: background .14s, transform .1s;
+    touch-action: manipulation;
+  }
+  .keycap:active { transform: scale(0.94); background: var(--press); }
+  .keycap-label { font-size: 14px; font-weight: 600; line-height: 1.1; }
+  .keycap-label-icon { font-size: 10.5px; }
+  .keycap-sub { font-family: var(--font-mono); font-size: 9px; color: var(--text-3); }
+  .keycap-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .flash-pill {
+    position: absolute; top: 70px; left: 50%; transform: translateX(-50%); z-index: 46;
+    padding: 7px 14px; border-radius: var(--r-pill);
+    background: var(--surface-3); border: 1px solid var(--accent-line);
+    box-shadow: var(--shadow-2);
+    font-size: 12.5px; font-weight: 600; color: var(--accent); white-space: nowrap;
+  }
+
+  /* ── Toast ── */
+  .toast-host {
+    position: fixed; left: 14px; right: 14px; bottom: calc(78px + env(safe-area-inset-bottom, 0));
+    z-index: 60;
+    display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+  }
   .toast {
-    position:fixed; bottom:calc(70px + var(--safe-b)); left:50%; transform:translateX(-50%);
-    padding:10px 18px; border-radius:999px;
-    background:rgba(20,22,28,0.92); backdrop-filter:blur(20px) saturate(180%);
-    border:1px solid var(--border); display:flex; align-items:center; gap:8px;
-    z-index:100; opacity:0; transform:translateX(-50%) translateY(16px);
-    transition:opacity 0.25s,transform 0.25s; pointer-events:none;
+    display: flex; align-items: flex-start; gap: 11px; padding: 13px 14px;
+    background: var(--surface-3); border: 1px solid var(--border-strong);
+    border-radius: var(--r); box-shadow: var(--shadow-2);
+    pointer-events: auto;
+    animation: toastIn .25s var(--ease) both;
   }
-  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
-  .toast-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-  .toast-dot.green { background:var(--green); box-shadow:0 0 8px rgba(52,211,153,0.4); }
-  .toast-dot.red { background:var(--red); box-shadow:0 0 8px rgba(239,68,68,0.4); }
-  .toast-msg { font-size:12.5px; font-weight:500; color:var(--text); white-space:nowrap; }
+  @keyframes toastIn { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .toast-title { font-size: 13.5px; font-weight: 600; color: var(--text-1); }
+  .toast-msg { font-size: 12.5px; color: var(--text-2); margin-top: 2px; line-height: 1.4; }
+
+  /* ── Sheet ── */
+  .sheet-backdrop {
+    position: fixed; inset: 0; z-index: 55; background: rgba(4,6,9,0.55);
+    display: flex; flex-direction: column; justify-content: flex-end;
+    animation: vFade .25s var(--ease);
+  }
+  @keyframes vFade { from { opacity: 0; } to { opacity: 1; } }
+  .sheet {
+    background: var(--surface-1);
+    border-top-left-radius: var(--r-lg); border-top-right-radius: var(--r-lg);
+    border-top: 1px solid var(--border-strong);
+    max-height: 94%; display: flex; flex-direction: column;
+    box-shadow: 0 -16px 40px rgba(0,0,0,0.5);
+    animation: sheetUp .34s var(--ease) both;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  @keyframes sheetUp { from { transform: translateY(26px); } to { transform: translateY(0); } }
+  .sheet-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 15px 16px 13px; border-bottom: 1px solid var(--border);
+  }
+  .sheet-title { font-size: 16px; font-weight: 600; color: var(--text-1); }
+  .sheet-close {
+    background: var(--surface-3); border: none; color: var(--text-2);
+    width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  }
+  .sheet-body { padding: 16px 16px 22px; overflow-y: auto; scrollbar-width: none; }
+  .sheet-body::-webkit-scrollbar { display: none; }
+
+  /* ── Radar (loading discovery) ── */
+  .radar-search {
+    padding: 56px 32px; display: flex; flex-direction: column; align-items: center; text-align: center;
+  }
+  .radar { width: 110px; height: 110px; position: relative; margin-bottom: 22px; display: grid; place-items: center; }
+  .radar-ring {
+    position: absolute; width: 110px; height: 110px; border-radius: 50%;
+    border: 1px solid var(--accent-line); opacity: 0; pointer-events: none;
+    animation: vRadar 2.8s var(--ease) infinite;
+  }
+  .radar-ring:nth-child(2) { animation-delay: 0.9s; }
+  .radar-ring:nth-child(3) { animation-delay: 1.8s; }
+  .radar-core {
+    width: 50px; height: 50px; border-radius: var(--r-lg);
+    background: linear-gradient(155deg, var(--surface-2), var(--surface-1));
+    border: 1px solid var(--border-strong);
+    display: grid; place-items: center; color: var(--accent);
+  }
+  @keyframes vRadar { 0% { transform: scale(0.7); opacity: 0.5; } 70% { opacity: 0; } 100% { transform: scale(2.05); opacity: 0; } }
+
+  /* ── reduced motion ── */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
 </style>
 </head>
 <body>
 
-<div id="toast" class="toast"><span id="toast-dot" class="toast-dot green"></span><span id="toast-msg" class="toast-msg"></span></div>
-
-<!-- ═══ App Shell ═══ -->
 <div class="app-shell">
-  <div class="app-header">
-    <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div>
-    <div class="brand-title">Vior</div>
-    <div id="conn-badge" class="conn-badge off"><span class="conn-badge-dot"></span><span id="conn-badge-text">Offline</span></div>
+  <!-- Header -->
+  <div class="header">
+    <div class="wordmark">
+      <span class="glyph"><span class="g-screen"></span><span class="g-stand"></span><span class="g-phone"></span></span>
+      Vior
+    </div>
+    <div class="header-right">
+      <span class="conn-chip" id="conn-chip"><span class="dot dot-idle" id="conn-dot"></span><span id="conn-label">Not connected</span></span>
+      <button class="icon-btn" id="settings-btn" title="Settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.2M12 18.8V21M21 12h-2.2M5.2 12H3M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6M18.4 18.4l-1.6-1.6M7.2 7.2L5.6 5.6"/></svg>
+      </button>
+    </div>
   </div>
 
-  <!-- Tab Content -->
-  <div class="tab-content">
-    <!-- ── Display Tab ── -->
-    <div id="tab-display" class="tab-pane active">
-      <!-- Discovery state -->
-      <div id="disc-state">
-        <div class="scan-bar">
-          <div id="scan-dot" class="scan-dot scanning"></div>
-          <span id="scan-label" class="scan-label">Scanning network…</span>
+  <!-- Content -->
+  <div class="content">
+
+    <!-- DISPLAY -->
+    <div class="pane active" id="pane-display">
+      <!-- Discovery view -->
+      <div class="disc-wrap" id="disc-view">
+        <div class="disc-top">
+          <span class="section-label" id="disc-status">Scanning network…</span>
+          <button class="disc-refresh" id="disc-refresh">
+            <svg id="refresh-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-1.5 5.5"/><path d="M20 5v5h-5"/></svg>
+            Refresh
+          </button>
         </div>
-        <div class="divider"></div>
-        <div id="server-list" class="server-list"></div>
-        <div id="manual-section" class="manual-section hidden">
-          <div class="manual-row">
-            <input id="manual-ip" class="manual-input mono" type="text" placeholder="192.168.1.100" inputmode="url">
-            <button id="manual-go" class="manual-go">Go</button>
+        <div class="disc-list" id="disc-list"></div>
+        <div class="dock" id="disc-dock">
+          <div class="seg" style="grid-template-columns: 1fr 1fr;">
+            <button class="seg-btn active" data-mode="extend">
+              <div class="seg-btn-row">
+                <span class="seg-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg></span>
+                <span>Extend</span>
+              </div>
+              <div class="seg-sub">Second display</div>
+            </button>
+            <button class="seg-btn" data-mode="mirror">
+              <div class="seg-btn-row">
+                <span class="seg-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+                <span>Mirror</span>
+              </div>
+              <div class="seg-sub">Duplicate screen</div>
+            </button>
           </div>
-          <button id="retry-btn" class="retry-btn">Scan again</button>
-        </div>
-        <div id="bottom-panel" class="bottom-panel hidden">
-          <div class="section-label">Display Mode</div>
-          <div class="mode-row">
-            <div id="mode-extend" class="mode-card active" data-mode="extend">
-              <div class="mode-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="10" height="7" rx="1"/><rect x="13" y="4" width="10" height="7" rx="1"/><path d="M6 14v3M18 14v3M3 17h6M15 17h6"/></svg></div>
-              <div class="mode-name">Extend</div>
-              <div class="mode-desc">Extra screen</div>
-            </div>
-            <div id="mode-mirror" class="mode-card" data-mode="mirror">
-              <div class="mode-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M9 8l3-2 3 2M9 12l3 2 3-2"/></svg></div>
-              <div class="mode-name">Mirror</div>
-              <div class="mode-desc">Clone display</div>
-            </div>
-          </div>
-          <button id="connect-btn" class="connect-btn" disabled>Connect</button>
-          <div id="error-text" class="error-text hidden"></div>
+          <button class="btn btn-primary btn-block" id="connect-btn" disabled>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 14.5l5-5"/><path d="M8 11l-2 2a3.2 3.2 0 0 0 4.5 4.5l2-2"/><path d="M16 13l2-2A3.2 3.2 0 0 0 13.5 6.5l-2 2"/></svg>
+            <span id="connect-label">Select a server</span>
+          </button>
         </div>
       </div>
-      <!-- Connected state -->
-      <div id="connected-state" class="connected-info hidden">
-        <div class="connected-card">
-          <div class="connected-header">
-            <div class="srv-icon-box" id="conn-icon"></div>
-            <div>
-              <div class="connected-name" id="conn-name"></div>
-              <div class="connected-meta" id="conn-meta"></div>
+
+      <!-- Empty view -->
+      <div class="disc-wrap hidden" id="empty-view">
+        <div class="empty">
+          <span class="empty-icon">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5C5 5.8 8.4 4.4 12 4.4s7 1.4 10 4.1"/><path d="M5 11.6c2-1.8 4.4-2.8 7-2.8s5 1 7 2.8"/><path d="M8.3 14.8c1.1-1 2.4-1.5 3.7-1.5s2.6.5 3.7 1.5"/><circle cx="12" cy="18.3" r="1.1" fill="currentColor" stroke="none"/></svg>
+          </span>
+          <div class="empty-title">No servers found</div>
+          <div class="empty-body">Make sure Vior is running on your computer and both devices share the same Wi-Fi network.</div>
+        </div>
+        <div class="section-label">Connect manually</div>
+        <div class="field">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 14.5l5-5"/><path d="M8 11l-2 2a3.2 3.2 0 0 0 4.5 4.5l2-2"/><path d="M16 13l2-2A3.2 3.2 0 0 0 13.5 6.5l-2 2"/></svg>
+          <input id="manual-ip" type="text" placeholder="192.168.1.24" inputmode="url">
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 14px;">
+          <button class="btn btn-ghost btn-block" id="rescan-btn">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-1.5 5.5"/><path d="M20 5v5h-5"/></svg>
+            Scan again
+          </button>
+          <button class="btn btn-primary btn-block" id="manual-go" disabled>
+            <span>Connect</span>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Connected card -->
+      <div class="scard-wrap hidden" id="connected-view">
+        <div class="recon-banner hidden" id="recon-banner">
+          <span class="spin" style="border-top-color: var(--warn); width: 17px; height: 17px;"></span>
+          <div style="flex: 1;">
+            <div class="recon-title">Connection lost — reconnecting</div>
+            <div class="recon-sub" id="recon-sub">attempt 1 of 5 · backing off</div>
+          </div>
+        </div>
+        <div class="card scard">
+          <div class="scard-head">
+            <span class="scard-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4.5" width="19" height="12.5" rx="1.6"/><path d="M2.5 13.5h19"/><path d="M9 21h6"/></svg></span>
+            <div style="flex: 1; min-width: 0;">
+              <div class="scard-name" id="scard-name">—</div>
+              <div class="scard-meta" id="scard-meta">—</div>
+            </div>
+            <span class="conn-chip"><span class="dot dot-ok dot-pulse"></span>Connected</span>
+          </div>
+          <div class="scard-divider"></div>
+          <div class="stat-row">
+            <div class="stat">
+              <div class="stat-val" id="stat-mode">—</div>
+              <div class="stat-label">Mode</div>
+            </div>
+            <div class="stat">
+              <div class="stat-val" id="stat-res">—</div>
+              <div class="stat-label">Resolution</div>
+            </div>
+            <div class="stat">
+              <div class="stat-val" id="stat-status">Live</div>
+              <div class="stat-label">Status</div>
             </div>
           </div>
-          <div class="stats-row">
-            <div class="stat-box"><div class="stat-label">Mode</div><div class="stat-val" id="stat-mode">—</div></div>
-            <div class="stat-box"><div class="stat-label">Resolution</div><div class="stat-val mono" id="stat-res">—</div></div>
-            <div class="stat-box"><div class="stat-label">Status</div><div class="stat-val" id="stat-status">—</div></div>
-          </div>
-          <button id="view-stream-btn" class="view-stream-btn">View Stream</button>
-          <button id="disconnect-btn" class="disconnect-btn">Disconnect</button>
         </div>
+        <button class="btn btn-primary btn-block" id="view-stream-btn" style="min-height: 54px;">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5l13 7.5-13 7.5z"/></svg>
+          View Stream
+        </button>
+        <button class="btn btn-ghost btn-block" id="disconnect-btn">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          Disconnect
+        </button>
       </div>
     </div>
 
-    <!-- ── Files Tab ── -->
-    <div id="tab-files" class="tab-pane">
-      <div id="files-placeholder" class="tab-placeholder">
-        <div class="tab-placeholder-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15l3-3 3 3"/></svg></div>
-        <div class="tab-placeholder-title">File Transfer</div>
-        <div class="tab-placeholder-desc">Connect to a server to send and receive files</div>
+    <!-- FILES -->
+    <div class="pane" id="pane-files">
+      <div class="empty" id="files-offline" style="height:100%; justify-content: center;">
+        <span class="empty-icon">
+          <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5a2 2 0 0 1 2-2h4l2 2.2h6a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        </span>
+        <div class="empty-title">No active session</div>
+        <div class="empty-body">Connect to a device on the Display tab to send and receive files.</div>
+        <button class="btn btn-primary" id="files-connect-btn" style="margin-top: 22px;">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 14.5l5-5"/><path d="M8 11l-2 2a3.2 3.2 0 0 0 4.5 4.5l2-2"/><path d="M16 13l2-2A3.2 3.2 0 0 0 13.5 6.5l-2 2"/></svg>
+          Connect a device
+        </button>
       </div>
-      <div id="files-active" class="files-content hidden">
-        <input type="file" id="file-input" style="display:none">
-        <input type="file" id="photo-input" accept="image/*" style="display:none">
-        <div class="file-action-row">
-          <button id="send-file-btn" class="file-action-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-            <span>Send File</span>
+      <div class="files hidden" id="files-active">
+        <input type="file" id="file-input" style="display: none;">
+        <input type="file" id="photo-input" accept="image/*" style="display: none;">
+        <div class="files-actions">
+          <button class="file-action-btn" id="send-file-btn">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h7l5 5v13a0 0 0 0 1 0 0H6a0 0 0 0 1 0 0z"/><path d="M13 3v5h5"/></svg>
+            Send File
           </button>
-          <button id="send-photo-btn" class="file-action-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-            <span>Send Photo</span>
+          <button class="file-action-btn" id="send-photo-btn">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.6"/><path d="M5 17l4.5-4 3 2.6L16 12l3 3.2"/></svg>
+            Send Photo
           </button>
         </div>
-        <div id="incoming-section" class="hidden">
-          <div class="file-section-title">Incoming</div>
+        <div id="incoming-wrap" class="hidden" style="margin-top: 18px;">
+          <div class="section-label">Incoming</div>
           <div id="incoming-list"></div>
         </div>
-        <div class="file-section-title">Transfers</div>
-        <div id="file-list" class="file-empty">No transfers yet</div>
+        <div style="margin-top: 18px;">
+          <div class="section-label">Transfers</div>
+          <div id="transfer-list" style="display: flex; flex-direction: column; gap: 9px;"></div>
+          <div id="transfer-empty" style="padding: 24px 0; text-align: center; color: var(--text-3); font-size: 13px;">No transfers yet.</div>
+        </div>
       </div>
     </div>
 
-    <!-- ── Remote Tab ── -->
-    <div id="tab-remote" class="tab-pane">
-      <div id="remote-placeholder" class="tab-placeholder">
-        <div class="tab-placeholder-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><circle cx="12" cy="10" r="1" fill="currentColor"/></svg></div>
-        <div class="tab-placeholder-title">Remote Control</div>
-        <div class="tab-placeholder-desc">Connect to a server to control your computer remotely</div>
+    <!-- REMOTE -->
+    <div class="pane" id="pane-remote">
+      <div class="empty" id="remote-offline" style="height: 100%; justify-content: center;">
+        <span class="empty-icon">
+          <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3.2l13.6 7.2a.7.7 0 0 1-.1 1.27l-5.3 1.9-2.4 5.1a.7.7 0 0 1-1.3-.06z"/></svg>
+        </span>
+        <div class="empty-title">Remote unavailable</div>
+        <div class="empty-body">Connect to a device to use the trackpad, shortcuts and keyboard.</div>
+        <button class="btn btn-primary" id="remote-connect-btn" style="margin-top: 22px;">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 14.5l5-5"/><path d="M8 11l-2 2a3.2 3.2 0 0 0 4.5 4.5l2-2"/><path d="M16 13l2-2A3.2 3.2 0 0 0 13.5 6.5l-2 2"/></svg>
+          Connect a device
+        </button>
       </div>
-      <div id="remote-active" class="remote-content hidden">
-        <div id="trackpad" class="trackpad-area">
-          <div class="trackpad-label">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="4"/><path d="M12 18h.01"/></svg>
-            <span>1 finger: move · tap = click<br>2 finger: scroll · tap = right click</span>
+      <div class="remote hidden" id="remote-active">
+        <div class="remote-mode">
+          <div class="seg" style="grid-template-columns: 1fr 1fr;">
+            <button class="seg-btn active" id="remote-view-trackpad">
+              <div class="seg-btn-row">
+                <span class="seg-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5l4.5 16 2.2-6.3 6.3-2.2z"/></svg></span>
+                <span>Trackpad</span>
+              </div>
+            </button>
+            <button class="seg-btn" id="remote-view-keys">
+              <div class="seg-btn-row">
+                <span class="seg-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 9.5h.01M9.5 9.5h.01M13 9.5h.01M16.5 9.5h.01M6 13h.01M16.5 13h.01M9 15.5h6"/></svg></span>
+                <span>Shortcuts</span>
+              </div>
+            </button>
           </div>
         </div>
-        <input type="text" id="kb-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
-        <div class="remote-actions">
-          <button id="click-btn" class="remote-btn">Click</button>
-          <button id="rclick-btn" class="remote-btn">Right Click</button>
-          <button id="kb-btn" class="remote-btn">⌨ Keyboard</button>
-        </div>
-
-        <div class="section-label">Shortcuts</div>
-        <div class="shortcut-grid">
-          <button class="shortcut-key" data-shortcut="Cmd+c">Copy</button>
-          <button class="shortcut-key" data-shortcut="Cmd+v">Paste</button>
-          <button class="shortcut-key" data-shortcut="Cmd+x">Cut</button>
-          <button class="shortcut-key" data-shortcut="Cmd+z">Undo</button>
-          <button class="shortcut-key" data-shortcut="Cmd+Shift+z">Redo</button>
-          <button class="shortcut-key" data-shortcut="Cmd+a">Select All</button>
-          <button class="shortcut-key" data-shortcut="Cmd+s">Save</button>
-          <button class="shortcut-key" data-shortcut="Cmd+f">Find</button>
-          <button class="shortcut-key" data-shortcut="Cmd+Tab">App ⇆</button>
-          <button class="shortcut-key" data-shortcut="Cmd+`">Window ⇆</button>
-          <button class="shortcut-key" data-shortcut="Cmd+Space">Spotlight</button>
-          <button class="shortcut-key danger" data-shortcut="Cmd+q">Quit</button>
-        </div>
-
-        <div class="section-label">System</div>
-        <div class="shortcut-grid">
-          <button class="shortcut-key" data-shortcut="Escape">Esc</button>
-          <button class="shortcut-key" data-shortcut="Return">Enter</button>
-          <button class="shortcut-key" data-shortcut="Tab">Tab</button>
-          <button class="shortcut-key" data-shortcut="BackSpace">⌫</button>
-          <button class="shortcut-key" data-shortcut="Up">↑</button>
-          <button class="shortcut-key" data-shortcut="Down">↓</button>
-          <button class="shortcut-key" data-shortcut="Left">←</button>
-          <button class="shortcut-key" data-shortcut="Right">→</button>
-        </div>
-
-        <div class="section-label">Function Keys</div>
-        <div class="shortcut-grid">
-          <button class="shortcut-key" data-shortcut="F1">F1</button>
-          <button class="shortcut-key" data-shortcut="F2">F2</button>
-          <button class="shortcut-key" data-shortcut="F3">F3</button>
-          <button class="shortcut-key" data-shortcut="F4">F4</button>
-          <button class="shortcut-key" data-shortcut="F5">F5</button>
-          <button class="shortcut-key" data-shortcut="F6">F6</button>
-          <button class="shortcut-key" data-shortcut="F11">F11</button>
-          <button class="shortcut-key" data-shortcut="F12">F12</button>
-        </div>
-
-        <div class="remote-actions">
-          <button id="click-btn" class="remote-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12l4 0M8 10v4"/><rect x="2" y="6" width="12" height="12" rx="2"/></svg>
-            Click
-          </button>
-          <button id="rclick-btn" class="remote-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 12l-4 0"/><rect x="10" y="6" width="12" height="12" rx="2"/></svg>
-            Right Click
-          </button>
-          <button id="kb-btn" class="remote-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M8 16h8"/></svg>
+        <div class="remote-body" id="remote-trackpad-body">
+          <div class="trackpad-area">
+            <div class="trackpad" id="trackpad">
+              <div class="trackpad-hint" id="trackpad-hint">
+                <div class="trackpad-hint-inner">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5l4.5 16 2.2-6.3 6.3-2.2z"/></svg>
+                  <div class="trackpad-hint-text">Move to control · tap to click</div>
+                </div>
+              </div>
+            </div>
+            <div class="scroll-strip" id="scroll-strip">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V6M6 12l6-6 6 6"/></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="7.5" y="3" width="9" height="18" rx="4.5"/><path d="M12 7v3"/></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v13M6 12l6 6 6-6"/></svg>
+            </div>
+          </div>
+          <div class="click-bar">
+            <button class="click-btn" id="click-btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5l4.5 16 2.2-6.3 6.3-2.2z"/></svg>
+              Left Click
+            </button>
+            <button class="click-btn" id="rclick-btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3.5" width="12" height="17" rx="6"/></svg>
+              Right Click
+            </button>
+          </div>
+          <button class="btn btn-ghost btn-block" id="kb-btn">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 9.5h.01M9.5 9.5h.01M13 9.5h.01M16.5 9.5h.01M6 13h.01M16.5 13h.01M9 15.5h6"/></svg>
             Keyboard
           </button>
         </div>
+        <div class="remote-body hidden" id="remote-keys-body" style="overflow-y: auto; scrollbar-width: none;">
+          <div class="section-label">Edit &amp; system</div>
+          <div class="keycap-grid" id="shortcut-grid"></div>
+          <div class="section-label" style="margin-top: 18px;">Keys</div>
+          <div class="keycap-grid">
+            <button class="keycap" data-key="Escape"><span class="keycap-label">Esc</span></button>
+            <button class="keycap" data-key="Tab"><span class="keycap-label">Tab</span></button>
+            <button class="keycap" data-key="Return"><span class="keycap-label">Enter</span></button>
+            <button class="keycap" data-key="BackSpace">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5h11a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H9l-6-7z"/><path d="M16 9.5l-4 5M12 9.5l4 5"/></svg>
+              <span class="keycap-label keycap-label-icon">Delete</span>
+            </button>
+          </div>
+          <div class="keycap-grid" style="margin-top: 8px;">
+            <span></span>
+            <button class="keycap" data-key="Up"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V6M6 12l6-6 6 6"/></svg></button>
+            <span></span>
+            <span></span>
+            <button class="keycap" data-key="Left"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H6M12 6l-6 6 6 6"/></svg></button>
+            <button class="keycap" data-key="Down"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v13M6 12l6 6 6-6"/></svg></button>
+            <button class="keycap" data-key="Right"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M12 6l6 6-6 6"/></svg></button>
+          </div>
+          <div class="section-label" style="margin-top: 18px;">Function keys</div>
+          <div class="keycap-grid" id="fkey-grid"></div>
+        </div>
+        <div class="flash-pill hidden" id="flash-pill"></div>
+        <input type="text" id="kb-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0;">
+      </div>
+    </div>
+
+    <!-- Connecting overlay -->
+    <div class="connecting hidden" id="connecting-overlay">
+      <div class="conn-spinner-wrap">
+        <div class="conn-spinner-ring" id="conn-spin-ring"></div>
+        <div class="conn-spinner-core" id="conn-spin-core">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4.5" width="19" height="12.5" rx="1.6"/><path d="M2.5 13.5h19"/><path d="M9 21h6"/></svg>
+        </div>
+      </div>
+      <div class="conn-title" id="conn-title">Connecting</div>
+      <div class="conn-sub" id="conn-sub">Establishing session</div>
+      <div style="width: 100%; max-width: 240px; margin-top: 24px;">
+        <div class="bar bar-indef" id="conn-bar"></div>
+        <button class="btn btn-quiet btn-block" id="conn-cancel" style="margin-top: 18px;">Cancel</button>
       </div>
     </div>
   </div>
-
 </div>
 
-<!-- Bottom Tab Bar (outside app-shell to escape its stacking context) -->
+<!-- Tab bar OUTSIDE app-shell to escape stacking context -->
 <div class="tab-bar">
   <button class="tab-item active" data-tab="display">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
     <span class="tab-item-label">Display</span>
   </button>
   <button class="tab-item" data-tab="files">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5a2 2 0 0 1 2-2h4l2 2.2h6a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
     <span class="tab-item-label">Files</span>
   </button>
   <button class="tab-item" data-tab="remote">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><circle cx="12" cy="10" r="1" fill="currentColor"/></svg>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3.2l13.6 7.2a.7.7 0 0 1-.1 1.27l-5.3 1.9-2.4 5.1a.7.7 0 0 1-1.3-.06z"/></svg>
     <span class="tab-item-label">Remote</span>
   </button>
 </div>
 
-<!-- Connecting overlay -->
-<div id="connecting-overlay" class="connecting-overlay">
-  <div class="spinner"><div class="spinner-track"></div><div class="spinner-core"></div></div>
-  <div class="connecting-title">Connecting…</div>
-  <div class="connecting-sub" id="connecting-sub">Setting up display</div>
-  <button id="cancel-btn" class="cancel-btn">Cancel</button>
+<!-- Stream fullscreen overlay -->
+<div class="stream-fs" id="stream-fs">
+  <img id="stream-img" alt="">
+  <div class="stream-loading" id="stream-loading">
+    <div class="stream-loading-spin"></div>
+    <div class="stream-loading-text">Starting stream…</div>
+    <div class="stream-loading-sub" id="stream-loading-sub">negotiating MJPEG</div>
+  </div>
+  <div class="stream-top" id="stream-top">
+    <button class="stream-pillbtn" id="stream-back">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate(90deg);"><path d="M5 9l7 7 7-7"/></svg>
+    </button>
+    <div style="flex: 1; min-width: 0;">
+      <div class="stream-name" id="stream-name">—</div>
+      <div class="stream-mode" id="stream-mode-text">Extended display</div>
+    </div>
+    <span class="stream-live-pill"><span class="dot dot-ok dot-pulse"></span>Live</span>
+  </div>
+  <div class="stream-bot" id="stream-bot">
+    <div class="stream-stats" id="stream-stats">
+      <span id="stream-stat-res">—</span>
+      <span id="stream-stat-fps">—</span>
+      <span id="stream-stat-status">—</span>
+    </div>
+    <button class="stream-disc" id="stream-disconnect">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      Disconnect
+    </button>
+  </div>
 </div>
 
-<!-- Stream fullscreen -->
-<div id="stream-fs" class="stream-fs">
-  <img id="stream-img" alt="">
-  <div id="stream-loading" class="stream-loading"><div class="stream-loading-spinner"></div><span class="stream-loading-text">Waiting for frames…</span></div>
-  <div id="stream-overlay" class="stream-overlay">
-    <div class="stream-top">
-      <button id="back-btn" class="stream-back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-      <span id="stream-device" class="stream-device"></span>
-      <span id="stream-badge" class="stream-badge"></span>
+<!-- Toast host -->
+<div class="toast-host" id="toast-host"></div>
+
+<!-- Settings sheet -->
+<div class="sheet-backdrop hidden" id="settings-sheet">
+  <div class="sheet">
+    <div class="sheet-head">
+      <span class="sheet-title">Settings</span>
+      <button class="sheet-close" id="settings-close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
     </div>
-    <div class="stream-bottom-bar">
-      <div class="stream-pill"><span id="pill-dot" class="pill-dot"></span><span id="pill-text" class="pill-text">Connected</span></div>
+    <div class="sheet-body">
+      <div class="section-label">Stream quality</div>
+      <div class="seg" id="seg-preset" style="grid-template-columns: repeat(3, 1fr);">
+        <button class="seg-btn" data-preset="performance"><div class="seg-btn-row"><span>Performance</span></div><div class="seg-sub" style="margin-left: 0;">Lower latency</div></button>
+        <button class="seg-btn active" data-preset="balanced"><div class="seg-btn-row"><span>Balanced</span></div><div class="seg-sub" style="margin-left: 0;">Recommended</div></button>
+        <button class="seg-btn" data-preset="quality"><div class="seg-btn-row"><span>Quality</span></div><div class="seg-sub" style="margin-left: 0;">Sharper</div></button>
+      </div>
+      <div class="section-label" style="margin-top: 22px;">Connectivity</div>
+      <div class="card" style="overflow: hidden;">
+        <div style="display: flex; align-items: center; padding: 15px; gap: 12px;">
+          <div style="flex: 1;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text-1);">Auto-connect</div>
+            <div class="mono" style="font-size: 11.5px; color: var(--text-3); margin-top: 2px;">Reconnect to last server on launch</div>
+          </div>
+          <label style="position: relative; display: inline-block;">
+            <input type="checkbox" id="auto-connect-toggle" checked style="position: absolute; opacity: 0; pointer-events: none;">
+            <span id="auto-connect-track" style="display: block; width: 42px; height: 25px; border-radius: var(--r-pill); background: var(--accent); padding: 3px; position: relative; cursor: pointer;">
+              <span id="auto-connect-knob" style="display: block; width: 19px; height: 19px; border-radius: 50%; background: #fff; transform: translateX(17px); transition: transform .2s var(--ease); box-shadow: 0 1px 3px rgba(0,0,0,0.4);"></span>
+            </span>
+          </label>
+        </div>
+      </div>
+      <div class="section-label" style="margin-top: 22px;">About</div>
+      <div class="card" style="overflow: hidden;">
+        <div style="display: flex; align-items: center; padding: 15px; gap: 13px;">
+          <span class="glyph" style="width: 28px; height: 28px;">
+            <span class="g-screen" style="width: 21px; height: 15.5px; border-radius: 4.5px;"></span>
+            <span class="g-stand" style="width: 7px; height: 2.5px; top: 18.5px; left: 7px;"></span>
+            <span class="g-phone" style="width: 11px; height: 17px; border-radius: 3.5px;"></span>
+          </span>
+          <div style="flex: 1;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text-1);">Vior</div>
+            <div class="mono" style="font-size: 11.5px; color: var(--text-3); margin-top: 2px;">Phase 2 · open source</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
 <script>
-(function() {
+(function () {
   'use strict';
-  var $ = function(id) { return document.getElementById(id); };
-  var ws = null, displayW = 0, displayH = 0;
-  var selectedServer = null, selectedMode = 'extend', serverName = '', serverPlatform = '';
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ── State ──
+  var ws = null;
+  var displayW = 0, displayH = 0;
+  var selectedServer = null, selectedMode = 'extend';
+  var serverName = '', serverPlatform = '', serverRes = '—';
   var streamImg = $('stream-img');
   var framePolling = false, frameBaseUrl = '', blobUrl = null;
   var overlayTimer = null, reconnectAttempts = 0, maxReconnect = 5;
-  var connected = false, toastTimer = null, streamVisible = false;
+  var connected = false, currentTab = 'display';
+  var streamVisible = false, fps = 0, frameCount = 0, fpsTimer = null;
 
-  // Icons
-  var ICONS = {
-    mac:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
-    win:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18M12 3v18"/></svg>',
-    linux:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M8 12c-2 1-3 3-3 5 0 2 3 4 7 4s7-2 7-4c0-2-1-4-3-5"/></svg>'
-  };
-  function pIcon(p) { return p==='macOS'?ICONS.mac:p==='Windows'?ICONS.win:p==='Linux'?ICONS.linux:ICONS.mac; }
+  // ── Toasts ──
+  var toastId = 0;
+  function toast(tone, title, msg) {
+    var id = ++toastId;
+    var host = $('toast-host');
+    var el = document.createElement('div');
+    el.className = 'toast';
+    el.dataset.id = id;
+    var dotCls = tone === 'success' ? 'dot-ok' : tone === 'warning' ? 'dot-warn' : tone === 'error' ? 'dot-err' : 'dot-idle';
+    el.innerHTML =
+      '<span class="dot ' + dotCls + '" style="margin-top: 5px;"></span>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div class="toast-title">' + esc(title) + '</div>' +
+        (msg ? '<div class="toast-msg">' + esc(msg) + '</div>' : '') +
+      '</div>';
+    host.appendChild(el);
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 3500);
+  }
+  function esc(s) { var d = document.createElement('div'); d.textContent = String(s == null ? '' : s); return d.innerHTML; }
 
-  // Toast
-  function showToast(msg, type) {
-    $('toast-dot').className = 'toast-dot '+(type==='error'?'red':'green');
-    $('toast-msg').textContent = msg;
-    $('toast').classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(function() { $('toast').classList.remove('show'); }, 3000);
+  // ── Connection chip ──
+  function setConnState(state) {
+    var dot = $('conn-dot'), label = $('conn-label');
+    dot.className = 'dot';
+    if (state === 'online') { dot.classList.add('dot-ok', 'dot-pulse'); label.textContent = 'Connected'; }
+    else if (state === 'connecting') { dot.classList.add('dot-warn', 'dot-pulse'); label.textContent = 'Connecting'; }
+    else if (state === 'reconnecting') { dot.classList.add('dot-warn', 'dot-pulse'); label.textContent = 'Reconnecting'; }
+    else if (state === 'error') { dot.classList.add('dot-err'); label.textContent = 'Disconnected'; }
+    else { dot.classList.add('dot-idle'); label.textContent = 'Not connected'; }
   }
 
-  // Tab switching — bind both click + touchend (some WebViews drop click).
-  var tabItems = document.querySelectorAll('.tab-item');
-  console.log('Tab items found: ' + tabItems.length);
+  // ── Tab switch ──
   function switchTab(name) {
-    console.log('switchTab: ' + name);
-    var allTabs = document.querySelectorAll('.tab-item');
-    var allPanes = document.querySelectorAll('.tab-pane');
-    for (var i = 0; i < allTabs.length; i++) allTabs[i].classList.remove('active');
-    for (var j = 0; j < allPanes.length; j++) allPanes[j].classList.remove('active');
-    var btn = document.querySelector('.tab-item[data-tab="' + name + '"]');
-    if (btn) btn.classList.add('active');
-    var pane = $('tab-' + name);
-    if (pane) pane.classList.add('active');
+    currentTab = name;
+    var items = document.querySelectorAll('.tab-item');
+    for (var i = 0; i < items.length; i++) items[i].classList.toggle('active', items[i].dataset.tab === name);
+    var panes = document.querySelectorAll('.pane');
+    for (var j = 0; j < panes.length; j++) panes[j].classList.toggle('active', panes[j].id === 'pane-' + name);
   }
-  for (var ti = 0; ti < tabItems.length; ti++) {
-    (function(btn) {
-      var fired = false;
-      btn.addEventListener('touchend', function(e) {
-        e.preventDefault();
-        fired = true;
-        switchTab(btn.dataset.tab);
-        setTimeout(function() { fired = false; }, 400);
-      }, {passive:false});
-      btn.addEventListener('click', function() {
-        if (fired) return; // already handled by touchend
-        switchTab(btn.dataset.tab);
-      });
-    })(tabItems[ti]);
-  }
+  document.querySelectorAll('.tab-item').forEach(function (btn) {
+    var fired = false;
+    btn.addEventListener('touchend', function (e) { e.preventDefault(); fired = true; switchTab(btn.dataset.tab); setTimeout(function () { fired = false; }, 400); }, { passive: false });
+    btn.addEventListener('click', function () { if (!fired) switchTab(btn.dataset.tab); });
+  });
 
-  // Mode selection
-  document.querySelectorAll('.mode-card').forEach(function(card) {
-    card.addEventListener('click', function() {
-      selectedMode = card.dataset.mode;
-      $('mode-extend').classList.toggle('active', selectedMode==='extend');
-      $('mode-mirror').classList.toggle('active', selectedMode==='mirror');
+  // ── Mode select ──
+  document.querySelectorAll('#disc-dock .seg-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      selectedMode = btn.dataset.mode;
+      document.querySelectorAll('#disc-dock .seg-btn').forEach(function (b) { b.classList.toggle('active', b === btn); });
     });
   });
 
-  // Connection state UI
-  function setConnectedUI(name, platform, res) {
-    connected = true;
-    $('conn-badge').className = 'conn-badge';
-    $('conn-badge-text').textContent = 'Connected';
-    $('disc-state').classList.add('hidden');
-    $('connected-state').classList.remove('hidden');
-    $('conn-icon').innerHTML = pIcon(platform);
-    $('conn-name').textContent = name;
-    $('conn-meta').textContent = platform + ' · Wi-Fi';
-    $('stat-mode').textContent = selectedMode.charAt(0).toUpperCase()+selectedMode.slice(1);
-    $('stat-res').textContent = res;
-    $('stat-status').textContent = 'Active';
-    $('stat-status').style.color = 'var(--green)';
-    // Show files/remote active states
-    $('files-placeholder').classList.add('hidden');
-    $('files-active').classList.remove('hidden');
-    $('remote-placeholder').classList.add('hidden');
-    $('remote-active').classList.remove('hidden');
-  }
-
-  function setDisconnectedUI() {
-    connected = false;
-    $('conn-badge').className = 'conn-badge off';
-    $('conn-badge-text').textContent = 'Offline';
-    $('disc-state').classList.remove('hidden');
-    $('connected-state').classList.add('hidden');
-    $('files-placeholder').classList.remove('hidden');
-    $('files-active').classList.add('hidden');
-    $('remote-placeholder').classList.remove('hidden');
-    $('remote-active').classList.add('hidden');
-    $('connect-btn').disabled = false;
-    $('connect-btn').textContent = 'Connect';
-  }
-
-  // Discovery
-  var foundServers = {}, discoveryTimeout = null;
+  // ── Discovery ──
+  var foundServers = {}, discoveryTimeout = null, scanning = false;
   function startDiscovery() {
-    foundServers = {}; selectedServer = null;
-    $('scan-dot').className = 'scan-dot scanning';
-    $('scan-label').textContent = 'Scanning network…';
-    $('server-list').innerHTML = '';
-    $('manual-section').classList.add('hidden');
-    $('bottom-panel').classList.add('hidden');
-    $('server-list').innerHTML =
-      '<div class="search-state"><div class="radar"><div class="radar-ring"></div><div class="radar-ring"></div><div class="radar-ring"></div><div class="radar-core"></div></div><div class="search-title">Searching…</div><div class="search-desc">Looking for Vior servers on your network</div></div>';
+    foundServers = {}; selectedServer = null; scanning = true;
+    $('disc-status').textContent = 'Scanning network…';
+    $('disc-list').innerHTML =
+      '<div class="radar-search">' +
+        '<div class="radar">' +
+          '<span class="radar-ring"></span><span class="radar-ring"></span><span class="radar-ring"></span>' +
+          '<div class="radar-core">' +
+            '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M4 12h16"/></svg>' +
+          '</div>' +
+        '</div>' +
+        '<div class="empty-title">Searching</div>' +
+        '<div class="empty-body">Looking for Vior servers on your network.</div>' +
+      '</div>';
+    showView('disc');
+    $('connect-btn').disabled = true;
+    $('connect-label').textContent = 'Select a server';
+
     var last = localStorage.getItem('vior_last');
-    if (last) { var p=last.split(':'); probeServer(p[0],parseInt(p[1])); }
-    getLocalIP(function(ip) {
-      if (!ip) { setTimeout(showManualFallback, 2500); return; }
-      var base=ip.split('.').slice(0,3).join('.'), batch=0;
+    if (last) { var p = last.split(':'); probeServer(p[0], parseInt(p[1])); }
+
+    getLocalIP(function (ip) {
+      if (!ip) { setTimeout(showEmpty, 2500); return; }
+      var base = ip.split('.').slice(0, 3).join('.');
+      var batch = 0;
       (function scanBatch() {
-        var s=batch*20+1, e=Math.min(s+20,255);
-        for (var i=s;i<e;i++) probeServer(base+'.'+i, 8080);
+        var s = batch * 20 + 1, e = Math.min(s + 20, 255);
+        for (var i = s; i < e; i++) probeServer(base + '.' + i, 8080);
         batch++;
-        if (batch<13 && !selectedServer) setTimeout(scanBatch, 300);
+        if (batch < 13 && !selectedServer) setTimeout(scanBatch, 300);
       })();
     });
-    discoveryTimeout = setTimeout(function() { if (!selectedServer) showManualFallback(); }, 7000);
+
+    discoveryTimeout = setTimeout(function () {
+      scanning = false;
+      if (!selectedServer && Object.keys(foundServers).length === 0) showEmpty();
+      else if (selectedServer) $('disc-status').textContent = Object.keys(foundServers).length + ' servers found';
+    }, 7000);
   }
 
   function probeServer(host, port) {
-    var key=host+':'+port;
+    var key = host + ':' + port;
     if (foundServers[key]) return;
     var ctrl = new AbortController();
-    setTimeout(function() { ctrl.abort(); }, 1500);
-    fetch('http://'+host+':'+port+'/info', {signal:ctrl.signal})
-      .then(function(r){return r.json();})
-      .then(function(info) {
+    setTimeout(function () { ctrl.abort(); }, 1500);
+    fetch('http://' + host + ':' + port + '/info', { signal: ctrl.signal })
+      .then(function (r) { return r.json(); })
+      .then(function (info) {
         if (foundServers[key]) return;
         foundServers[key] = info;
-        $('scan-dot').className = 'scan-dot found';
-        $('scan-label').textContent = 'Server found';
         clearTimeout(discoveryTimeout);
-        if (!selectedServer) $('server-list').innerHTML = '';
-        addServerCard(host, port, info.name||host, info.platform||'');
+        $('disc-status').textContent = Object.keys(foundServers).length + ' server' + (Object.keys(foundServers).length > 1 ? 's' : '') + ' found';
+        renderServerList();
         if (!selectedServer) {
-          selectServer(host, port, info.name||host, info.platform||'');
-          showToast('Found '+(info.name||host), 'ok');
-          // Auto-connect if this is the last-used server.
+          selectServer(host, port, info.name || host, info.platform || '');
           var last = localStorage.getItem('vior_last');
           var auto = localStorage.getItem('vior_autoconnect') !== '0';
-          if (auto && last === host+':'+port && !connected) {
-            setTimeout(function(){ if (!connected) doConnect(); }, 400);
+          if (auto && last === host + ':' + port && !connected) {
+            setTimeout(function () { if (!connected) doConnect(); }, 400);
           }
         }
-      }).catch(function(){});
+      })
+      .catch(function () {});
   }
 
-  function addServerCard(host, port, name, platform) {
-    var card = document.createElement('div');
-    card.className = 'srv-card';
-    card.id = 'srv-'+host.replace(/\./g,'-')+'-'+port;
-    card.innerHTML = '<div class="srv-icon-box">'+pIcon(platform)+'</div><div class="srv-body"><div class="srv-name">'+esc(name)+'</div><div class="srv-meta"><span>'+esc(platform)+'</span><span class="srv-meta-dot"></span><span>Wi-Fi</span></div></div><div class="srv-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>';
-    card.addEventListener('click', function() { selectServer(host, port, name, platform); });
-    $('server-list').appendChild(card);
+  function renderServerList() {
+    var list = $('disc-list');
+    list.innerHTML = '';
+    Object.keys(foundServers).forEach(function (key) {
+      var info = foundServers[key];
+      var parts = key.split(':');
+      var host = parts[0], port = parseInt(parts[1]);
+      var row = document.createElement('button');
+      row.className = 'server-row';
+      row.dataset.key = key;
+      if (selectedServer && selectedServer.host === host && selectedServer.port === port) row.classList.add('selected');
+      row.innerHTML =
+        '<span class="server-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4.5" width="19" height="12.5" rx="1.6"/><path d="M2.5 13.5h19"/><path d="M9 21h6"/></svg></span>' +
+        '<span class="server-body">' +
+          '<span class="server-name">' + esc(info.name || host) + '</span>' +
+          '<span class="server-meta">' + esc(host) + ':' + port + '</span>' +
+        '</span>' +
+        '<span class="server-right">' +
+          '<span>' + esc(info.platform || 'Server') + '</span>' +
+          (selectedServer && selectedServer.host === host && selectedServer.port === port
+            ? '<span style="color: var(--accent);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l4.5 4.5L19.5 6.5"/></svg></span>'
+            : '<span style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px;"><span class="dot dot-ok" style="width: 6px; height: 6px;"></span></span>') +
+        '</span>';
+      row.addEventListener('click', function () { selectServer(host, port, info.name || host, info.platform || ''); });
+      list.appendChild(row);
+    });
   }
 
   function selectServer(host, port, name, platform) {
-    selectedServer = {host:host, port:port};
-    serverName = name||host; serverPlatform = platform||'';
-    document.querySelectorAll('.srv-card').forEach(function(c){c.classList.remove('selected');});
-    var el = $('srv-'+host.replace(/\./g,'-')+'-'+port);
-    if (el) el.classList.add('selected');
-    $('bottom-panel').classList.remove('hidden');
+    selectedServer = { host: host, port: port };
+    serverName = name || host; serverPlatform = platform || '';
+    renderServerList();
     $('connect-btn').disabled = false;
-    $('connect-btn').textContent = 'Connect';
+    $('connect-label').textContent = 'Connect';
   }
 
-  function showManualFallback() {
-    $('scan-dot').className = 'scan-dot none';
-    $('scan-label').textContent = 'No servers found';
-    if (!selectedServer) $('server-list').innerHTML = '<div class="empty-state"><div class="empty-icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.56 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg></div><div class="empty-title">No servers found</div><div class="empty-desc">Make sure Vior is running on your computer and both devices are on the same Wi-Fi</div></div>';
-    $('manual-section').classList.remove('hidden');
+  function showView(name) {
+    $('disc-view').classList.toggle('hidden', name !== 'disc');
+    $('empty-view').classList.toggle('hidden', name !== 'empty');
+    $('connected-view').classList.toggle('hidden', name !== 'connected');
   }
+  function showEmpty() { showView('empty'); $('disc-status').textContent = 'No servers found'; }
 
   function getLocalIP(cb) {
-    try { var pc=new RTCPeerConnection({iceServers:[]}),done=false; pc.createDataChannel(''); pc.createOffer().then(function(o){return pc.setLocalDescription(o);}); pc.onicecandidate=function(e){if(done||!e||!e.candidate)return;var m=e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);if(m&&m[1]!=='0.0.0.0'){done=true;pc.close();cb(m[1]);}}; setTimeout(function(){if(!done){done=true;pc.close();cb(null);}},3000); } catch(e){cb(null);}
+    try {
+      var pc = new RTCPeerConnection({ iceServers: [] }), done = false;
+      pc.createDataChannel('');
+      pc.createOffer().then(function (o) { return pc.setLocalDescription(o); });
+      pc.onicecandidate = function (e) {
+        if (done || !e || !e.candidate) return;
+        var m = e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+        if (m && m[1] !== '0.0.0.0') { done = true; pc.close(); cb(m[1]); }
+      };
+      setTimeout(function () { if (!done) { done = true; pc.close(); cb(null); } }, 3000);
+    } catch (e) { cb(null); }
   }
 
-  // Connect
-  $('connect-btn').addEventListener('click', function() { if (!selectedServer) return; reconnectAttempts=0; doConnect(); });
+  $('disc-refresh').addEventListener('click', startDiscovery);
+  $('rescan-btn').addEventListener('click', startDiscovery);
+  $('manual-ip').addEventListener('input', function (e) { $('manual-go').disabled = !e.target.value.trim(); });
+  $('manual-go').addEventListener('click', function () {
+    var v = $('manual-ip').value.trim();
+    if (!v) return;
+    var parts = v.split(':'), host = parts[0], port = parts.length > 1 ? parseInt(parts[1]) : 8080;
+    selectServer(host, port, host, '');
+    doConnect();
+  });
+
+  // ── Connect / disconnect ──
+  $('connect-btn').addEventListener('click', function () { if (selectedServer) { reconnectAttempts = 0; doConnect(); } });
+  $('disconnect-btn').addEventListener('click', doDisconnect);
+  $('files-connect-btn').addEventListener('click', function () { switchTab('display'); });
+  $('remote-connect-btn').addEventListener('click', function () { switchTab('display'); });
+  $('conn-cancel').addEventListener('click', function () {
+    if (ws) { ws.close(); ws = null; }
+    $('connecting-overlay').classList.add('hidden');
+    setConnState('offline');
+  });
 
   function doConnect() {
-    $('connecting-overlay').classList.add('active');
-    $('connecting-sub').textContent = 'Setting up display';
-    var host=selectedServer.host, port=selectedServer.port;
-    ws = new WebSocket('ws://'+host+':'+port+'/ws');
-    ws.onopen = function() {
-      $('connecting-sub').textContent = 'Sending screen info…';
-      var dpr=window.devicePixelRatio||1;
-      ws.send(JSON.stringify({type:'hello',data:{width:Math.round(screen.width*dpr),height:Math.round(screen.height*dpr),dpr:dpr,name:'Vior Mobile',mode:selectedMode}}));
+    setConnState('connecting');
+    $('connecting-overlay').classList.remove('hidden');
+    $('conn-title').textContent = 'Connecting';
+    $('conn-sub').innerHTML = 'Establishing ' + selectedMode + ' session with<br><b>' + esc(serverName) + '</b>';
+    $('conn-bar').classList.remove('hidden');
+    $('conn-spin-ring').style.display = '';
+    $('conn-spin-core').classList.remove('failed');
+
+    var host = selectedServer.host, port = selectedServer.port;
+    ws = new WebSocket('ws://' + host + ':' + port + '/ws');
+
+    ws.onopen = function () {
+      var dpr = window.devicePixelRatio || 1;
+      ws.send(JSON.stringify({ type: 'hello', data: {
+        width: Math.round(screen.width * dpr), height: Math.round(screen.height * dpr),
+        dpr: dpr, name: 'Vior Mobile', mode: selectedMode
+      }}));
     };
-    ws.onmessage = function(e) {
+
+    ws.onmessage = function (e) {
       var msg = JSON.parse(e.data);
-      if (msg.type==='ready') {
-        displayW=parseInt(msg.data.resolution.split('x')[0]);
-        displayH=parseInt(msg.data.resolution.split('x')[1]);
-        localStorage.setItem('vior_last', host+':'+port);
-        frameBaseUrl = 'http://'+host+':'+port;
-        $('connecting-overlay').classList.remove('active');
-        setConnectedUI(serverName, serverPlatform, msg.data.resolution);
-        showToast('Connected to '+serverName, 'ok');
-      } else if (msg.type==='error') {
-        $('connecting-overlay').classList.remove('active');
-        showToast(msg.data.message||'Connection failed', 'error');
-        setDisconnectedUI();
-      } else if (msg.type && msg.type.indexOf('file-')===0) {
-        try { handleFileMessage(msg); } catch(ex) { console.error('file msg error', ex); }
+      if (msg.type === 'ready') {
+        var res = msg.data.resolution.split('x');
+        displayW = parseInt(res[0]); displayH = parseInt(res[1]);
+        serverRes = msg.data.resolution.replace('x', ' × ');
+        localStorage.setItem('vior_last', host + ':' + port);
+        frameBaseUrl = 'http://' + host + ':' + port;
+        $('connecting-overlay').classList.add('hidden');
+        connected = true;
+        setConnState('online');
+        showView('connected');
+        $('scard-name').textContent = serverName;
+        $('scard-meta').textContent = host + ':' + port;
+        $('stat-mode').textContent = selectedMode === 'mirror' ? 'Mirror' : 'Extend';
+        $('stat-res').textContent = serverRes;
+        $('stat-status').textContent = 'Live';
+        $('files-offline').classList.add('hidden');
+        $('files-active').classList.remove('hidden');
+        $('remote-offline').classList.add('hidden');
+        $('remote-active').classList.remove('hidden');
+        toast('success', 'Connected', (selectedMode === 'mirror' ? 'Mirroring' : 'Extended display') + ' on ' + serverName + '.');
+      } else if (msg.type === 'error') {
+        $('connecting-overlay').classList.add('hidden');
+        toast('error', 'Connection failed', msg.data.message || '');
+        setConnState('offline');
+      } else if (msg.type && msg.type.indexOf('file-') === 0) {
+        try { handleFileMessage(msg); } catch (e) { console.error('file msg', e); }
       }
     };
-    ws.onclose = function() {
+
+    ws.onclose = function () {
       stopFramePolling();
       if (connected && reconnectAttempts < maxReconnect) {
         reconnectAttempts++;
-        $('stat-status').textContent = 'Reconnecting…';
-        $('stat-status').style.color = 'var(--amber)';
-        if (streamVisible) { $('pill-dot').className='pill-dot reconnecting'; $('pill-text').textContent='Reconnecting ('+reconnectAttempts+'/'+maxReconnect+')'; }
-        setTimeout(function() { if (connected) doConnect(); }, Math.min(1000*Math.pow(2,reconnectAttempts-1),10000));
-      } else {
-        $('connecting-overlay').classList.remove('active');
+        setConnState('reconnecting');
+        $('recon-banner').classList.remove('hidden');
+        $('recon-sub').textContent = 'attempt ' + reconnectAttempts + ' of ' + maxReconnect + ' · backing off';
+        $('stat-status').textContent = 'Reconnecting';
+        setTimeout(function () { if (connected) doConnect(); }, Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 10000));
+      } else if (connected) {
+        connected = false;
+        setConnState('offline');
         hideStream();
-        setDisconnectedUI();
-        if (reconnectAttempts >= maxReconnect) showToast('Disconnected', 'error');
+        showView('disc');
+        $('recon-banner').classList.add('hidden');
+        $('files-offline').classList.remove('hidden');
+        $('files-active').classList.add('hidden');
+        $('remote-offline').classList.remove('hidden');
+        $('remote-active').classList.add('hidden');
+        toast('error', 'Disconnected', 'Connection lost.');
+        $('connecting-overlay').classList.add('hidden');
+        $('conn-spin-ring').style.display = 'none';
+        $('conn-spin-core').classList.add('failed');
       }
     };
-    ws.onerror = function() {};
+
+    ws.onerror = function () {};
   }
 
-  // Disconnect
-  $('disconnect-btn').addEventListener('click', function() {
+  function doDisconnect() {
     reconnectAttempts = maxReconnect;
-    if (ws) { ws.close(); ws=null; }
-    stopFramePolling(); cleanupBlob(); hideStream();
-    setDisconnectedUI();
-  });
+    connected = false;
+    if (ws) { ws.close(); ws = null; }
+    hideStream();
+    showView('disc');
+    setConnState('offline');
+    $('recon-banner').classList.add('hidden');
+    $('files-offline').classList.remove('hidden');
+    $('files-active').classList.add('hidden');
+    $('remote-offline').classList.remove('hidden');
+    $('remote-active').classList.add('hidden');
+    toast('info', 'Disconnected', 'Session ended.');
+  }
 
-  $('cancel-btn').addEventListener('click', function() {
-    if (ws) { ws.close(); ws=null; }
-    $('connecting-overlay').classList.remove('active');
-    setDisconnectedUI();
-  });
+  // ── Stream fullscreen ──
+  $('view-stream-btn').addEventListener('click', openStream);
+  $('stream-back').addEventListener('click', hideStream);
+  $('stream-disconnect').addEventListener('click', function () { hideStream(); doDisconnect(); });
 
-  // Manual
-  $('manual-go').addEventListener('click', manualGo);
-  $('manual-ip').addEventListener('keydown', function(e) { if (e.key==='Enter') manualGo(); });
-  $('retry-btn').addEventListener('click', startDiscovery);
-  function manualGo() { var v=$('manual-ip').value.trim(); if(!v)return; var p=v.split(':'); probeServer(p[0],p.length>1?parseInt(p[1]):8080); selectServer(p[0],p.length>1?parseInt(p[1]):8080,p[0],''); }
-
-  // Stream fullscreen
-  $('view-stream-btn').addEventListener('click', function() {
+  function openStream() {
     streamVisible = true;
-    $('stream-device').textContent = serverName;
-    $('stream-badge').textContent = selectedMode;
-    $('pill-dot').className = 'pill-dot';
-    $('pill-text').textContent = 'Connected';
-    $('stream-loading').classList.remove('hidden');
     $('stream-fs').classList.add('active');
+    $('stream-name').textContent = serverName;
+    $('stream-mode-text').textContent = selectedMode === 'mirror' ? 'Mirroring' : 'Extended display';
+    $('stream-stat-res').textContent = serverRes;
+    $('stream-loading').classList.remove('hidden');
+    $('stream-loading-sub').textContent = 'negotiating MJPEG · ' + serverRes;
     startFramePolling();
     startOverlayAutoHide();
-  });
-
-  $('back-btn').addEventListener('click', hideStream);
+  }
   function hideStream() {
     streamVisible = false;
-    stopFramePolling(); cleanupBlob();
+    stopFramePolling();
+    cleanupBlob();
     streamImg.src = '';
     $('stream-fs').classList.remove('active');
+    if (fpsTimer) { clearInterval(fpsTimer); fpsTimer = null; }
   }
 
-  // Frame polling
-  function startFramePolling() { framePolling=true; pollFrame(); }
-  function stopFramePolling() { framePolling=false; }
-  function cleanupBlob() { if(blobUrl){URL.revokeObjectURL(blobUrl);blobUrl=null;} }
+  function startFramePolling() {
+    framePolling = true;
+    frameCount = 0;
+    if (fpsTimer) clearInterval(fpsTimer);
+    fpsTimer = setInterval(function () {
+      fps = frameCount; frameCount = 0;
+      $('stream-stat-fps').textContent = fps + ' fps';
+      $('stream-stat-status').textContent = fps > 0 ? 'live' : '—';
+    }, 1000);
+    pollFrame();
+  }
+  function stopFramePolling() { framePolling = false; }
+  function cleanupBlob() { if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; } }
   function pollFrame() {
     if (!framePolling) return;
-    fetch(frameBaseUrl+'/snapshot?t='+Date.now())
-      .then(function(r){if(!r.ok)throw 0;return r.blob();})
-      .then(function(blob) {
-        if(!framePolling)return; cleanupBlob();
-        blobUrl=URL.createObjectURL(blob); streamImg.src=blobUrl;
-        var ld=$('stream-loading'); if(ld&&!ld.classList.contains('hidden'))ld.classList.add('hidden');
-        reconnectAttempts=0;
-        if($('pill-dot').classList.contains('reconnecting')){$('pill-dot').className='pill-dot';$('pill-text').textContent='Connected';}
-        if($('stat-status').textContent!=='Active'){$('stat-status').textContent='Active';$('stat-status').style.color='var(--green)';}
+    fetch(frameBaseUrl + '/snapshot?t=' + Date.now())
+      .then(function (r) { if (!r.ok) throw 0; return r.blob(); })
+      .then(function (b) {
+        if (!framePolling) return;
+        cleanupBlob();
+        blobUrl = URL.createObjectURL(b);
+        streamImg.src = blobUrl;
+        frameCount++;
+        var ld = $('stream-loading');
+        if (!ld.classList.contains('hidden')) ld.classList.add('hidden');
+        reconnectAttempts = 0;
         requestAnimationFrame(pollFrame);
-      }).catch(function(){if(framePolling)setTimeout(pollFrame,150);});
+      })
+      .catch(function () { if (framePolling) setTimeout(pollFrame, 150); });
   }
 
-  // Overlay
-  function startOverlayAutoHide() { showOverlay(); streamImg.addEventListener('click', toggleOverlay); }
-  function showOverlay() { $('stream-overlay').classList.remove('dimmed'); clearTimeout(overlayTimer); overlayTimer=setTimeout(function(){$('stream-overlay').classList.add('dimmed');},3500); }
-  function toggleOverlay() { var ov=$('stream-overlay'); if(ov.classList.contains('dimmed'))showOverlay();else{clearTimeout(overlayTimer);ov.classList.add('dimmed');} }
+  // ── Stream overlay auto-hide ──
+  function startOverlayAutoHide() {
+    showOverlay();
+    streamImg.removeEventListener('click', toggleOverlay);
+    streamImg.addEventListener('click', toggleOverlay);
+  }
+  function showOverlay() {
+    $('stream-fs').classList.remove('dimmed');
+    $('stream-top').style.transform = ''; $('stream-top').style.opacity = '';
+    $('stream-bot').style.transform = ''; $('stream-bot').style.opacity = '';
+    clearTimeout(overlayTimer);
+    overlayTimer = setTimeout(function () {
+      $('stream-top').style.transform = 'translateY(-110%)'; $('stream-top').style.opacity = '0';
+      $('stream-bot').style.transform = 'translateY(110%)'; $('stream-bot').style.opacity = '0';
+    }, 2800);
+  }
+  function toggleOverlay() {
+    if ($('stream-top').style.opacity === '0') showOverlay();
+    else {
+      clearTimeout(overlayTimer);
+      $('stream-top').style.transform = 'translateY(-110%)'; $('stream-top').style.opacity = '0';
+      $('stream-bot').style.transform = 'translateY(110%)'; $('stream-bot').style.opacity = '0';
+    }
+  }
 
-  // Touch on stream
-  function mapT(t){var r=streamImg.getBoundingClientRect();return{x:Math.round((t.clientX-r.left)/r.width*displayW),y:Math.round((t.clientY-r.top)/r.height*displayH)};}
-  function sendI(a,x,y){if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'input',data:{event:'touch',action:a,x:x,y:y}}));}
-  streamImg.addEventListener('touchstart',function(e){e.preventDefault();var p=mapT(e.changedTouches[0]);sendI('down',p.x,p.y);},{passive:false});
-  streamImg.addEventListener('touchmove',function(e){e.preventDefault();var p=mapT(e.changedTouches[0]);sendI('move',p.x,p.y);},{passive:false});
-  streamImg.addEventListener('touchend',function(e){e.preventDefault();var p=mapT(e.changedTouches[0]);sendI('up',p.x,p.y);},{passive:false});
+  // ── Touch input on stream ──
+  function mapT(t) { var r = streamImg.getBoundingClientRect(); return { x: Math.round((t.clientX - r.left) / r.width * displayW), y: Math.round((t.clientY - r.top) / r.height * displayH) }; }
+  function sendInput(action, x, y) { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'input', data: { event: 'touch', action: action, x: x, y: y } })); }
+  streamImg.addEventListener('touchstart', function (e) { e.preventDefault(); var p = mapT(e.changedTouches[0]); sendInput('down', p.x, p.y); }, { passive: false });
+  streamImg.addEventListener('touchmove', function (e) { e.preventDefault(); var p = mapT(e.changedTouches[0]); sendInput('move', p.x, p.y); }, { passive: false });
+  streamImg.addEventListener('touchend', function (e) { e.preventDefault(); var p = mapT(e.changedTouches[0]); sendInput('up', p.x, p.y); }, { passive: false });
 
   // ── Remote trackpad ──
-  // 1 finger: move + tap-click. 2 finger: scroll + tap-rightclick.
-  var trackpad = $('trackpad');
-  var tpLastX=0, tpLastY=0, tpFingers=0, tpMoved=false, tpStartT=0;
-  function wsSend(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
-  trackpad.addEventListener('touchstart', function(e) {
+  var trackpad = $('trackpad'), trackpadHint = $('trackpad-hint');
+  var tpLastX = 0, tpLastY = 0, tpFingers = 0, tpMoved = false, tpStartT = 0;
+  function wsSend(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+  function flash(msg) {
+    var p = $('flash-pill');
+    p.textContent = msg + ' sent';
+    p.classList.remove('hidden');
+    clearTimeout(flash._t);
+    flash._t = setTimeout(function () { p.classList.add('hidden'); }, 900);
+  }
+  trackpad.addEventListener('touchstart', function (e) {
     e.preventDefault();
-    tpFingers = e.touches.length;
-    tpMoved = false;
-    tpStartT = Date.now();
-    var t = e.touches[0];
-    tpLastX = t.clientX; tpLastY = t.clientY;
-  }, {passive:false});
-  trackpad.addEventListener('touchmove', function(e) {
+    tpFingers = e.touches.length; tpMoved = false; tpStartT = Date.now();
+    var t = e.touches[0]; tpLastX = t.clientX; tpLastY = t.clientY;
+    trackpadHint.style.display = 'none';
+  }, { passive: false });
+  trackpad.addEventListener('touchmove', function (e) {
     e.preventDefault();
     var t = e.touches[0];
     var dx = t.clientX - tpLastX, dy = t.clientY - tpLastY;
     tpLastX = t.clientX; tpLastY = t.clientY;
     if (Math.abs(dx) + Math.abs(dy) > 2) tpMoved = true;
-    if (e.touches.length >= 2) {
-      // 2-finger scroll — divide for sensitivity.
-      wsSend({type:'input', data:{event:'scroll', dx:Math.round(dx/4), dy:Math.round(dy/4)}});
-    } else {
-      wsSend({type:'input', data:{event:'mouse', action:'move', dx:dx*2, dy:dy*2}});
-    }
-  }, {passive:false});
-  trackpad.addEventListener('touchend', function(e) {
+    if (e.touches.length >= 2) wsSend({ type: 'input', data: { event: 'scroll', dx: Math.round(dx / 4), dy: Math.round(dy / 4) } });
+    else wsSend({ type: 'input', data: { event: 'mouse', action: 'move', dx: dx * 2, dy: dy * 2 } });
+  }, { passive: false });
+  trackpad.addEventListener('touchend', function (e) {
     e.preventDefault();
     var dur = Date.now() - tpStartT;
     if (!tpMoved && dur < 300) {
-      // Tap: 1-finger = click, 2-finger = right-click.
       var action = tpFingers >= 2 ? 'rightclick' : 'click';
-      wsSend({type:'input', data:{event:'mouse', action:action}});
+      wsSend({ type: 'input', data: { event: 'mouse', action: action } });
+      flash(action === 'rightclick' ? 'Right click' : 'Click');
     }
     tpFingers = 0;
-  }, {passive:false});
+    trackpadHint.style.display = '';
+  }, { passive: false });
 
-  $('click-btn').addEventListener('click', function() { wsSend({type:'input', data:{event:'mouse', action:'click'}}); });
-  $('rclick-btn').addEventListener('click', function() { wsSend({type:'input', data:{event:'mouse', action:'rightclick'}}); });
+  // Scroll strip
+  var ss = $('scroll-strip'), ssDown = false, ssY = 0;
+  ss.addEventListener('touchstart', function (e) { e.preventDefault(); ssDown = true; ssY = e.touches[0].clientY; ss.classList.add('active'); }, { passive: false });
+  ss.addEventListener('touchmove', function (e) {
+    e.preventDefault();
+    if (!ssDown) return;
+    var y = e.touches[0].clientY, dy = y - ssY;
+    if (Math.abs(dy) > 24) { ssY = y; wsSend({ type: 'input', data: { event: 'scroll', dx: 0, dy: dy > 0 ? 3 : -3 } }); flash('Scroll'); }
+  }, { passive: false });
+  ss.addEventListener('touchend', function (e) { e.preventDefault(); ssDown = false; ss.classList.remove('active'); }, { passive: false });
 
-  // ── Keyboard ──
-  // Hidden input gets focus to summon soft keyboard. Keys forwarded to server.
-  var kbInput = $('kb-input');
-  $('kb-btn').addEventListener('click', function() {
-    if (!kbInput) return;
-    kbInput.value = '';
-    kbInput.focus();
-    showToast('Keyboard ready — type to send', 'ok');
+  $('click-btn').addEventListener('click', function () { wsSend({ type: 'input', data: { event: 'mouse', action: 'click' } }); flash('Click'); });
+  $('rclick-btn').addEventListener('click', function () { wsSend({ type: 'input', data: { event: 'mouse', action: 'rightclick' } }); flash('Right click'); });
+
+  // Remote view toggle
+  $('remote-view-trackpad').addEventListener('click', function () {
+    $('remote-view-trackpad').classList.add('active'); $('remote-view-keys').classList.remove('active');
+    $('remote-trackpad-body').classList.remove('hidden'); $('remote-keys-body').classList.add('hidden');
   });
-  if (kbInput) {
-    kbInput.addEventListener('input', function(e) {
-      // Use beforeinput data if available; fallback to delta of value.
-      var data = e.data;
-      if (data) {
-        for (var i = 0; i < data.length; i++) {
-          wsSend({type:'input', data:{event:'key', key:data[i]}});
-        }
-      }
-      kbInput.value = '';
-    });
-    kbInput.addEventListener('keydown', function(e) {
-      // Special keys (backspace, enter, arrows) — input event doesn't fire for these.
-      var map = { 'Backspace':'BackSpace', 'Enter':'Return', 'Tab':'Tab',
-                  'ArrowUp':'Up', 'ArrowDown':'Down', 'ArrowLeft':'Left', 'ArrowRight':'Right',
-                  'Escape':'Escape' };
-      var k = map[e.key];
-      if (k) {
-        e.preventDefault();
-        wsSend({type:'input', data:{event:'key', key:k}});
-      }
-    });
-  }
+  $('remote-view-keys').addEventListener('click', function () {
+    $('remote-view-trackpad').classList.remove('active'); $('remote-view-keys').classList.add('active');
+    $('remote-trackpad-body').classList.add('hidden'); $('remote-keys-body').classList.remove('hidden');
+  });
 
-  // ── Shortcut grid (WiFi-Mouse style) ──
-  var shortcutBtns = document.querySelectorAll('.shortcut-key');
-  for (var sk = 0; sk < shortcutBtns.length; sk++) {
-    (function(btn) {
-      var fired = false;
-      function send() {
-        var s = btn.getAttribute('data-shortcut');
-        if (!s) return;
-        wsSend({type:'input', data:{event:'key', key:s}});
-      }
-      btn.addEventListener('touchend', function(e) {
-        e.preventDefault();
-        fired = true;
-        send();
-        setTimeout(function(){ fired = false; }, 400);
-      }, {passive:false});
-      btn.addEventListener('click', function() { if (!fired) send(); });
-    })(shortcutBtns[sk]);
-  }
+  // Shortcuts grid
+  var SHORTCUTS = [
+    ['Cmd+c', 'Copy', '⌘C', 'copy'], ['Cmd+v', 'Paste', '⌘V', 'paste'],
+    ['Cmd+x', 'Cut', '⌘X', 'cut'], ['Cmd+z', 'Undo', '⌘Z', 'undo'],
+    ['Cmd+Shift+z', 'Redo', '⇧⌘Z', 'redo'], ['Cmd+a', 'Select All', '⌘A', 'layers'],
+    ['Cmd+s', 'Save', '⌘S', 'save'], ['Cmd+f', 'Find', '⌘F', 'search'],
+    ['Cmd+Tab', 'App ⇆', '⌘⇥', 'swap'], ['Cmd+`', 'Window ⇆', '⌘`', 'window'],
+    ['Cmd+Space', 'Spotlight', '⌘Sp', 'spotlight'], ['Cmd+q', 'Quit', '⌘Q', 'quit'],
+  ];
+  var ICONS = {
+    copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>',
+    paste: '<rect x="5" y="5" width="14" height="16" rx="2"/><rect x="9" y="2.5" width="6" height="3.5" rx="1.2"/>',
+    cut: '<circle cx="6.5" cy="17" r="2.5"/><circle cx="6.5" cy="7" r="2.5"/><path d="M8.7 8.5L20 17M8.7 15.5L20 7"/>',
+    undo: '<path d="M9 7L4.5 11.5 9 16"/><path d="M4.5 11.5H14a5 5 0 0 1 0 10h-1.5"/>',
+    redo: '<path d="M15 7l4.5 4.5L15 16"/><path d="M19.5 11.5H10a5 5 0 0 0 0 10h1.5"/>',
+    layers: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+    save: '<path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M9 13h6v7H9z"/>',
+    search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>',
+    swap: '<path d="M4 8h13M14 5l3 3-3 3"/><path d="M20 16H7M10 13l-3 3 3 3"/>',
+    window: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/>',
+    spotlight: '<circle cx="11" cy="11" r="6.5"/><path d="M15.6 15.6L21 21"/><circle cx="11" cy="11" r="2.3"/>',
+    quit: '<path d="M14 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 12H3M6 8.5L2.5 12 6 15.5"/>',
+  };
+  var grid = $('shortcut-grid');
+  SHORTCUTS.forEach(function (s) {
+    var b = document.createElement('button');
+    b.className = 'keycap';
+    b.dataset.key = s[0];
+    b.innerHTML =
+      '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + (ICONS[s[3]] || '') + '</svg>' +
+      '<span class="keycap-label keycap-label-icon">' + s[1] + '</span>' +
+      '<span class="keycap-sub">' + s[2] + '</span>';
+    grid.appendChild(b);
+  });
 
-  // ── File Transfer ──
-  try {
+  // F-keys
+  var fkeyGrid = $('fkey-grid');
+  ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F11', 'F12'].forEach(function (f) {
+    var b = document.createElement('button');
+    b.className = 'keycap'; b.dataset.key = f;
+    b.innerHTML = '<span class="keycap-label">' + f + '</span>';
+    fkeyGrid.appendChild(b);
+  });
+
+  // Wire all keycap clicks
+  document.querySelectorAll('.keycap').forEach(function (k) {
+    var fired = false;
+    function send() {
+      var key = k.dataset.key; if (!key) return;
+      wsSend({ type: 'input', data: { event: 'key', key: key } });
+      var label = k.querySelector('.keycap-label'); flash(label ? label.textContent : key);
+    }
+    k.addEventListener('touchend', function (e) { e.preventDefault(); fired = true; send(); setTimeout(function () { fired = false; }, 400); }, { passive: false });
+    k.addEventListener('click', function () { if (!fired) send(); });
+  });
+
+  // Soft keyboard
+  var kbInput = $('kb-input');
+  $('kb-btn').addEventListener('click', function () {
+    kbInput.value = ''; kbInput.focus();
+    toast('info', 'Keyboard ready', 'Type to forward keys.');
+  });
+  kbInput.addEventListener('input', function (e) {
+    var data = e.data;
+    if (data) { for (var i = 0; i < data.length; i++) wsSend({ type: 'input', data: { event: 'key', key: data[i] } }); }
+    kbInput.value = '';
+  });
+  kbInput.addEventListener('keydown', function (e) {
+    var map = { 'Backspace': 'BackSpace', 'Enter': 'Return', 'Tab': 'Tab', 'ArrowUp': 'Up', 'ArrowDown': 'Down', 'ArrowLeft': 'Left', 'ArrowRight': 'Right', 'Escape': 'Escape' };
+    var k = map[e.key];
+    if (k) { e.preventDefault(); wsSend({ type: 'input', data: { event: 'key', key: k } }); }
+  });
+
+  // ── File transfer ──
   var CHUNK_SIZE = 48 * 1024;
   var fileTransfers = {};
-  var _sfi = $('send-file-btn'), _spi = $('send-photo-btn'), _fi = $('file-input'), _pi = $('photo-input');
-  if (_sfi) _sfi.onclick = function() { if(_fi) _fi.click(); };
-  if (_spi) _spi.onclick = function() { if(_pi) _pi.click(); };
-  if (_fi) _fi.onchange = function(e) { if (e.target.files[0]) sendFile(e.target.files[0]); e.target.value=''; };
-  if (_pi) _pi.onchange = function(e) { if (e.target.files[0]) sendFile(e.target.files[0]); e.target.value=''; };
 
-  function genID() { var a = new Uint8Array(8); (window.crypto||window.msCrypto).getRandomValues(a); return Array.from(a,function(b){return ('0'+b.toString(16)).slice(-2);}).join(''); }
-  function fmtSize(b) { if(b<1024) return b+' B'; if(b<1048576) return (b/1024).toFixed(1)+' KB'; return (b/1048576).toFixed(1)+' MB'; }
-  function fileIconSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>'; }
+  $('send-file-btn').addEventListener('click', function () { $('file-input').click(); });
+  $('send-photo-btn').addEventListener('click', function () { $('photo-input').click(); });
+  $('file-input').addEventListener('change', function (e) { if (e.target.files[0]) sendFile(e.target.files[0]); e.target.value = ''; });
+  $('photo-input').addEventListener('change', function (e) { if (e.target.files[0]) sendFile(e.target.files[0]); e.target.value = ''; });
+
+  function genID() { var a = new Uint8Array(8); crypto.getRandomValues(a); return Array.from(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); }
+  function fmtSize(b) { if (b < 1024) return b + ' B'; if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'; return (b / 1048576).toFixed(1) + ' MB'; }
 
   function sendFile(file) {
     var id = genID();
     var reader = new FileReader();
-    reader.onload = function() {
+    reader.onload = function () {
       var data = new Uint8Array(reader.result);
-      var t = {id:id, name:file.name, size:file.size, mimeType:file.type||'application/octet-stream', preview:'', transferred:0, complete:false, data:data, direction:'out'};
+      var t = { id: id, name: file.name, size: file.size, mimeType: file.type || 'application/octet-stream', preview: '', transferred: 0, complete: false, data: data, direction: 'out', status: 'sending' };
       fileTransfers[id] = t;
-      if (file.type && file.type.indexOf('image/')===0) {
+      if (file.type && file.type.indexOf('image/') === 0) {
         var pr = new FileReader();
-        pr.onload = function() { t.preview = pr.result; doSendOffer(t); };
+        pr.onload = function () { t.preview = pr.result; sendOffer(t); };
         pr.readAsDataURL(file);
-      } else { doSendOffer(t); }
+      } else { sendOffer(t); }
     };
     reader.readAsArrayBuffer(file);
   }
-  function doSendOffer(t) {
+  function sendOffer(t) {
     if (!ws || ws.readyState !== 1) return;
-    ws.send(JSON.stringify({type:'file-offer', data:{id:t.id, name:t.name, size:t.size, mimeType:t.mimeType, preview:t.preview}}));
-    renderFileList(); showToast('Offering '+t.name, 'ok');
+    ws.send(JSON.stringify({ type: 'file-offer', data: { id: t.id, name: t.name, size: t.size, mimeType: t.mimeType, preview: t.preview } }));
+    renderTransfers();
+    toast('info', 'Offering', t.name);
   }
-  function doSendChunks(t) {
+  function sendChunks(t) {
     var offset = 0;
     function next() {
-      if (offset >= t.data.length) { t.complete=true; ws.send(JSON.stringify({type:'file-complete', data:{id:t.id, hash:''}})); renderFileList(); showToast('Sent '+t.name,'ok'); return; }
-      var end = Math.min(offset+CHUNK_SIZE, t.data.length);
+      if (offset >= t.data.length) {
+        t.complete = true; t.status = 'done';
+        ws.send(JSON.stringify({ type: 'file-complete', data: { id: t.id, hash: '' } }));
+        renderTransfers();
+        toast('success', 'Sent', t.name);
+        return;
+      }
+      var end = Math.min(offset + CHUNK_SIZE, t.data.length);
       var chunk = t.data.slice(offset, end);
-      var b64str = ''; for(var i=0;i<chunk.length;i++) b64str += String.fromCharCode(chunk[i]);
-      ws.send(JSON.stringify({type:'file-chunk', data:{id:t.id, offset:offset, data:btoa(b64str)}}));
-      offset = end; t.transferred = offset; renderFileList();
+      var s = ''; for (var i = 0; i < chunk.length; i++) s += String.fromCharCode(chunk[i]);
+      ws.send(JSON.stringify({ type: 'file-chunk', data: { id: t.id, offset: offset, data: btoa(s) } }));
+      offset = end; t.transferred = offset;
+      t.progress = Math.round(offset / t.data.length * 100);
+      renderTransfers();
       setTimeout(next, 5);
     }
     next();
   }
   function handleFileMessage(msg) {
     var d = msg.data;
-    if (msg.type==='file-offer') {
-      fileTransfers[d.id] = {id:d.id, name:d.name, size:d.size, mimeType:d.mimeType, preview:d.preview||'', transferred:0, complete:false, chunks:[], direction:'in', pending:true};
-      renderIncoming(); showToast('Incoming: '+d.name, 'ok');
-      document.querySelectorAll('.tab-item').forEach(function(b){b.classList.remove('active');});
-      document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
-      var ftab = document.querySelector('[data-tab="files"]'); if(ftab) ftab.classList.add('active');
-      var fp = $('tab-files'); if(fp) fp.classList.add('active');
-    } else if (msg.type==='file-accept') {
-      var t = fileTransfers[d.id]; if(t && t.direction==='out') doSendChunks(t);
-    } else if (msg.type==='file-reject') {
-      var t2 = fileTransfers[d.id]; if(t2){delete fileTransfers[d.id]; renderFileList(); showToast('Rejected: '+t2.name,'error');}
-    } else if (msg.type==='file-chunk') {
-      var t3 = fileTransfers[d.id]; if(t3 && t3.direction==='in'){t3.chunks.push(d.data); t3.transferred+=atob(d.data).length; renderFileList();}
-    } else if (msg.type==='file-complete') {
+    if (msg.type === 'file-offer') {
+      fileTransfers[d.id] = { id: d.id, name: d.name, size: d.size, mimeType: d.mimeType, preview: d.preview || '', transferred: 0, complete: false, chunks: [], direction: 'in', pending: true, status: 'incoming' };
+      renderIncoming();
+      toast('info', 'Incoming', d.name);
+      switchTab('files');
+    } else if (msg.type === 'file-accept') {
+      var t = fileTransfers[d.id]; if (t && t.direction === 'out') sendChunks(t);
+    } else if (msg.type === 'file-reject') {
+      var t2 = fileTransfers[d.id]; if (t2) { delete fileTransfers[d.id]; renderTransfers(); toast('warning', 'Declined', t2.name); }
+    } else if (msg.type === 'file-chunk') {
+      var t3 = fileTransfers[d.id]; if (t3 && t3.direction === 'in') {
+        t3.chunks.push(d.data); t3.transferred += atob(d.data).length;
+        t3.progress = Math.round(t3.transferred / t3.size * 100); t3.status = 'receiving';
+        renderTransfers();
+      }
+    } else if (msg.type === 'file-complete') {
       var t4 = fileTransfers[d.id];
-      if(t4 && t4.direction==='in'){
-        t4.complete=true;
-        var parts = []; for(var c=0;c<t4.chunks.length;c++){var raw=atob(t4.chunks[c]);var arr=new Uint8Array(raw.length);for(var j=0;j<raw.length;j++)arr[j]=raw.charCodeAt(j);parts.push(arr);}
-        t4.blobUrl = URL.createObjectURL(new Blob(parts,{type:t4.mimeType}));
-        t4.chunks=[]; renderFileList(); renderIncoming(); showToast('Received '+t4.name,'ok');
+      if (t4 && t4.direction === 'in') {
+        t4.complete = true; t4.status = 'received';
+        var parts = []; for (var c = 0; c < t4.chunks.length; c++) { var raw = atob(t4.chunks[c]); var arr = new Uint8Array(raw.length); for (var j = 0; j < raw.length; j++) arr[j] = raw.charCodeAt(j); parts.push(arr); }
+        t4.blobUrl = URL.createObjectURL(new Blob(parts, { type: t4.mimeType }));
+        t4.chunks = [];
+        renderTransfers(); renderIncoming();
+        toast('success', 'Received', t4.name);
       }
     }
   }
-  window._acceptFile = function(id){var t=fileTransfers[id];if(!t)return;t.pending=false;ws.send(JSON.stringify({type:'file-accept',data:{id:id}}));renderIncoming();renderFileList();};
-  window._rejectFile = function(id){ws.send(JSON.stringify({type:'file-reject',data:{id:id,reason:'rejected'}}));delete fileTransfers[id];renderIncoming();renderFileList();};
+  window._acceptFile = function (id) {
+    var t = fileTransfers[id]; if (!t) return;
+    t.pending = false; t.status = 'receiving';
+    ws.send(JSON.stringify({ type: 'file-accept', data: { id: id } }));
+    renderIncoming(); renderTransfers();
+  };
+  window._rejectFile = function (id) {
+    ws.send(JSON.stringify({ type: 'file-reject', data: { id: id, reason: 'rejected' } }));
+    delete fileTransfers[id]; renderIncoming(); renderTransfers();
+  };
+  window._saveFile = function (id) {
+    var t = fileTransfers[id]; if (!t || !t.blobUrl) return;
+    var a = document.createElement('a'); a.href = t.blobUrl; a.download = t.name; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    toast('success', 'Saved', t.name);
+  };
+  function statusMeta(t) {
+    if (t.status === 'failed') return { color: 'var(--err)', text: 'Failed' };
+    if (t.status === 'done') return { color: 'var(--ok)', text: 'Sent' };
+    if (t.status === 'received') return { color: 'var(--ok)', text: 'Received' };
+    if (t.status === 'receiving') return { color: 'var(--warn)', text: 'Receiving · ' + (t.progress || 0) + '%' };
+    return { color: 'var(--accent)', text: 'Sending · ' + (t.progress || 0) + '%' };
+  }
+  function fileIconSvg() { return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h7l5 5v13a0 0 0 0 1 0 0H6a0 0 0 0 1 0 0z"/><path d="M13 3v5h5"/></svg>'; }
+  function photoIconSvg() { return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.6"/><path d="M5 17l4.5-4 3 2.6L16 12l3 3.2"/></svg>'; }
+
   function renderIncoming() {
-    var list=$('incoming-list'),sec=$('incoming-section'); if(!list||!sec)return;
-    var html='',has=false;
-    for(var id in fileTransfers){var t=fileTransfers[id];if(t.direction!=='in'||!t.pending)continue;has=true;
-      var th=t.preview?'<img src="'+t.preview+'">':fileIconSvg();
-      html+='<div class="file-item"><div class="file-thumb">'+th+'</div><div class="file-body"><div class="file-name">'+esc(t.name)+'</div><div class="file-size">'+fmtSize(t.size)+'</div></div><div class="file-actions"><button class="file-accept-btn" onclick="window._acceptFile(\''+id+'\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></button><button class="file-reject-btn" onclick="window._rejectFile(\''+id+'\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div></div>';}
-    list.innerHTML=html; if(has)sec.classList.remove('hidden');else sec.classList.add('hidden');
+    var wrap = $('incoming-wrap'), list = $('incoming-list');
+    var html = ''; var has = false;
+    Object.keys(fileTransfers).forEach(function (id) {
+      var t = fileTransfers[id];
+      if (t.direction !== 'in' || !t.pending) return;
+      has = true;
+      var icon = t.mimeType && t.mimeType.indexOf('image/') === 0 ? photoIconSvg() : fileIconSvg();
+      html +=
+        '<div class="incoming-card">' +
+          '<div class="incoming-head">' +
+            '<span class="incoming-icon">' + icon + '</span>' +
+            '<div style="flex:1;min-width:0;">' +
+              '<div class="incoming-name">' + esc(t.name) + '</div>' +
+              '<div class="incoming-meta">' + fmtSize(t.size) + ' · from ' + esc(serverName) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="incoming-buttons">' +
+            '<button class="btn btn-ghost btn-block" onclick="window._rejectFile(\'' + id + '\')">Decline</button>' +
+            '<button class="btn btn-primary btn-block" onclick="window._acceptFile(\'' + id + '\')">' +
+              '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>' +
+              'Accept' +
+            '</button>' +
+          '</div>' +
+        '</div>';
+    });
+    list.innerHTML = html;
+    wrap.classList.toggle('hidden', !has);
   }
-  function renderFileList() {
-    var list=$('file-list'); if(!list)return;
-    var html='',count=0;
-    for(var id in fileTransfers){var t=fileTransfers[id];if(t.pending)continue;count++;
-      var th=t.preview?'<img src="'+t.preview+'">':fileIconSvg();
-      var arrow=t.direction==='out'?'↑':'↓';
-      var st='';
-      if(t.complete){st=t.direction==='in'&&t.blobUrl?'<a href="'+t.blobUrl+'" download="'+esc(t.name)+'" style="text-decoration:none"><span class="file-done-badge">Save</span></a>':'<span class="file-done-badge">Done</span>';}
-      else{var pct=t.size>0?Math.round(t.transferred/t.size*100):0;st='<span style="font-size:11px;color:var(--dim);font-weight:600">'+pct+'%</span>';}
-      var prog='';if(!t.complete&&t.size>0){prog='<div class="file-progress"><div class="file-progress-bar" style="width:'+Math.round(t.transferred/t.size*100)+'%"></div></div>';}
-      html+='<div class="file-item"><div class="file-thumb">'+th+'</div><div class="file-body"><div class="file-name">'+arrow+' '+esc(t.name)+'</div><div class="file-size">'+fmtSize(t.transferred)+' / '+fmtSize(t.size)+'</div>'+prog+'</div>'+st+'</div>';}
-    if(count===0)list.innerHTML='<div class="file-empty">No transfers yet</div>'; else list.innerHTML=html;
+  function renderTransfers() {
+    var list = $('transfer-list'), empty = $('transfer-empty');
+    var html = ''; var count = 0;
+    Object.keys(fileTransfers).forEach(function (id) {
+      var t = fileTransfers[id]; if (t.pending) return; count++;
+      var m = statusMeta(t);
+      var active = t.status === 'sending' || t.status === 'receiving';
+      var icon = t.mimeType && t.mimeType.indexOf('image/') === 0 ? photoIconSvg() : fileIconSvg();
+      html +=
+        '<div class="card transfer-row">' +
+          '<div class="transfer-head">' +
+            '<span class="transfer-icon" style="color:' + m.color + ';">' + icon + '</span>' +
+            '<div style="flex:1;min-width:0;">' +
+              '<div class="transfer-name">' + esc(t.name) + '</div>' +
+              '<div class="transfer-meta">' +
+                '<span class="transfer-status" style="color:' + m.color + ';">' + m.text + '</span>' +
+                '<span class="transfer-size">· ' + fmtSize(t.size) + '</span>' +
+              '</div>' +
+            '</div>' +
+            (t.status === 'received'
+              ? '<button class="btn btn-primary btn-sm" onclick="window._saveFile(\'' + id + '\')"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>Save</button>'
+              : (t.status === 'done' ? '<span style="color: var(--ok);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l4.5 4.5L19.5 6.5"/></svg></span>' : '')) +
+          '</div>' +
+          (active ? '<div class="bar-inner"><i style="width:' + (t.progress || 0) + '%;"></i></div>' : '') +
+        '</div>';
+    });
+    list.innerHTML = html;
+    empty.classList.toggle('hidden', count > 0);
   }
-  } catch(ftErr) { console.error('File transfer init error:', ftErr); }
 
-  // USB callbacks
-  window.onUsbFrame=function(b64){if(!streamVisible){$('stream-fs').classList.add('active');streamVisible=true;}streamImg.src='data:image/jpeg;base64,'+b64;var ld=$('stream-loading');if(ld&&!ld.classList.contains('hidden'))ld.classList.add('hidden');};
-  window.onUsbConnected=function(){setConnectedUI('Android','USB','—');$('pill-dot').className='pill-dot';$('pill-text').textContent='USB · Connected';};
-  window.onUsbDisconnected=function(){hideStream();setDisconnectedUI();};
+  // ── Settings sheet ──
+  $('settings-btn').addEventListener('click', function () { $('settings-sheet').classList.remove('hidden'); });
+  $('settings-close').addEventListener('click', function () { $('settings-sheet').classList.add('hidden'); });
+  $('settings-sheet').addEventListener('click', function (e) { if (e.target === $('settings-sheet')) $('settings-sheet').classList.add('hidden'); });
 
-  function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+  // auto-connect toggle
+  var ac = $('auto-connect-toggle');
+  ac.checked = localStorage.getItem('vior_autoconnect') !== '0';
+  function syncAutoConnect() {
+    var on = ac.checked;
+    $('auto-connect-track').style.background = on ? 'var(--accent)' : 'var(--surface-3)';
+    $('auto-connect-knob').style.transform = 'translateX(' + (on ? 17 : 0) + 'px)';
+  }
+  syncAutoConnect();
+  $('auto-connect-track').addEventListener('click', function () {
+    ac.checked = !ac.checked;
+    localStorage.setItem('vior_autoconnect', ac.checked ? '1' : '0');
+    syncAutoConnect();
+  });
 
+  // ── USB callbacks (Java bridge) ──
+  window.onUsbFrame = function (b64) {
+    if (!streamVisible) { openStream(); }
+    streamImg.src = 'data:image/jpeg;base64,' + b64;
+    var ld = $('stream-loading'); if (!ld.classList.contains('hidden')) ld.classList.add('hidden');
+    frameCount++;
+  };
+  window.onUsbConnected = function () {
+    connected = true;
+    setConnState('online');
+    $('stream-mode-text').textContent = 'USB · Live';
+  };
+  window.onUsbDisconnected = function () { if (streamVisible) hideStream(); };
+
+  // ── Boot ──
+  setConnState('offline');
   startDiscovery();
 })();
 </script>

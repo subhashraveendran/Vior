@@ -571,6 +571,20 @@
   .sheet-body { padding: 16px 16px 22px; overflow-y: auto; scrollbar-width: none; }
   .sheet-body::-webkit-scrollbar { display: none; }
 
+  .vior-toggle {
+    display: inline-block; width: 42px; height: 25px; border-radius: var(--r-pill);
+    background: var(--accent); padding: 3px; cursor: pointer; flex: none;
+    transition: background .2s;
+  }
+  .vior-toggle.off { background: var(--surface-3); }
+  .vior-toggle .vior-knob {
+    display: block; width: 19px; height: 19px; border-radius: 50%;
+    background: #fff; transform: translateX(17px);
+    transition: transform .2s var(--ease);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+  .vior-toggle.off .vior-knob { transform: translateX(0); }
+
   .accent-swatch {
     flex: 1; height: 48px; border-radius: var(--r-sm);
     background: var(--swatch-color); border: 1px solid var(--border);
@@ -996,16 +1010,44 @@
       <div class="card" style="overflow: hidden;">
         <div style="display: flex; align-items: center; padding: 15px; gap: 12px;">
           <div style="flex: 1;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text-1);">Wi-Fi discovery</div>
+            <div class="mono" style="font-size: 11.5px; color: var(--text-3); margin-top: 2px;">Scan LAN for Vior servers</div>
+          </div>
+          <span id="wifi-track" data-key="vior_wifi" class="vior-toggle"><span class="vior-knob"></span></span>
+        </div>
+        <div style="display: flex; align-items: center; padding: 15px; gap: 12px; border-top: 1px solid var(--border);">
+          <div style="flex: 1;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text-1);">USB only mode</div>
+            <div class="mono" style="font-size: 11.5px; color: var(--text-3); margin-top: 2px;">Skip Wi-Fi, accept USB cable only</div>
+          </div>
+          <span id="usb-only-track" data-key="vior_usb_only" class="vior-toggle off"><span class="vior-knob" style="transform: translateX(0);"></span></span>
+        </div>
+        <div style="display: flex; align-items: center; padding: 15px; gap: 12px; border-top: 1px solid var(--border);">
+          <div style="flex: 1;">
             <div style="font-size: 14px; font-weight: 600; color: var(--text-1);">Auto-connect</div>
             <div class="mono" style="font-size: 11.5px; color: var(--text-3); margin-top: 2px;">Reconnect to last server on launch</div>
           </div>
-          <label style="position: relative; display: inline-block;">
-            <input type="checkbox" id="auto-connect-toggle" checked style="position: absolute; opacity: 0; pointer-events: none;">
-            <span id="auto-connect-track" style="display: block; width: 42px; height: 25px; border-radius: var(--r-pill); background: var(--accent); padding: 3px; position: relative; cursor: pointer;">
-              <span id="auto-connect-knob" style="display: block; width: 19px; height: 19px; border-radius: 50%; background: #fff; transform: translateX(17px); transition: transform .2s var(--ease); box-shadow: 0 1px 3px rgba(0,0,0,0.4);"></span>
-            </span>
-          </label>
+          <span id="auto-connect-track" data-key="vior_autoconnect" class="vior-toggle"><span class="vior-knob"></span></span>
         </div>
+        <button id="open-wifi-settings" style="display: flex; align-items: center; padding: 15px; gap: 12px; width: 100%; background: none; border: none; border-top: 1px solid var(--border); color: var(--text-1); text-align: left; cursor: pointer;">
+          <span style="color: var(--accent);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5C5 5.8 8.4 4.4 12 4.4s7 1.4 10 4.1"/><path d="M5 11.6c2-1.8 4.4-2.8 7-2.8s5 1 7 2.8"/><path d="M8.3 14.8c1.1-1 2.4-1.5 3.7-1.5s2.6.5 3.7 1.5"/><circle cx="12" cy="18.3" r="1.1" fill="currentColor" stroke="none"/></svg>
+          </span>
+          <div style="flex: 1;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text-1);">Open Wi-Fi settings</div>
+            <div class="mono" style="font-size: 11.5px; color: var(--text-3); margin-top: 2px;">Switch network or check signal</div>
+          </div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-3);"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+        <button id="paste-url-btn" style="display: flex; align-items: center; padding: 15px; gap: 12px; width: 100%; background: none; border: none; border-top: 1px solid var(--border); color: var(--text-1); text-align: left; cursor: pointer;">
+          <span style="color: var(--accent);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="16" rx="2"/><rect x="9" y="2.5" width="6" height="3.5" rx="1.2"/></svg>
+          </span>
+          <div style="flex: 1;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text-1);">Paste URL</div>
+            <div class="mono" style="font-size: 11.5px; color: var(--text-3); margin-top: 2px;">Connect from clipboard</div>
+          </div>
+        </button>
       </div>
       <div class="section-label" style="margin-top: 22px;">About</div>
       <div class="card" style="overflow: hidden;">
@@ -1171,6 +1213,12 @@
   var foundServers = {}, discoveryTimeout = null, scanning = false;
   function startDiscovery() {
     foundServers = {}; selectedServer = null; scanning = true;
+    if (localStorage.getItem('vior_wifi') === '0' || localStorage.getItem('vior_usb_only') === '1') {
+      $('disc-status').textContent = 'Wi-Fi discovery off';
+      $('disc-list').innerHTML = '<div class="empty"><span class="empty-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.56 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/></svg></span><div class="empty-title">Wi-Fi discovery is off</div><div class="empty-body">Enable in Settings → Connectivity, or use the manual fields below.</div></div>';
+      showView('empty');
+      return;
+    }
     $('disc-status').textContent = 'Scanning network…';
     $('disc-list').innerHTML =
       '<div class="radar-search">' +
@@ -1441,7 +1489,7 @@
         toast('success', 'Connected', (selectedMode === 'mirror' ? 'Mirroring' : 'Extended display') + ' on ' + serverName + '.');
       } else if (msg.type === 'error') {
         $('connecting-overlay').classList.add('hidden');
-        toast('error', 'Connection failed', msg.data.message || '');
+        toast('error', 'Connection failed', (msg.data && msg.data.message) || 'Check both devices on same Wi-Fi. Try manual IP.');
         setConnState('offline');
       } else if (msg.type && msg.type.indexOf('file-') === 0) {
         try { handleFileMessage(msg); } catch (e) { console.error('file msg', e); }
@@ -1942,19 +1990,45 @@
   $('appearance-back').addEventListener('click', function () { $('appearance-view').classList.add('hidden'); $('settings-main').classList.remove('hidden'); });
   $('appearance-done').addEventListener('click', function () { $('appearance-view').classList.add('hidden'); $('settings-main').classList.remove('hidden'); });
 
-  // auto-connect toggle
-  var ac = $('auto-connect-toggle');
-  ac.checked = localStorage.getItem('vior_autoconnect') !== '0';
-  function syncAutoConnect() {
-    var on = ac.checked;
-    $('auto-connect-track').style.background = on ? 'var(--accent)' : 'var(--surface-3)';
-    $('auto-connect-knob').style.transform = 'translateX(' + (on ? 17 : 0) + 'px)';
-  }
-  syncAutoConnect();
-  $('auto-connect-track').addEventListener('click', function () {
-    ac.checked = !ac.checked;
-    localStorage.setItem('vior_autoconnect', ac.checked ? '1' : '0');
-    syncAutoConnect();
+  // Generic toggles bound to localStorage keys.
+  document.querySelectorAll('.vior-toggle').forEach(function (t) {
+    var key = t.dataset.key;
+    var def = key === 'vior_usb_only' ? '0' : '1';
+    var on = (localStorage.getItem(key) || def) !== '0';
+    t.classList.toggle('off', !on);
+    t.addEventListener('click', function () {
+      on = !on;
+      t.classList.toggle('off', !on);
+      localStorage.setItem(key, on ? '1' : '0');
+      if (key === 'vior_wifi' || key === 'vior_usb_only') {
+        // Restart discovery to apply.
+        if (on || key === 'vior_usb_only') startDiscovery();
+        toast('info', 'Updated', t.previousElementSibling.querySelector('div').textContent + ' ' + (on ? 'enabled' : 'disabled'));
+      }
+    });
+  });
+
+  // Open Android Wi-Fi settings via intent URI.
+  $('open-wifi-settings').addEventListener('click', function () {
+    try { window.location.href = 'intent:#Intent;action=android.settings.WIFI_SETTINGS;end'; }
+    catch (e) { toast('error', 'Cannot open Wi-Fi settings', String(e.message || e)); }
+  });
+
+  // Paste URL from clipboard.
+  $('paste-url-btn').addEventListener('click', async function () {
+    try {
+      var text = await navigator.clipboard.readText();
+      if (!text) { toast('warning', 'Clipboard empty', null); return; }
+      var m = text.match(/(?:https?:\/\/)?([\d.]+)(?::(\d+))?(?:[?&]pair=([A-F0-9]+))?/i);
+      if (!m) { toast('error', 'No URL in clipboard', text.slice(0, 40)); return; }
+      var host = m[1], port = parseInt(m[2] || '8080'), code = m[3] || '';
+      if (code) $('manual-pair').value = code.toUpperCase();
+      $('settings-sheet').classList.add('hidden');
+      selectServer(host, port, host, '');
+      doConnect();
+    } catch (e) {
+      toast('error', 'Paste failed', 'Clipboard access denied.');
+    }
   });
 
   // ── USB callbacks (Java bridge) ──

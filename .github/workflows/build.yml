@@ -215,9 +215,12 @@ jobs:
           cd mobile-cap
           # Save custom files before cap regenerates android/
           mkdir -p /tmp/vior-custom
-          cp -r android/app/src/main/java /tmp/vior-custom/java 2>/dev/null || true
-          cp -r android/app/src/main/res/xml /tmp/vior-custom/xml 2>/dev/null || true
-          cp android/app/src/main/AndroidManifest.xml /tmp/vior-custom/AndroidManifest.xml 2>/dev/null || true
+          cp -r android/app/src/main/java                          /tmp/vior-custom/java               2>/dev/null || true
+          cp -r android/app/src/main/res/xml                       /tmp/vior-custom/xml                2>/dev/null || true
+          cp -r android/app/src/main/res/drawable                  /tmp/vior-custom/drawable           2>/dev/null || true
+          cp -r android/app/src/main/res/mipmap-anydpi-v26         /tmp/vior-custom/mipmap-anydpi-v26  2>/dev/null || true
+          cp -r android/app/src/main/res/values                    /tmp/vior-custom/values             2>/dev/null || true
+          cp    android/app/src/main/AndroidManifest.xml           /tmp/vior-custom/AndroidManifest.xml 2>/dev/null || true
 
           # Regenerate Android project
           rm -rf android
@@ -225,9 +228,15 @@ jobs:
           npx cap sync android
 
           # Overlay custom files
-          cp -r /tmp/vior-custom/java/* android/app/src/main/java/ 2>/dev/null || true
+          cp -r /tmp/vior-custom/java/*                            android/app/src/main/java/                       2>/dev/null || true
           mkdir -p android/app/src/main/res/xml
-          cp -r /tmp/vior-custom/xml/* android/app/src/main/res/xml/ 2>/dev/null || true
+          cp -r /tmp/vior-custom/xml/*                             android/app/src/main/res/xml/                    2>/dev/null || true
+          mkdir -p android/app/src/main/res/drawable
+          cp -r /tmp/vior-custom/drawable/*                        android/app/src/main/res/drawable/               2>/dev/null || true
+          mkdir -p android/app/src/main/res/mipmap-anydpi-v26
+          cp -r /tmp/vior-custom/mipmap-anydpi-v26/*               android/app/src/main/res/mipmap-anydpi-v26/      2>/dev/null || true
+          # Merge values (don't blow away cap defaults — copy each file by name)
+          cp -r /tmp/vior-custom/values/*                          android/app/src/main/res/values/                 2>/dev/null || true
 
       - name: Build debug APK
         run: |

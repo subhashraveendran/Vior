@@ -178,14 +178,19 @@ func (a *App) GetServerStatus() ServerStatus {
 		s.Discovery = a.broadcaster.IsRunning()
 	}
 	if s.Running {
-		// Build URL from first LAN IP.
+		// Build all LAN URLs — multi-interface Macs need this so the user can
+		// pick the IP the phone can actually reach.
 		ips := discovery.LocalIPs()
-		if len(ips) > 0 {
-			s.URL = fmt.Sprintf("http://%s:%d", ips[0], a.cfg.Port)
+		s.URLs = make([]string, 0, len(ips))
+		for _, ip := range ips {
+			s.URLs = append(s.URLs, fmt.Sprintf("http://%s:%d", ip, a.cfg.Port))
+		}
+		if len(s.URLs) > 0 {
+			s.URL = s.URLs[0]
 		} else {
 			s.URL = fmt.Sprintf("http://localhost:%d", a.cfg.Port)
 		}
-		qr, err := network.QRCodeDataURL(s.URL)
+		qr, err := network.QRCodeDataURL(s.URL + "?pair=" + stream.PairCode())
 		if err == nil {
 			s.QRCodeDataURL = qr
 		}
@@ -614,16 +619,17 @@ func (a *App) GetConnectedClients() []ClientInfo {
 // ── Server Status ───────────────────────────────────────────────────
 
 type ServerStatus struct {
-	Running       bool   `json:"running"`
-	Port          int    `json:"port"`
-	URL           string `json:"url"`
-	QRCodeDataURL string `json:"qrCodeDataUrl"`
-	ClientCount   int    `json:"clientCount"`
-	Discovery     bool   `json:"discovery"`
-	USBAvailable  bool   `json:"usbAvailable"`
-	USBConnected  bool   `json:"usbConnected"`
-	Uptime        int    `json:"uptime"`
-	PairCode      string `json:"pairCode"`
+	Running       bool     `json:"running"`
+	Port          int      `json:"port"`
+	URL           string   `json:"url"`
+	URLs          []string `json:"urls"`
+	QRCodeDataURL string   `json:"qrCodeDataUrl"`
+	ClientCount   int      `json:"clientCount"`
+	Discovery     bool     `json:"discovery"`
+	USBAvailable  bool     `json:"usbAvailable"`
+	USBConnected  bool     `json:"usbConnected"`
+	Uptime        int      `json:"uptime"`
+	PairCode      string   `json:"pairCode"`
 }
 
 // ── File Transfer ───────────────────────────────────────────────────

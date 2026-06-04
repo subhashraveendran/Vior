@@ -93,6 +93,7 @@ export namespace main {
 	    running: boolean;
 	    port: number;
 	    url: string;
+	    urls: string[];
 	    qrCodeDataUrl: string;
 	    clientCount: number;
 	    discovery: boolean;
@@ -110,6 +111,7 @@ export namespace main {
 	        this.running = source["running"];
 	        this.port = source["port"];
 	        this.url = source["url"];
+	        this.urls = source["urls"];
 	        this.qrCodeDataUrl = source["qrCodeDataUrl"];
 	        this.clientCount = source["clientCount"];
 	        this.discovery = source["discovery"];

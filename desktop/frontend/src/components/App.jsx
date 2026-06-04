@@ -155,10 +155,22 @@ function WaitingScreen({ status, onStop, onCopy }) {
 
         <div className="card" style={{ marginTop: 24, padding: 18 }}>
           <div className="label" style={{ marginBottom: 12 }}>Connect manually</div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <span className="mono" style={{ fontSize: 17, fontWeight: 500 }}>{url || `:${status?.port}`}</span>
-            <button className="btn btn-ghost btn-sm" onClick={onCopy}>{Icons.copy(15)}Copy</button>
-          </div>
+          {(status?.urls && status.urls.length > 1) ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {status.urls.map(u => (
+                <div key={u} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <span className="mono" style={{ fontSize: 15, fontWeight: 500 }}>{u}</span>
+                  <button className="btn btn-ghost btn-sm" onClick={() => navigator.clipboard?.writeText(u)}>{Icons.copy(15)}Copy</button>
+                </div>
+              ))}
+              <div style={{ fontSize: 11.5, color: 'var(--text-3)' }}>Multiple interfaces detected — try each on your phone.</div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <span className="mono" style={{ fontSize: 17, fontWeight: 500 }}>{url || `:${status?.port}`}</span>
+              <button className="btn btn-ghost btn-sm" onClick={onCopy}>{Icons.copy(15)}Copy</button>
+            </div>
+          )}
           {status?.pairCode && (
             <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
               <div className="label" style={{ marginBottom: 6 }}>Pair code</div>

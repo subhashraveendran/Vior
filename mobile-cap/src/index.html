@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Vior</title>
 <link rel="manifest" href="manifest.json">
+<script src="jsqr.min.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -1293,8 +1294,8 @@
   $('disc-refresh').addEventListener('click', startDiscovery);
   $('rescan-btn').addEventListener('click', startDiscovery);
 
-  // ── QR scanner (browser BarcodeDetector + getUserMedia, no plugin) ──
-  var qrStream = null, qrRunning = false, qrDetector = null;
+  // ── QR scanner (native BarcodeDetector with jsQR fallback) ──
+  var qrStream = null, qrRunning = false, qrDetector = null, qrCanvas = null, qrCtx = null;
   function parseScanResult(raw) {
     var url = raw, code = '';
     var m = raw.match(/^vior:\/\/([\d.]+)(?::(\d+))?(?:\?pair=([A-F0-9]+))?/i);
@@ -1307,31 +1308,39 @@
     var hp = url.replace(/^https?:\/\//, '').split(':');
     return { host: hp[0], port: parseInt(hp[1] || '8080'), code: code };
   }
-  async function stopQRScan() {
+  function onScanHit(raw) {
+    var p = parseScanResult(raw);
+    stopQRScan();
+    if (p.code) $('manual-pair').value = p.code.toUpperCase();
+    selectServer(p.host, p.port, p.host, '');
+    doConnect();
+  }
+  function stopQRScan() {
     qrRunning = false;
     if (qrStream) { qrStream.getTracks().forEach(function (t) { t.stop(); }); qrStream = null; }
     $('qr-modal').classList.add('hidden');
   }
   async function startQRScan() {
-    if (!('BarcodeDetector' in window)) {
-      toast('error', 'Scanner unsupported', 'BarcodeDetector API unavailable.'); return;
-    }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      toast('error', 'Camera unsupported', 'getUserMedia unavailable.'); return;
+      toast('error', 'Camera unsupported', 'getUserMedia unavailable on this WebView.'); return;
     }
     try {
-      qrDetector = qrDetector || new BarcodeDetector({ formats: ['qr_code'] });
       qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       var video = $('qr-video');
       video.srcObject = qrStream;
       await video.play();
       $('qr-modal').classList.remove('hidden');
       qrRunning = true;
-      tickQR();
+      if ('BarcodeDetector' in window) {
+        try { qrDetector = new BarcodeDetector({ formats: ['qr_code'] }); tickQRNative(); return; } catch (_) {}
+      }
+      if (typeof jsQR === 'function') { tickQRJsQR(); return; }
+      toast('error', 'Scanner load failed', 'jsQR not loaded; reinstall app.');
+      stopQRScan();
     } catch (e) {
       var name = (e && e.name) || '';
       if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-        toast('error', 'Camera blocked', 'Enable camera permission in app settings, then retry.');
+        toast('error', 'Camera blocked', 'Allow camera in System Settings → Apps → Vior.');
       } else if (name === 'NotFoundError') {
         toast('error', 'No camera', 'No camera device found.');
       } else {
@@ -1340,21 +1349,30 @@
       stopQRScan();
     }
   }
-  async function tickQR() {
+  async function tickQRNative() {
     if (!qrRunning) return;
     try {
       var codes = await qrDetector.detect($('qr-video'));
-      if (codes && codes.length) {
-        var raw = codes[0].rawValue || '';
-        var p = parseScanResult(raw);
-        await stopQRScan();
-        if (p.code) $('manual-pair').value = p.code.toUpperCase();
-        selectServer(p.host, p.port, p.host, '');
-        doConnect();
-        return;
-      }
-    } catch (e) { /* keep trying */ }
-    requestAnimationFrame(tickQR);
+      if (codes && codes.length) { onScanHit(codes[0].rawValue || ''); return; }
+    } catch (_) {}
+    requestAnimationFrame(tickQRNative);
+  }
+  function tickQRJsQR() {
+    if (!qrRunning) return;
+    var v = $('qr-video');
+    if (!qrCanvas) { qrCanvas = document.createElement('canvas'); qrCtx = qrCanvas.getContext('2d', { willReadFrequently: true }); }
+    if (v.readyState === v.HAVE_ENOUGH_DATA && v.videoWidth) {
+      var w = v.videoWidth, h = v.videoHeight;
+      // Downscale for perf: detect on 480-wide frame max.
+      var scale = w > 480 ? 480 / w : 1;
+      var dw = Math.round(w * scale), dh = Math.round(h * scale);
+      qrCanvas.width = dw; qrCanvas.height = dh;
+      qrCtx.drawImage(v, 0, 0, dw, dh);
+      var img = qrCtx.getImageData(0, 0, dw, dh);
+      var code = jsQR(img.data, dw, dh, { inversionAttempts: 'attemptBoth' });
+      if (code && code.data) { onScanHit(code.data); return; }
+    }
+    requestAnimationFrame(tickQRJsQR);
   }
   $('scan-qr-btn').addEventListener('click', startQRScan);
   $('qr-cancel').addEventListener('click', stopQRScan);

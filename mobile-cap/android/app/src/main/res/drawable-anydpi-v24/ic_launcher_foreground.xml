@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Vior brand glyph — desktop screen + orange phone overlay.
-  Adaptive-icon viewport: 108×108. Safe zone: 66×66 centered at (54,54).
-  Glyph sits inside ~46 wide × 38 tall envelope to match other apps.
+  Adaptive-icon viewport: 108×108. Safe zone: 66×66 centered at (54,54), range 21→87.
+  Glyph envelope: ~62 wide × 56 tall, fills ~70% of safe zone.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -10,35 +10,45 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Desktop screen (rounded rect with subtle fill + white stroke) -->
+    <!-- Desktop screen body -->
     <path
         android:strokeColor="#eef1f5"
-        android:strokeWidth="3.5"
+        android:strokeWidth="4"
         android:fillColor="#1a1f26"
-        android:pathData="M40,42 L74,42 a3,3 0 0 1 3,3 L77,62 a3,3 0 0 1 -3,3 L40,65 a3,3 0 0 1 -3,-3 L37,45 a3,3 0 0 1 3,-3 z"/>
+        android:pathData="M24,30 L74,30 a4,4 0 0 1 4,4 L78,60 a4,4 0 0 1 -4,4 L24,64 a4,4 0 0 1 -4,-4 L20,34 a4,4 0 0 1 4,-4 z"/>
 
-    <!-- Stand -->
+    <!-- Screen highlight -->
+    <path
+        android:fillColor="#2a3038"
+        android:pathData="M26,34 L72,34 L72,38 L26,38 z"/>
+
+    <!-- Stand neck -->
     <path
         android:fillColor="#eef1f5"
-        android:pathData="M53,65 L61,65 L61,68 L53,68 z"/>
+        android:pathData="M45,64 L55,64 L55,72 L45,72 z"/>
 
-    <!-- Base bar -->
+    <!-- Stand base bar -->
     <path
         android:strokeColor="#eef1f5"
-        android:strokeWidth="2"
+        android:strokeWidth="4"
         android:strokeLineCap="round"
-        android:pathData="M46,70 L68,70"/>
+        android:pathData="M30,76 L70,76"/>
 
     <!-- Phone overlay (orange, bottom-right) -->
     <path
         android:fillColor="#ff8a4c"
         android:strokeColor="#0b0d10"
-        android:strokeWidth="2"
-        android:pathData="M62,52 L74,52 a2.5,2.5 0 0 1 2.5,2.5 L76.5,72 a2.5,2.5 0 0 1 -2.5,2.5 L62,74.5 a2.5,2.5 0 0 1 -2.5,-2.5 L59.5,54.5 a2.5,2.5 0 0 1 2.5,-2.5 z"/>
+        android:strokeWidth="3"
+        android:pathData="M62,46 L82,46 a4,4 0 0 1 4,4 L86,82 a4,4 0 0 1 -4,4 L62,86 a4,4 0 0 1 -4,-4 L58,50 a4,4 0 0 1 4,-4 z"/>
 
-    <!-- Phone indicator -->
+    <!-- Phone screen -->
+    <path
+        android:fillColor="#1a1f26"
+        android:pathData="M62,52 L82,52 L82,78 L62,78 z"/>
+
+    <!-- Phone home indicator -->
     <path
         android:fillColor="#ffffff"
-        android:fillAlpha="0.7"
-        android:pathData="M65,71.5 L71,71.5 L71,72.8 L65,72.8 z"/>
+        android:fillAlpha="0.85"
+        android:pathData="M67,81 L77,81 a1,1 0 0 1 1,1 L78,83 a1,1 0 0 1 -1,1 L67,84 a1,1 0 0 1 -1,-1 L66,82 a1,1 0 0 1 1,-1 z"/>
 </vector>

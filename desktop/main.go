@@ -29,6 +29,11 @@ func main() {
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 		OnStartup:        app.startup,
 		OnBeforeClose:    app.beforeClose,
+		// HideWindowOnClose: closing the window only hides it. The Go
+		// server (HTTP+WS+USB) keeps running so already-paired phones can
+		// reconnect at any time without the user re-opening Vior. Real
+		// exit happens via Cmd+Q or the menu-bar Quit item.
+		HideWindowOnClose: true,
 		Bind: []any{
 			app,
 		},

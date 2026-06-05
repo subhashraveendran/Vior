@@ -36,6 +36,7 @@ type HelloMessage struct {
 	Name     string  `json:"name"`
 	Mode     string  `json:"mode"` // "extend" or "mirror"
 	PairCode string  `json:"pairCode,omitempty"`
+	DeviceID string  `json:"deviceId,omitempty"`
 }
 
 // ReadyMessage is sent by the server after virtual display creation succeeds.

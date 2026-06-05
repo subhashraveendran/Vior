@@ -19,7 +19,18 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/subhashraveendran/vior/internal/protocol"
+	"github.com/subhashraveendran/vior/internal/trust"
 )
+
+// trustedDevices is the shared list of devices that have completed a
+// pair-code handshake. A single process-wide store is sufficient — the
+// underlying file is locked by the OS on writes and there's only ever
+// one server per machine.
+var trustedDevices = trust.Default()
+
+// TrustedDevices exposes the store for callers that want to list or
+// forget devices from the UI (e.g. Settings → Trusted devices).
+func TrustedDevices() *trust.Store { return trustedDevices }
 
 // pairCode is a short hex string generated at server start. Printed to the
 // terminal and exposed via /info + embedded in the QR for verification.
@@ -428,12 +439,25 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Client hello: %s %dx%d @%.1fx [%s]", hello.Name, hello.Width, hello.Height, hello.DPR, session.ID)
 
-	// Enforce pair-code match. Server generates a fresh code at startup
-	// and prints/shows it; mobile must echo it back in the hello to be
-	// admitted. This prevents a stranger on the same LAN from connecting
-	// just because they reached the IP:port. Empty code from client → reject.
-	if !strings.EqualFold(strings.TrimSpace(hello.PairCode), pairCode) {
-		log.Printf("ws pair mismatch [%s]: got %q want %q", session.ID, hello.PairCode, pairCode)
+	// Admission policy:
+	//   1. Already-trusted deviceID (paired before on this server)  → admit
+	//   2. Correct pair code present                                → admit + add to trust store
+	//   3. Otherwise                                                → reject
+	// This way the user only enters the code once per physical device.
+	switch {
+	case trustedDevices.IsTrusted(hello.DeviceID):
+		log.Printf("ws admitted trusted device [%s] id=%s", session.ID, hello.DeviceID)
+		_ = trustedDevices.Add(hello.DeviceID, hello.Name) // touch LastSeen
+	case strings.EqualFold(strings.TrimSpace(hello.PairCode), pairCode):
+		if hello.DeviceID != "" {
+			if err := trustedDevices.Add(hello.DeviceID, hello.Name); err != nil {
+				log.Printf("trust store add failed [%s]: %v", session.ID, err)
+			} else {
+				log.Printf("ws paired new device [%s] id=%s name=%q", session.ID, hello.DeviceID, hello.Name)
+			}
+		}
+	default:
+		log.Printf("ws pair mismatch [%s]: got %q want %q (deviceID=%q untrusted)", session.ID, hello.PairCode, pairCode, hello.DeviceID)
 		session.Send(protocol.MsgError, &protocol.ErrorMessage{
 			Code:    "pair_mismatch",
 			Message: "Pair code missing or incorrect. Check the code shown on the desktop.",

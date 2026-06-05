@@ -38,6 +38,21 @@
     var pairCode = loadPair();
     if (pairInput) pairInput.value = pairCode;
 
+    // Stable per-browser device ID. Once the server trusts this ID, the
+    // user won't be asked for the pair code again from this browser.
+    function loadDeviceID() {
+        try {
+            var id = localStorage.getItem('vior_device_id');
+            if (id) return id;
+            id = 'web-' + (crypto.randomUUID ? crypto.randomUUID() : (Math.random().toString(36).slice(2) + Date.now().toString(36)));
+            localStorage.setItem('vior_device_id', id);
+            return id;
+        } catch (_) {
+            return 'web-anon-' + Date.now();
+        }
+    }
+    var deviceID = loadDeviceID();
+
     function showView(view) {
         connectingEl.classList.add('hidden');
         streamViewEl.classList.add('hidden');
@@ -86,7 +101,7 @@
             lastHeight = h;
             var hello = {
                 type: 'hello',
-                data: { width: w, height: h, dpr: dpr, name: getDeviceName(), pairCode: pairCode }
+                data: { width: w, height: h, dpr: dpr, name: getDeviceName(), pairCode: pairCode, deviceId: deviceID }
             };
             ws.send(JSON.stringify(hello));
         };

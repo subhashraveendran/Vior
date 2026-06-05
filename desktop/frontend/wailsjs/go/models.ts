@@ -263,6 +263,7 @@ export namespace protocol {
 	    name: string;
 	    mode: string;
 	    pairCode?: string;
+	    deviceId?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new HelloMessage(source);
@@ -276,6 +277,7 @@ export namespace protocol {
 	        this.name = source["name"];
 	        this.mode = source["mode"];
 	        this.pairCode = source["pairCode"];
+	        this.deviceId = source["deviceId"];
 	    }
 	}
 	export class InputMessage {

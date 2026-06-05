@@ -1568,9 +1568,16 @@
     ws.onopen = function () {
       var dpr = window.devicePixelRatio || 1;
       var pair = ($('manual-pair') && $('manual-pair').value || '').toUpperCase().trim();
+      // Stable per-install device ID — once the server trusts us, we never
+      // need to re-enter the pair code from this app install again.
+      var deviceID = localStorage.getItem('vior_device_id');
+      if (!deviceID) {
+        deviceID = 'mob-' + ((window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Math.random().toString(36).slice(2) + Date.now().toString(36)));
+        try { localStorage.setItem('vior_device_id', deviceID); } catch (_) {}
+      }
       ws.send(JSON.stringify({ type: 'hello', data: {
         width: Math.round(screen.width * dpr), height: Math.round(screen.height * dpr),
-        dpr: dpr, name: 'Vior Mobile', mode: selectedMode, pairCode: pair
+        dpr: dpr, name: 'Vior Mobile', mode: selectedMode, pairCode: pair, deviceId: deviceID
       }}));
     };
 

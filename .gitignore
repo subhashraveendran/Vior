@@ -33,3 +33,4 @@ mobile-cap/android/app/build/
 mobile-cap/android/local.properties
 mobile-cap/android/app/release/
 mobile-cap/www/
+.claude/

@@ -22,6 +22,8 @@ export function GetConfig():Promise<main.AppConfig>;
 
 export function GetConnectedClients():Promise<Array<main.ClientInfo>>;
 
+export function GetMenuBarVisible():Promise<boolean>;
+
 export function GetServerStatus():Promise<main.ServerStatus>;
 
 export function GetStreamStatus():Promise<main.StreamStatus>;
@@ -61,6 +63,8 @@ export function RejectIncomingFile(arg1:string):Promise<void>;
 export function ResetConfig():Promise<void>;
 
 export function SendFile(arg1:string):Promise<void>;
+
+export function SetMenuBarVisible(arg1:boolean):Promise<void>;
 
 export function SetupUSB():Promise<void>;
 

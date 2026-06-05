@@ -38,6 +38,10 @@ export function GetConnectedClients() {
   return window['go']['main']['App']['GetConnectedClients']();
 }
 
+export function GetMenuBarVisible() {
+  return window['go']['main']['App']['GetMenuBarVisible']();
+}
+
 export function GetServerStatus() {
   return window['go']['main']['App']['GetServerStatus']();
 }
@@ -116,6 +120,10 @@ export function ResetConfig() {
 
 export function SendFile(arg1) {
   return window['go']['main']['App']['SendFile'](arg1);
+}
+
+export function SetMenuBarVisible(arg1) {
+  return window['go']['main']['App']['SetMenuBarVisible'](arg1);
 }
 
 export function SetupUSB() {

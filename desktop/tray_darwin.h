@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 void viorTrayInstall(void);
+void viorTrayUninstall(void);
 void viorTraySetStatus(const char *text, int running);
 
 #ifdef __cplusplus

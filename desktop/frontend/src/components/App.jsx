@@ -4,6 +4,7 @@ import {
   StartServer, StopServer, GetServerStatus,
   GetConnectedClients, GetConfig, UpdateConfig,
   GetVersion, CheckPermissions, PickAndSendFile,
+  GetMenuBarVisible, SetMenuBarVisible,
 } from '../../wailsjs/go/main/App'
 
 // ── Icons (24x24, 1.7 stroke) ──────────────────────────────────
@@ -440,6 +441,9 @@ function SettingsScreen({ config, onChange, accent, setAccent }) {
   const [res, setRes] = useState('auto')
   const [usb, setUsb] = useState(true)
   const [adb, setAdb] = useState(true)
+  const [menuBar, setMenuBar] = useState(true)
+  useEffect(() => { GetMenuBarVisible?.().then(setMenuBar).catch(() => {}) }, [])
+  const toggleMenuBar = (v) => { setMenuBar(v); SetMenuBarVisible?.(v) }
   const [appearance, setAppearance] = useState(false)
   const style = localStorage.getItem('vior_style') || 'precise'
   const density = localStorage.getItem('vior_density') || 'regular'
@@ -498,6 +502,15 @@ function SettingsScreen({ config, onChange, accent, setAccent }) {
           </div>
           <button className={`toggle ${usb ? 'toggle-on' : 'toggle-off'}`} onClick={() => setUsb(!usb)}>
             <span className="toggle-knob" style={{ transform: `translateX(${usb ? 17 : 0}px)` }} />
+          </button>
+        </div>
+        <div className="settings-row">
+          <div className="settings-row-body">
+            <div className="settings-row-title">Show in macOS menu bar</div>
+            <div className="settings-row-sub">Quick status + Start/Stop/Quit in the top-right tray</div>
+          </div>
+          <button className={`toggle ${menuBar ? 'toggle-on' : 'toggle-off'}`} onClick={() => toggleMenuBar(!menuBar)}>
+            <span className="toggle-knob" style={{ transform: `translateX(${menuBar ? 17 : 0}px)` }} />
           </button>
         </div>
       </div>

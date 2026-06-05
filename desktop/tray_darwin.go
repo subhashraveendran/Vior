@@ -18,6 +18,9 @@ import "C"
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -57,6 +60,9 @@ func viorTrayMenuClicked(tag C.int) {
 func startTray(ctx context.Context, app *App) {
 	trayCtx = ctx
 	trayApp = app
+	if !readMenuBarPref() {
+		return // user disabled the menu bar in Settings
+	}
 	trayOnce.Do(func() {
 		C.viorTrayInstall()
 		go func() {
@@ -78,4 +84,52 @@ func startTray(ctx context.Context, app *App) {
 			}
 		}()
 	})
+}
+
+// setMenuBarVisible toggles the NSStatusItem at runtime.
+func setMenuBarVisible(visible bool) {
+	if visible {
+		if trayCtx != nil && trayApp != nil {
+			startTray(trayCtx, trayApp)
+		}
+		return
+	}
+	C.viorTrayUninstall()
+	// Reset the sync.Once so a later show can reinstall cleanly.
+	trayOnce = sync.Once{}
+}
+
+// readMenuBarPref returns true unless the file ~/.vior/menubar.flag
+// contains the literal "off".
+func readMenuBarPref() bool {
+	p, err := menuBarPrefPath()
+	if err != nil {
+		return true
+	}
+	b, err := os.ReadFile(p)
+	if err != nil {
+		return true
+	}
+	return strings.TrimSpace(string(b)) != "off"
+}
+
+func writeMenuBarPref(visible bool) {
+	p, err := menuBarPrefPath()
+	if err != nil {
+		return
+	}
+	val := []byte("on")
+	if !visible {
+		val = []byte("off")
+	}
+	_ = os.MkdirAll(filepath.Dir(p), 0o755)
+	_ = os.WriteFile(p, val, 0o600)
+}
+
+func menuBarPrefPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".vior", "menubar.flag"), nil
 }

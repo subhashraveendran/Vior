@@ -95,6 +95,17 @@ void viorTrayInstall(void) {
     });
 }
 
+void viorTrayUninstall(void) {
+    if (_viorTray == nil) return;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (_viorTray.item != nil) {
+            [[NSStatusBar systemStatusBar] removeStatusItem:_viorTray.item];
+            _viorTray.item = nil;
+        }
+        _viorTray = nil;
+    });
+}
+
 void viorTraySetStatus(const char *text, int running) {
     if (_viorTray == nil) return;
     NSString *t = [NSString stringWithUTF8String:text];

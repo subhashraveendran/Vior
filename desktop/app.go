@@ -557,6 +557,22 @@ func (a *App) ResetConfig() {
 	a.cfg = config.Default()
 }
 
+// ── Menu bar (macOS only — no-op on other platforms) ──
+
+// SetMenuBarVisible toggles the macOS menu-bar (NSStatusItem) at runtime
+// and persists the choice to ~/.vior/menubar.flag so it survives across
+// launches.
+func (a *App) SetMenuBarVisible(visible bool) {
+	setMenuBarVisible(visible)
+	writeMenuBarPref(visible)
+}
+
+// GetMenuBarVisible reports the current persisted preference. Default
+// is true (show the menu bar item).
+func (a *App) GetMenuBarVisible() bool {
+	return readMenuBarPref()
+}
+
 // ── USB/ADB ─────────────────────────────────────────────────────────
 
 func (a *App) GetUSBStatus() adb.Status {

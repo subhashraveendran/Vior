@@ -52,7 +52,12 @@
         <div class="error-card">
             <p class="error-title">Connection Error</p>
             <p id="error-msg" class="error-sub"></p>
-            <button id="retry-btn" class="retry-btn">Retry</button>
+            <div id="pair-row" class="hidden" style="margin: 14px 0 6px; display: flex; flex-direction: column; gap: 8px; align-items: stretch;">
+                <label style="font-size: 12px; opacity: .7; text-align: left;">Pair code (shown on the desktop)</label>
+                <input id="pair-input" type="text" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false"
+                       style="padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06); color: #fff; font-size: 18px; font-family: ui-monospace, Menlo, monospace; letter-spacing: 0.22em; text-transform: uppercase; text-align: center;">
+            </div>
+            <button id="retry-btn" class="retry-btn">Connect</button>
         </div>
     </div>
 

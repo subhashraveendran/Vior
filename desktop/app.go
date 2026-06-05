@@ -39,6 +39,10 @@ type App struct {
 	// Connected client tracking.
 	client   *protocol.Session
 	clientMu sync.Mutex
+
+	// inputPermChecked guards the one-time accessibility prompt that
+	// fires on the first input event after a client connects.
+	inputPermChecked bool
 }
 
 func NewApp() *App {
@@ -299,6 +303,17 @@ func (a *App) OnClientInput(_ *protocol.Session, msg *protocol.InputMessage) err
 	if a.touchMapper == nil {
 		return nil
 	}
+	// One-time accessibility check on the first input event after a
+	// client connects. If the OS hasn't granted us input-injection
+	// rights, the network path looks healthy but every CGEvent post is
+	// silently dropped — the user sees a "broken" Remote tab. Surface
+	// the issue to the desktop UI so it can show a permission card.
+	if !a.inputPermChecked {
+		a.inputPermChecked = true
+		if !input.HasAccessibility(false) {
+			runtime.EventsEmit(a.ctx, "permission:accessibility-missing", nil)
+		}
+	}
 	switch msg.Event {
 	case "touch":
 		return a.touchMapper.HandleTouch(msg.Action, msg.X, msg.Y)
@@ -327,6 +342,7 @@ func (a *App) OnClientDisconnect(sess *protocol.Session) {
 	}
 	virtual.Destroy()
 	a.touchMapper = nil
+	a.inputPermChecked = false
 
 	runtime.EventsEmit(a.ctx, "client:disconnected", sess.ID)
 }
@@ -782,6 +798,16 @@ func (a *App) TakeSnapshot(displayIndex int) ([]byte, error) {
 // CheckPermissions verifies screen recording permission on macOS.
 func (a *App) CheckPermissions() error {
 	return capture.CheckScreenRecordingPermission()
+}
+
+// HasAccessibility reports whether the app is trusted to inject input
+// events. On macOS this requires the user to add Vior to System Settings
+// → Privacy & Security → Accessibility. Without it the Remote tab on the
+// phone looks broken: events arrive over the network but the OS silently
+// drops the CGEvent posts. Pass prompt=true to ask the OS to show its
+// own deep-link dialog the first time.
+func (a *App) HasAccessibility(prompt bool) bool {
+	return input.HasAccessibility(prompt)
 }
 
 // ── Version ─────────────────────────────────────────────────────────

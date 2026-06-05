@@ -9,6 +9,20 @@ package input
 #include <CoreGraphics/CoreGraphics.h>
 #include <ApplicationServices/ApplicationServices.h>
 
+// hasAccessibility returns 1 if this process is in the Accessibility
+// allow-list, 0 otherwise. CGEvent input injection silently no-ops
+// without this grant — the OS does NOT prompt automatically, so the
+// app has to ask before the user gets confused by a dead Remote tab.
+static int hasAccessibility(int prompt) {
+	const void *keys[] = { kAXTrustedCheckOptionPrompt };
+	const void *vals[] = { prompt ? kCFBooleanTrue : kCFBooleanFalse };
+	CFDictionaryRef opts = CFDictionaryCreate(NULL, keys, vals, 1,
+		&kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	Boolean ok = AXIsProcessTrustedWithOptions(opts);
+	CFRelease(opts);
+	return ok ? 1 : 0;
+}
+
 static void postMouseMove(double x, double y) {
 	CGEventRef move = CGEventCreateMouseEvent(NULL, kCGEventMouseMoved,
 		CGPointMake(x, y), kCGMouseButtonLeft);
@@ -138,6 +152,19 @@ type darwinController struct{}
 
 func newController() Controller {
 	return &darwinController{}
+}
+
+// HasAccessibility reports whether this process is trusted for input
+// injection via Accessibility APIs. CGEvent posts are silently dropped
+// without this grant — the Remote tab will look broken even though the
+// network path is fine. Pass prompt=true once on first failure to get
+// the macOS modal that deep-links to System Settings.
+func HasAccessibility(prompt bool) bool {
+	p := C.int(0)
+	if prompt {
+		p = 1
+	}
+	return C.hasAccessibility(p) == 1
 }
 
 func (c *darwinController) MoveMouse(x, y int) error {

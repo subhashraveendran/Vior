@@ -32,6 +32,8 @@ export function GetUSBStatus():Promise<adb.Status>;
 
 export function GetVersion():Promise<string>;
 
+export function HasAccessibility(arg1:boolean):Promise<boolean>;
+
 export function IsMirrored(arg1:number):Promise<boolean>;
 
 export function ListDisplays():Promise<Array<main.DisplayInfo>>;

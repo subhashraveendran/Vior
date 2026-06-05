@@ -246,7 +246,9 @@ func (a *Accessory) openEndpoints(dev *gousb.Device) error {
 }
 
 func (a *Accessory) readInput() {
-	buf := make([]byte, 1024)
+	// Bigger read buffer so multi-byte frames (e.g. a JPEG ack) come in
+	// one syscall; MaxFrameSize keeps it bounded.
+	buf := make([]byte, 64*1024)
 	for {
 		select {
 		case <-a.stopCh:
@@ -280,9 +282,33 @@ func (a *Accessory) readInput() {
 
 		case FrameTouch:
 			action, x, y := DecodeTouchEvent(data)
+			// Clamp coordinates to a sane absolute range so a corrupt
+			// frame can't drive the cursor to int32-max somewhere off
+			// the desktop. Real touch values are always positive and
+			// bounded by the virtual display size; 1e5 is a generous
+			// upper bound that covers any current display.
+			if x < 0 {
+				x = 0
+			} else if x > 100000 {
+				x = 100000
+			}
+			if y < 0 {
+				y = 0
+			} else if y > 100000 {
+				y = 100000
+			}
 			if a.OnTouch != nil {
 				a.OnTouch(action, x, y)
 			}
+
+		case FramePing:
+			// Cheap liveness: echo immediately so the peer knows we're
+			// still draining its bulk endpoint.
+			_, _ = a.outEP.Write(EncodePong())
+
+		case FramePong:
+			// Accepted but no-op — heartbeat is one-directional today
+			// (desktop pings phone). Reserved for future symmetric use.
 
 		case FrameBye:
 			a.handleDisconnect()

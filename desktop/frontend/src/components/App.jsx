@@ -5,6 +5,7 @@ import {
   GetConnectedClients, GetConfig, UpdateConfig,
   GetVersion, CheckPermissions, PickAndSendFile,
   GetMenuBarVisible, SetMenuBarVisible,
+  HasAccessibility,
 } from '../../wailsjs/go/main/App'
 
 // ── Icons (24x24, 1.7 stroke) ──────────────────────────────────
@@ -656,7 +657,14 @@ export default function App() {
       setClient(null)
       toast('info', 'Device disconnected', null)
     })
-    return () => { off1 && off1(); off2 && off2() }
+    const off3 = EventsOn('permission:accessibility-missing', () => {
+      // Trigger the OS deep-link dialog and surface a toast pointing the
+      // user at the right Settings pane. Without Accessibility the
+      // mobile Remote tab silently does nothing.
+      HasAccessibility(true).catch(() => {})
+      toast('error', 'Remote needs Accessibility', 'System Settings → Privacy & Security → Accessibility → enable Vior.')
+    })
+    return () => { off1 && off1(); off2 && off2(); off3 && off3() }
   }, [toast])
 
   // poll status

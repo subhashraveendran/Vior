@@ -15,7 +15,18 @@ const (
 	FrameReady  byte = 0x04 // Ready: [type][width 4B][height 4B]
 	FrameStatus byte = 0x05 // Status: [type][fps 4B][uptime 4B]
 	FrameBye    byte = 0x06 // Disconnect: [type]
+	FramePing   byte = 0x07 // Liveness probe: [type]
+	FramePong   byte = 0x08 // Liveness reply: [type]
 )
+
+// MaxFrameSize bounds any single video / touch / control frame.
+// Prevents a malformed length header from triggering a multi-GB
+// allocation on either peer. Sane upper bound for a 4K JPEG ~ 1 MB.
+const MaxFrameSize = 8 * 1024 * 1024
+
+// ProtocolVersion is sent inside Hello so peers can negotiate.
+// Bump when the wire format changes incompatibly.
+const ProtocolVersion = 1
 
 // Touch actions.
 const (
@@ -66,12 +77,22 @@ func EncodeVideoFrame(jpeg []byte) []byte {
 }
 
 // DecodeFrameHeader reads frame type and length from first 5 bytes.
+// Length is clamped to MaxFrameSize so a corrupt or malicious header
+// can't trigger an OOM via make([]byte, len).
 func DecodeFrameHeader(header []byte) (frameType byte, length uint32) {
 	if len(header) < 5 {
 		return 0, 0
 	}
-	return header[0], binary.BigEndian.Uint32(header[1:5])
+	l := binary.BigEndian.Uint32(header[1:5])
+	if l > MaxFrameSize {
+		l = 0
+	}
+	return header[0], l
 }
+
+// EncodePing / EncodePong build single-byte liveness frames.
+func EncodePing() []byte { return []byte{FramePing} }
+func EncodePong() []byte { return []byte{FramePong} }
 
 // EncodeTouchEvent creates a touch frame.
 // Format: [0x02][action 1B][x float32 4B][y float32 4B]

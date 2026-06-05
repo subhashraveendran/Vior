@@ -58,6 +58,10 @@ export function GetVersion() {
   return window['go']['main']['App']['GetVersion']();
 }
 
+export function HasAccessibility(arg1) {
+  return window['go']['main']['App']['HasAccessibility'](arg1);
+}
+
 export function IsMirrored(arg1) {
   return window['go']['main']['App']['IsMirrored'](arg1);
 }

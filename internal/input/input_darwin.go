@@ -142,7 +142,11 @@ func newController() Controller {
 
 func (c *darwinController) MoveMouse(x, y int) error {
 	C.postMouseMove(C.double(x), C.double(y))
-	C.showCursor()
+	// Do NOT call showCursor() here. It runs CGAssociateMouseAndMouseCursorPosition
+	// and CGDisplayShowCursor(kCGDirectMainDisplay) on every event, which yanks
+	// the cursor onto the user's main Mac display thousands of times per second
+	// while they're driving the virtual display from their phone. The cursor's
+	// natural location follows the synthetic move via postMouseMove already.
 	return nil
 }
 

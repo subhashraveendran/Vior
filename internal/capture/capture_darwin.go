@@ -97,7 +97,12 @@ static int mirrorDisplay(int sourceDisplayIndex, int targetDisplayIndex) {
 
 	CGConfigureDisplayMirrorOfDisplay(config, source, target);
 
-	if (CGCompleteDisplayConfiguration(config, kCGConfigurePermanently) != kCGErrorSuccess) {
+	// IMPORTANT: kCGConfigureForAppOnly — the mirror config lives only while
+	// this Vior process is alive. Using kCGConfigurePermanently would write
+	// the change to the user's NSPersistentStore, so the arrangement would
+	// stick across reboots and the user's Mac screen layout would be
+	// silently mutated by every connect/disconnect.
+	if (CGCompleteDisplayConfiguration(config, kCGConfigureForAppOnly) != kCGErrorSuccess) {
 		CGCancelDisplayConfiguration(config);
 		return -1;
 	}
@@ -114,7 +119,8 @@ static int unmirrorDisplay(int displayIndex) {
 
 	CGConfigureDisplayMirrorOfDisplay(config, display, kCGNullDirectDisplay);
 
-	if (CGCompleteDisplayConfiguration(config, kCGConfigurePermanently) != kCGErrorSuccess) {
+	// kCGConfigureForAppOnly — see mirrorDisplay above.
+	if (CGCompleteDisplayConfiguration(config, kCGConfigureForAppOnly) != kCGErrorSuccess) {
 		CGCancelDisplayConfiguration(config);
 		return -1;
 	}

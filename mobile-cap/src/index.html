@@ -225,7 +225,8 @@
   .server-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 11px; color: var(--text-3); }
 
   /* ── Discovery list ── */
-  .disc-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 16px 20px 0; }
+  .disc-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 16px 20px 24px; overflow-y: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .disc-wrap::-webkit-scrollbar { display: none; }
   .disc-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
   .disc-refresh { background: none; border: none; color: var(--text-3); display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px; }
   .disc-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 9px; padding-bottom: 12px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
@@ -309,7 +310,8 @@
   @keyframes vIndef { from { left: -40%; } to { left: 100%; } }
 
   /* ── Server card (connected) ── */
-  .scard-wrap { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  .scard-wrap { padding: 20px 20px 28px; display: flex; flex-direction: column; gap: 16px; flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .scard-wrap::-webkit-scrollbar { display: none; }
   .recon-banner {
     display: flex; align-items: center; gap: 11px;
     padding: 12px 14px; border-radius: var(--r);

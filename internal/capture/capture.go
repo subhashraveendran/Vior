@@ -60,7 +60,17 @@ func CaptureFrame(displayIndex int, quality int) ([]byte, error) {
 		return nil, fmt.Errorf("display index %d out of range (0-%d)", displayIndex, n-1)
 	}
 
-	bounds := screenshot.GetDisplayBounds(displayIndex)
+	// On macOS HiDPI (Retina + CGVirtualDisplay) screenshot.GetDisplayBounds
+	// returns LOGICAL points, but our capture call needs the PIXEL rect of
+	// the display. Without this override, a 1290×2796 virtual display
+	// captured against a 645×1398 logical rect produces a top-left quadrant
+	// crop that the mobile client then stretches over the full viewport.
+	pw, ph := displayPixelSize(displayIndex)
+	if pw == 0 || ph == 0 {
+		b := screenshot.GetDisplayBounds(displayIndex)
+		pw, ph = b.Dx(), b.Dy()
+	}
+	bounds := image.Rect(0, 0, pw, ph)
 	img, err := captureImage(displayIndex, bounds)
 	if err != nil {
 		return nil, fmt.Errorf("capture failed: %w", err)

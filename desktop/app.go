@@ -49,6 +49,8 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	// Install the macOS menu-bar (NSStatusItem) item. No-op on other OSes.
+	startTray(ctx, a)
 }
 
 func (a *App) beforeClose(ctx context.Context) bool {

@@ -428,6 +428,19 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Client hello: %s %dx%d @%.1fx [%s]", hello.Name, hello.Width, hello.Height, hello.DPR, session.ID)
 
+	// Enforce pair-code match. Server generates a fresh code at startup
+	// and prints/shows it; mobile must echo it back in the hello to be
+	// admitted. This prevents a stranger on the same LAN from connecting
+	// just because they reached the IP:port. Empty code from client → reject.
+	if !strings.EqualFold(strings.TrimSpace(hello.PairCode), pairCode) {
+		log.Printf("ws pair mismatch [%s]: got %q want %q", session.ID, hello.PairCode, pairCode)
+		session.Send(protocol.MsgError, &protocol.ErrorMessage{
+			Code:    "pair_mismatch",
+			Message: "Pair code missing or incorrect. Check the code shown on the desktop.",
+		})
+		return
+	}
+
 	// Notify handler — this triggers virtual display creation.
 	if err := s.handler.OnClientConnect(session, hello); err != nil {
 		log.Printf("ws connect handler error [%s]: %v", session.ID, err)

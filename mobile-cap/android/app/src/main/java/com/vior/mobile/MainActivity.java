@@ -41,7 +41,7 @@ public class MainActivity extends BridgeActivity {
                 Log.i(TAG, "USB connected — starting frame stream");
                 runOnUiThread(() -> {
                     // Notify web client that USB is active.
-                    evaluateJs("window._viorUSBConnected && window._viorUSBConnected()");
+                    evaluateJs("window.onUsbConnected && window.onUsbConnected()");
                     // Send hello with screen dimensions.
                     sendHello();
                 });
@@ -62,7 +62,7 @@ public class MainActivity extends BridgeActivity {
                     // Base64 encode JPEG for WebView.
                     String b64 = Base64.encodeToString(data, 5, jpegLen, Base64.NO_WRAP);
                     runOnUiThread(() -> {
-                        evaluateJs("window._viorUSBFrame && window._viorUSBFrame('" + b64 + "')");
+                        evaluateJs("window.onUsbFrame && window.onUsbFrame('" + b64 + "')");
                     });
                 } else if (frameType == 0x04) { // FrameReady
                     int w = ((data[1] & 0xFF) << 24) | ((data[2] & 0xFF) << 16) |
@@ -70,7 +70,7 @@ public class MainActivity extends BridgeActivity {
                     int h = ((data[5] & 0xFF) << 24) | ((data[6] & 0xFF) << 16) |
                             ((data[7] & 0xFF) << 8) | (data[8] & 0xFF);
                     runOnUiThread(() -> {
-                        evaluateJs("window._viorUSBReady && window._viorUSBReady(" + w + "," + h + ")");
+                        evaluateJs("window.onUsbReady && window.onUsbReady(" + w + "," + h + ")");
                     });
                 }
             }
@@ -80,7 +80,7 @@ public class MainActivity extends BridgeActivity {
                 usbConnected = false;
                 Log.i(TAG, "USB disconnected");
                 runOnUiThread(() -> {
-                    evaluateJs("window._viorUSBDisconnected && window._viorUSBDisconnected()");
+                    evaluateJs("window.onUsbDisconnected && window.onUsbDisconnected()");
                 });
             }
         });

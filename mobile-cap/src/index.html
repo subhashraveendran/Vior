@@ -1245,28 +1245,30 @@
     getLocalIP(function (ip) {
       if (!ip) { setTimeout(showEmpty, 2500); return; }
       var base = ip.split('.').slice(0, 3).join('.');
-      var batch = 0;
-      (function scanBatch() {
-        var s = batch * 20 + 1, e = Math.min(s + 20, 255);
-        for (var i = s; i < e; i++) probeServer(base + '.' + i, 8080);
-        batch++;
-        if (batch < 13 && !selectedServer) setTimeout(scanBatch, 300);
-      })();
+      // Parallel /24 sweep — fire all 254 probes at once; AbortController
+      // inside probeServer enforces a 1.5s per-probe timeout. Total wall
+      // time ≈ 1.5s instead of ~5s for sequential 13×300ms batching.
+      var probes = [];
+      for (var i = 1; i < 255; i++) probes.push(probeServer(base + '.' + i, 8080));
+      Promise.allSettled(probes).then(function () {
+        scanning = false;
+        if (!selectedServer && Object.keys(foundServers).length === 0) showEmpty();
+      });
     });
 
     discoveryTimeout = setTimeout(function () {
       scanning = false;
       if (!selectedServer && Object.keys(foundServers).length === 0) showEmpty();
       else if (selectedServer) $('disc-status').textContent = Object.keys(foundServers).length + ' servers found';
-    }, 7000);
+    }, 4000);
   }
 
   function probeServer(host, port) {
     var key = host + ':' + port;
-    if (foundServers[key]) return;
+    if (foundServers[key]) return Promise.resolve();
     var ctrl = new AbortController();
     setTimeout(function () { ctrl.abort(); }, 1500);
-    fetch('http://' + host + ':' + port + '/info', { signal: ctrl.signal })
+    return fetch('http://' + host + ':' + port + '/info', { signal: ctrl.signal })
       .then(function (r) { return r.json(); })
       .then(function (info) {
         if (foundServers[key]) return;
@@ -1430,7 +1432,14 @@
       }
       var video = $('qr-video');
       video.srcObject = qrStream;
-      await video.play();
+      try { await video.play(); }
+      catch (pe) {
+        // Some WebViews resolve play() into a rejected promise (autoplay
+        // policy, lost focus). Surface it instead of leaving a black modal.
+        toast('error', 'Video failed to start', String(pe && pe.message || pe));
+        stopQRScan();
+        return;
+      }
       $('qr-modal').classList.remove('hidden');
       qrRunning = true;
       if ('BarcodeDetector' in window) {
@@ -2106,6 +2115,11 @@
     $('stream-mode-text').textContent = 'USB · Live';
   };
   window.onUsbDisconnected = function () { if (streamVisible) hideStream(); };
+  window.onUsbReady = function (w, h) {
+    displayW = w; displayH = h;
+    serverRes = w + ' × ' + h;
+    var sr = $('stat-res'); if (sr) sr.textContent = serverRes;
+  };
 
   // ── Boot ──
   setConnState('offline');

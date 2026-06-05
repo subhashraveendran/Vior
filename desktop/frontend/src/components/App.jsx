@@ -174,13 +174,16 @@ function WaitingScreen({ status, onStop, onCopy }) {
           {status?.pairCode && (
             <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
               <div className="label" style={{ marginBottom: 6 }}>Pair code</div>
-              <span className="mono" style={{ fontSize: 22, fontWeight: 600, letterSpacing: '0.18em', color: 'var(--accent)' }}>{status.pairCode}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span className="mono" style={{ fontSize: 22, fontWeight: 600, letterSpacing: '0.18em', color: 'var(--accent)' }}>{status.pairCode}</span>
+                <button className="btn btn-ghost btn-sm" onClick={() => navigator.clipboard?.writeText(status.pairCode)} title="Copy pair code">{Icons.copy(14)}Copy</button>
+              </div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 6 }}>Enter this on your phone to authorize the connection.</div>
             </div>
           )}
           <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
           <div style={{ display: 'flex', gap: 18 }}>
-            <button style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)', fontSize: 13, fontWeight: 600 }}>{Icons.usb(16)} Connect via USB</button>
-            <a href={url} style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--text-2)', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>{Icons.link(16)} Browser link</a>
+            <a href={url} style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--text-2)', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>{Icons.link(16)} Open in browser</a>
           </div>
         </div>
         <div style={{ flex: 1 }} />
@@ -256,7 +259,7 @@ function ConnectedScreen({ status, client, mode, setMode, onDisconnect, onSendFi
                 </button>
               </div>
             </div>
-            <button className="btn btn-ghost" onClick={onDisconnect}>{Icons.close(19)} Disconnect device</button>
+            <button className="btn btn-primary" onClick={onDisconnect} style={{ marginTop: 8, background: '#d04848', borderColor: '#d04848' }}>{Icons.close(19)} Disconnect device</button>
           </>
         )}
         {t === 'files' && <FilesPane onSendFile={onSendFile} client={client} />}

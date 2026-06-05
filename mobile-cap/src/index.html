@@ -715,15 +715,17 @@
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2M20 14v6M14 20h2"/></svg>
           Scan QR Code
         </button>
-        <div class="section-label">Connect manually</div>
+        <div class="section-label">Connect via IP address</div>
         <div class="field">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 14.5l5-5"/><path d="M8 11l-2 2a3.2 3.2 0 0 0 4.5 4.5l2-2"/><path d="M16 13l2-2A3.2 3.2 0 0 0 13.5 6.5l-2 2"/></svg>
-          <input id="manual-ip" type="text" placeholder="192.168.1.24" inputmode="url">
+          <input id="manual-ip" type="text" placeholder="192.168.1.24:8080" inputmode="url" autocomplete="off" spellcheck="false">
         </div>
-        <div class="field" style="margin-top: 10px;">
+        <div class="hint" style="margin: 6px 2px 0; font-size: 11.5px; color: var(--text-3);">Port is optional (defaults to 8080). Example: <span style="font-family: var(--font-mono);">192.168.1.24</span> or <span style="font-family: var(--font-mono);">192.168.1.24:8080</span></div>
+        <div class="field" style="margin-top: 12px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>
-          <input id="manual-pair" type="text" placeholder="Pair code (optional)" inputmode="text" maxlength="6" autocomplete="off" autocapitalize="characters" style="text-transform: uppercase; letter-spacing: 0.18em;">
+          <input id="manual-pair" type="text" placeholder="Pair code (shown on desktop)" inputmode="text" maxlength="6" autocomplete="off" autocapitalize="characters" style="text-transform: uppercase; letter-spacing: 0.18em;">
         </div>
+        <div class="hint" style="margin: 6px 2px 0; font-size: 11.5px; color: var(--text-3);">Required — find the 6-character code on the desktop's “Waiting” screen.</div>
         <div style="display: flex; gap: 10px; margin-top: 14px;">
           <button class="btn btn-ghost btn-block" id="rescan-btn">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-1.5 5.5"/><path d="M20 5v5h-5"/></svg>
@@ -981,9 +983,12 @@
   <div class="qr-frame"><span></span><span></span></div>
   <div class="qr-top">
     <span class="qr-title">Scan QR Code</span>
-    <button class="qr-cancel-btn" id="qr-cancel">Cancel</button>
+    <button class="qr-cancel-btn" id="qr-cancel" style="min-width: 80px; padding: 10px 18px; font-size: 14px;">Cancel</button>
   </div>
-  <div class="qr-hint">Align the QR with the frame</div>
+  <div class="qr-hint">
+    <span id="qr-scanning-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: middle; animation: pulse 1.2s ease-in-out infinite;"></span>
+    <span id="qr-hint-text">Scanning… align the QR with the frame</span>
+  </div>
 </div>
 
 <!-- Toast host -->
@@ -1364,10 +1369,19 @@
   }
   function onScanHit(raw) {
     var p = parseScanResult(raw);
-    stopQRScan();
+    // Visible "decoded" feedback before the modal disappears so the user
+    // knows the scan worked — otherwise the modal just vanishes and they
+    // wonder if they missed it.
+    var dot = $('qr-scanning-dot'), txt = $('qr-hint-text');
+    if (dot) dot.style.background = '#3ecf6f';
+    if (txt) txt.textContent = 'Decoded ' + (p.host || 'server') + ' — connecting…';
     if (p.code) $('manual-pair').value = p.code.toUpperCase();
-    selectServer(p.host, p.port, p.host, '');
-    doConnect();
+    toast('success', 'QR scanned', 'Connecting to ' + p.host + (p.port !== 8080 ? ':' + p.port : '') + '…');
+    setTimeout(function () {
+      stopQRScan();
+      selectServer(p.host, p.port, p.host, '');
+      doConnect();
+    }, 250);
   }
   function stopQRScan() {
     // Idempotent — safe to call from anywhere (cancel button, error path,
@@ -1388,9 +1402,14 @@
   // tablets often refuse `facingMode: { exact: 'environment' }` with
   // OverconstrainedError; the fallback paths handle that.
   async function acquireCamera() {
+    // Cap sensor output at 720×720 — QR codes only need a few hundred px to
+    // decode, but modern phone cameras default to 1080p/4K which burns the
+    // main thread on every getImageData. Constraint is ideal, not exact.
+    var sz = { width: { ideal: 720, max: 1280 }, height: { ideal: 720, max: 1280 } };
     var tries = [
-      { video: { facingMode: { exact: 'environment' } } },
-      { video: { facingMode: 'environment' } },
+      { video: Object.assign({ facingMode: { exact: 'environment' } }, sz) },
+      { video: Object.assign({ facingMode: 'environment' }, sz) },
+      { video: Object.assign({}, sz) },
       { video: true }
     ];
     var lastErr;
@@ -1443,7 +1462,8 @@
       $('qr-modal').classList.remove('hidden');
       qrRunning = true;
       if ('BarcodeDetector' in window) {
-        try { qrDetector = new BarcodeDetector({ formats: ['qr_code'] }); tickQRNative(); return; } catch (_) {}
+        try { qrDetector = new BarcodeDetector({ formats: ['qr_code'] }); tickQRNative(); return; }
+        catch (be) { console.warn('BarcodeDetector advertised but instantiation failed; falling back to jsQR:', be); }
       }
       if (typeof jsQR === 'function') { tickQRJsQR(); return; }
       toast('error', 'Scanner load failed', 'jsQR not loaded; reinstall app.');
@@ -1479,7 +1499,9 @@
       // Downscale for perf: detect on 480-wide frame max.
       var scale = w > 480 ? 480 / w : 1;
       var dw = Math.round(w * scale), dh = Math.round(h * scale);
-      qrCanvas.width = dw; qrCanvas.height = dh;
+      // Only resize when dims actually change — every canvas.width assignment
+      // reallocates the backing store, which is wasteful at 60fps.
+      if (qrCanvas.width !== dw || qrCanvas.height !== dh) { qrCanvas.width = dw; qrCanvas.height = dh; }
       qrCtx.drawImage(v, 0, 0, dw, dh);
       var img = qrCtx.getImageData(0, 0, dw, dh);
       var code = jsQR(img.data, dw, dh, { inversionAttempts: 'attemptBoth' });
@@ -1510,11 +1532,13 @@
   $('files-connect-btn').addEventListener('click', function () { switchTab('display'); });
   $('remote-connect-btn').addEventListener('click', function () { switchTab('display'); });
   $('conn-cancel').addEventListener('click', function () {
+    if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
     if (ws) { ws.close(); ws = null; }
     $('connecting-overlay').classList.add('hidden');
     setConnState('offline');
   });
 
+  var connectTimeoutId = null;
   function doConnect() {
     setConnState('connecting');
     $('connecting-overlay').classList.remove('hidden');
@@ -1526,6 +1550,18 @@
 
     var host = selectedServer.host, port = selectedServer.port;
     ws = new WebSocket('ws://' + host + ':' + port + '/ws');
+
+    // Hard 15s ceiling so the overlay can't hang forever when the server is
+    // unreachable, firewalled, or the port is wrong. Cleared in onmessage(ready).
+    if (connectTimeoutId) clearTimeout(connectTimeoutId);
+    connectTimeoutId = setTimeout(function () {
+      if (connected) return;
+      try { if (ws) ws.close(); } catch (_) {}
+      ws = null;
+      $('connecting-overlay').classList.add('hidden');
+      setConnState('offline');
+      toast('error', 'Connection timed out', 'No response in 15s — check the IP, port, and that the desktop server is running.');
+    }, 15000);
 
     ws.onopen = function () {
       var dpr = window.devicePixelRatio || 1;
@@ -1539,6 +1575,7 @@
     ws.onmessage = function (e) {
       var msg = JSON.parse(e.data);
       if (msg.type === 'ready') {
+        if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
         var res = msg.data.resolution.split('x');
         displayW = parseInt(res[0]); displayH = parseInt(res[1]);
         serverRes = msg.data.resolution.replace('x', ' × ');
@@ -1559,6 +1596,7 @@
         $('remote-active').classList.remove('hidden');
         toast('success', 'Connected', (selectedMode === 'mirror' ? 'Mirroring' : 'Extended display') + ' on ' + serverName + '.');
       } else if (msg.type === 'error') {
+        if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
         $('connecting-overlay').classList.add('hidden');
         toast('error', 'Connection failed', (msg.data && msg.data.message) || 'Check both devices on same Wi-Fi. Try manual IP.');
         setConnState('offline');

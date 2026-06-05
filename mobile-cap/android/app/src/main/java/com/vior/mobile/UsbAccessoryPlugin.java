@@ -28,7 +28,9 @@ public class UsbAccessoryPlugin {
     private ParcelFileDescriptor fileDescriptor;
     private FileInputStream inputStream;
     private FileOutputStream outputStream;
-    private boolean connected = false;
+    private volatile boolean connected = false;
+    private final Object ioLock = new Object();
+    private BroadcastReceiver permissionReceiver;
 
     public interface Listener {
         void onConnected();
@@ -60,20 +62,47 @@ public class UsbAccessoryPlugin {
     }
 
     /**
-     * Scan for connected accessories.
+     * Scan for connected accessories. Registers a one-shot BroadcastReceiver
+     * for ACTION_USB_PERMISSION so the grant/deny result actually reaches us
+     * (otherwise the system dialog appears but the app never opens the
+     * accessory because the broadcast goes nowhere).
      */
     public void scan() {
         UsbAccessory[] accessories = usbManager.getAccessoryList();
-        if (accessories != null && accessories.length > 0) {
-            UsbAccessory acc = accessories[0];
-            if (usbManager.hasPermission(acc)) {
-                openAccessory(acc);
+        if (accessories == null || accessories.length == 0) return;
+        final UsbAccessory acc = accessories[0];
+        if (usbManager.hasPermission(acc)) {
+            openAccessory(acc);
+            return;
+        }
+        // Register receiver before requesting permission to avoid losing the
+        // broadcast on a slow main thread.
+        if (permissionReceiver == null) {
+            permissionReceiver = new BroadcastReceiver() {
+                @Override public void onReceive(Context c, Intent intent) {
+                    if (!ACTION_USB_PERMISSION.equals(intent.getAction())) return;
+                    synchronized (this) {
+                        UsbAccessory granted = intent.getParcelableExtra(UsbManager.EXTRA_ACCESSORY);
+                        boolean ok = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false);
+                        if (ok && granted != null) {
+                            openAccessory(granted);
+                        } else {
+                            Log.w(TAG, "USB permission denied by user");
+                        }
+                    }
+                }
+            };
+            IntentFilter f = new IntentFilter(ACTION_USB_PERMISSION);
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                context.registerReceiver(permissionReceiver, f, Context.RECEIVER_NOT_EXPORTED);
             } else {
-                PendingIntent pi = PendingIntent.getBroadcast(context, 0,
-                    new Intent(ACTION_USB_PERMISSION), PendingIntent.FLAG_IMMUTABLE);
-                usbManager.requestPermission(acc, pi);
+                context.registerReceiver(permissionReceiver, f);
             }
         }
+        Intent i = new Intent(ACTION_USB_PERMISSION).setPackage(context.getPackageName());
+        PendingIntent pi = PendingIntent.getBroadcast(context, 0, i,
+            PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        usbManager.requestPermission(acc, pi);
     }
 
     private void openAccessory(UsbAccessory acc) {
@@ -113,10 +142,13 @@ public class UsbAccessoryPlugin {
     }
 
     /**
-     * Send data to desktop.
+     * Send data to desktop. Synchronized on ioLock so concurrent calls don't
+     * interleave bytes mid-frame and so the reader thread can't close the
+     * stream out from under an in-flight write.
      */
     public void send(byte[] data) throws IOException {
-        if (outputStream != null && connected) {
+        synchronized (ioLock) {
+            if (!connected || outputStream == null) return;
             outputStream.write(data);
             outputStream.flush();
         }
@@ -127,14 +159,21 @@ public class UsbAccessoryPlugin {
     }
 
     public void disconnect() {
-        connected = false;
-        try { if (inputStream != null) inputStream.close(); } catch (IOException ignored) {}
-        try { if (outputStream != null) outputStream.close(); } catch (IOException ignored) {}
-        try { if (fileDescriptor != null) fileDescriptor.close(); } catch (IOException ignored) {}
-        inputStream = null;
-        outputStream = null;
-        fileDescriptor = null;
-        accessory = null;
+        synchronized (ioLock) {
+            if (!connected && fileDescriptor == null) return; // idempotent
+            connected = false;
+            try { if (inputStream != null) inputStream.close(); } catch (IOException ignored) {}
+            try { if (outputStream != null) outputStream.close(); } catch (IOException ignored) {}
+            try { if (fileDescriptor != null) fileDescriptor.close(); } catch (IOException ignored) {}
+            inputStream = null;
+            outputStream = null;
+            fileDescriptor = null;
+            accessory = null;
+        }
+        if (permissionReceiver != null) {
+            try { context.unregisterReceiver(permissionReceiver); } catch (IllegalArgumentException ignored) {}
+            permissionReceiver = null;
+        }
         if (listener != null) listener.onDisconnected();
         Log.i(TAG, "USB Accessory disconnected");
     }

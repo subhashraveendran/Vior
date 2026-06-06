@@ -43,6 +43,11 @@ type App struct {
 	// inputPermChecked guards the one-time accessibility prompt that
 	// fires on the first input event after a client connects.
 	inputPermChecked bool
+
+	// currentClientTrusted is true when the currently-connected client
+	// was admitted via the trust store (already paired before). File
+	// transfers from that session auto-accept — no second prompt.
+	currentClientTrusted bool
 }
 
 func NewApp() *App {
@@ -220,6 +225,9 @@ func (a *App) GetServerStatus() ServerStatus {
 func (a *App) OnClientConnect(sess *protocol.Session, hello *protocol.HelloMessage) error {
 	a.clientMu.Lock()
 	a.client = sess
+	// Cache trust status for this session so File transfer auto-accept
+	// can skip the second confirmation prompt when the device is known.
+	a.currentClientTrusted = stream.TrustedDevices().IsTrusted(hello.DeviceID)
 	a.clientMu.Unlock()
 
 	log.Printf("Client connected: %s %dx%d @%.1fx mode=%s", hello.Name, hello.Width, hello.Height, hello.DPR, hello.Mode)
@@ -343,6 +351,7 @@ func (a *App) OnClientDisconnect(sess *protocol.Session) {
 	virtual.Destroy()
 	a.touchMapper = nil
 	a.inputPermChecked = false
+	a.currentClientTrusted = false
 
 	runtime.EventsEmit(a.ctx, "client:disconnected", sess.ID)
 }
@@ -756,6 +765,16 @@ func (a *App) GetActiveTransfers() []map[string]any {
 func (a *App) OnClientFileOffer(session *protocol.Session, msg *protocol.FileOfferMessage) error {
 	a.ensureFileMgr()
 	a.fileMgr.HandleOffer(msg)
+	// Trusted device → auto-accept the first (and every subsequent) file
+	// transfer without a confirmation prompt. The user already paired
+	// this device once; making them re-approve every file is friction.
+	if a.currentClientTrusted {
+		if err := a.fileMgr.AcceptFile(msg.ID); err != nil {
+			log.Printf("auto-accept failed [%s]: %v", msg.ID, err)
+		} else if a.ctx != nil {
+			runtime.EventsEmit(a.ctx, "file:auto-accepted", msg.ID)
+		}
+	}
 	return nil
 }
 

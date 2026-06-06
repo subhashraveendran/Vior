@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Vior canonical app icon.
+  Dark rounded-square background (#0f1116). Centered desktop monitor with
+  white bezel + stand + base bar. Orange phone (#ff8a4c) overlays the
+  bottom-right with a dark separation border, inner phone screen + home pill.
+  Glyph fills ~70% of the 1024x1024 canvas.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+
+  <!-- Background: rounded square (squircle-ish corners) -->
+  <rect x="0" y="0" width="1024" height="1024" rx="225" ry="225" fill="#0f1116"/>
+
+  <!-- ── Monitor ── -->
+  <!-- Monitor body: dark fill, light bezel stroke -->
+  <rect x="170" y="270" width="550" height="350" rx="40" ry="40"
+        fill="#242a34" stroke="#eef1f5" stroke-width="22"/>
+
+  <!-- Monitor inner screen (darker) -->
+  <rect x="200" y="300" width="490" height="290" rx="16" ry="16" fill="#14171c"/>
+
+  <!-- Top highlight bar inside the screen -->
+  <rect x="216" y="316" width="458" height="40" rx="6" ry="6" fill="#303640"/>
+
+  <!-- Stand neck -->
+  <rect x="420" y="620" width="84" height="100" fill="#eef1f5"/>
+
+  <!-- Stand base bar -->
+  <rect x="270" y="730" width="384" height="30" rx="12" ry="12" fill="#eef1f5"/>
+
+  <!-- ── Phone overlay (bottom-right) ── -->
+  <!-- Dark separation border under the phone -->
+  <rect x="540" y="420" width="290" height="460" rx="46" ry="46" fill="#0b0d10"/>
+
+  <!-- Phone body (orange) -->
+  <rect x="560" y="440" width="250" height="420" rx="34" ry="34" fill="#ff8a4c"/>
+
+  <!-- Phone inner screen -->
+  <rect x="580" y="510" width="210" height="310" rx="10" ry="10" fill="#14171c"/>
+
+  <!-- Phone home indicator pill -->
+  <rect x="635" y="830" width="100" height="14" rx="7" ry="7" fill="#ffffff" fill-opacity="0.9"/>
+</svg>

@@ -1,0 +1,3 @@
+// ── Boot ──
+setConnState('offline');
+startDiscovery();

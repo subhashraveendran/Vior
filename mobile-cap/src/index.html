@@ -562,6 +562,18 @@
   </div>
 </div>
 
-<script src="app.js" defer></script>
+<!-- Modular JS: globals shared across files via document-order defer.
+     Order matters — declarations in core.js must run before screens
+     reference them. Each screen module attaches its own DOM listeners. -->
+<script src="js/core.js" defer></script>
+<script src="js/screens/discovery.js" defer></script>
+<script src="js/screens/qr.js" defer></script>
+<script src="js/screens/connect.js" defer></script>
+<script src="js/screens/stream.js" defer></script>
+<script src="js/screens/remote.js" defer></script>
+<script src="js/screens/files.js" defer></script>
+<script src="js/screens/settings.js" defer></script>
+<script src="js/core/usb.js" defer></script>
+<script src="js/main.js" defer></script>
 </body>
 </html>

@@ -2,6 +2,8 @@ package com.vior.mobile;
 
 import android.Manifest;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.Base64;
@@ -32,6 +34,10 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // Apply persisted orientation BEFORE super so the activity comes up
+        // already locked — avoids a flash + a wrong-sized hello if the user
+        // connects fast after launch.
+        applyPersistedOrientation();
         super.onCreate(savedInstanceState);
 
         usbPlugin = new UsbAccessoryPlugin(this, new UsbAccessoryPlugin.Listener() {
@@ -206,6 +212,53 @@ public class MainActivity extends BridgeActivity {
      * BootReceiver can read. Called from JS via:
      *   Android.setBootAutostart(true);
      */
+    /**
+     * Lock the activity orientation. Persisted so it survives relaunch.
+     * Called from JS via: Android.setOrientation("auto"|"landscape"|"portrait")
+     */
+    @android.webkit.JavascriptInterface
+    public void setOrientation(String mode) {
+        if (mode == null) mode = "auto";
+        try {
+            getSharedPreferences("vior_prefs", MODE_PRIVATE)
+                .edit().putString("orient", mode).apply();
+        } catch (Exception e) {
+            Log.e(TAG, "persist orient failed: " + e.getMessage());
+        }
+        final String m = mode;
+        runOnUiThread(() -> {
+            int req;
+            if ("landscape".equals(m)) {
+                req = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE;
+            } else if ("portrait".equals(m)) {
+                req = ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT;
+            } else {
+                req = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
+            }
+            try { setRequestedOrientation(req); } catch (Exception e) {
+                Log.e(TAG, "setRequestedOrientation failed: " + e.getMessage());
+            }
+        });
+    }
+
+    private void applyPersistedOrientation() {
+        try {
+            SharedPreferences sp = getSharedPreferences("vior_prefs", MODE_PRIVATE);
+            String m = sp.getString("orient", "auto");
+            int req;
+            if ("landscape".equals(m)) {
+                req = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE;
+            } else if ("portrait".equals(m)) {
+                req = ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT;
+            } else {
+                req = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
+            }
+            setRequestedOrientation(req);
+        } catch (Exception e) {
+            Log.e(TAG, "applyPersistedOrientation failed: " + e.getMessage());
+        }
+    }
+
     @android.webkit.JavascriptInterface
     public void setBootAutostart(boolean enabled) {
         try {

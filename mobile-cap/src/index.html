@@ -474,6 +474,16 @@
         <button class="seg-btn active" data-preset="balanced"><div class="seg-btn-row"><span>Balanced</span></div><div class="seg-sub" style="margin-left: 0;">Recommended</div></button>
         <button class="seg-btn" data-preset="quality"><div class="seg-btn-row"><span>Quality</span></div><div class="seg-sub" style="margin-left: 0;">Sharper</div></button>
       </div>
+      <!-- Locks Activity orientation so screen.width/height (and the
+           virtual display the desktop creates) match user intent. -->
+      <div class="section-label" style="margin-top: 22px;">Display orientation</div>
+      <div class="seg" id="seg-orient" style="grid-template-columns: repeat(3, 1fr);">
+        <button class="seg-btn active" data-orient="auto"><div class="seg-btn-row"><span>Auto</span></div><div class="seg-sub" style="margin-left: 0;">Follow device</div></button>
+        <button class="seg-btn" data-orient="landscape"><div class="seg-btn-row"><span>Landscape</span></div><div class="seg-sub" style="margin-left: 0;">Wide canvas</div></button>
+        <button class="seg-btn" data-orient="portrait"><div class="seg-btn-row"><span>Portrait</span></div><div class="seg-sub" style="margin-left: 0;">Tall canvas</div></button>
+      </div>
+      <div class="hint" style="margin: 6px 2px 0; font-size: 11.5px; color: var(--text-3);">Locks the app and the virtual display the desktop creates. Change before connecting.</div>
+
       <div class="section-label" style="margin-top: 22px;">Connectivity</div>
       <div class="card" style="overflow: hidden;">
         <div style="display: flex; align-items: center; padding: 15px; gap: 12px;">

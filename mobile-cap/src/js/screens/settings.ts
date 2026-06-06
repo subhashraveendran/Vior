@@ -89,6 +89,32 @@ document.querySelectorAll<HTMLElement>('.vior-toggle').forEach(function (t: HTML
   });
 });
 
+// ── Display orientation lock ───────────────────────────────────────
+// Locks the Android Activity orientation. screen.width/height that the
+// app sends in the hello message reflect the locked orientation, so the
+// desktop creates the virtual display in the right shape.
+function applyOrient(v: string): void {
+  const valid = (v === 'landscape' || v === 'portrait') ? v : 'auto';
+  localStorage.setItem('vior_orient', valid);
+  const seg = $('seg-orient');
+  if (seg) seg.querySelectorAll<HTMLElement>('.seg-btn').forEach(function (b) {
+    b.classList.toggle('active', b.dataset.orient === valid);
+  });
+  const bridge = (window as unknown as { Android?: { setOrientation?: (v: string) => void } }).Android;
+  if (bridge && typeof bridge.setOrientation === 'function') {
+    try { bridge.setOrientation(valid); } catch (_) {}
+  }
+}
+document.querySelectorAll<HTMLElement>('#seg-orient .seg-btn').forEach(function (b) {
+  b.addEventListener('click', function () {
+    const v = b.dataset.orient || 'auto';
+    applyOrient(v);
+    toast('info', 'Orientation', v === 'auto' ? 'Follows device rotation.' :
+      ('Locked to ' + v + '.'));
+  });
+});
+applyOrient(localStorage.getItem('vior_orient') || 'auto');
+
 // Open Android Wi-Fi settings via intent URI.
 ($('open-wifi-settings') as HTMLElement).addEventListener('click', function (): void {
   try { window.location.href = 'intent:#Intent;action=android.settings.WIFI_SETTINGS;end'; }

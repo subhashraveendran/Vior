@@ -300,7 +300,7 @@ func (s *MJPEGServer) Start() error {
 
 	go func() {
 		if err := s.server.Serve(ln); err != nil && err != http.ErrServerClosed {
-			log.Printf("server error: %v", err)
+			log.Printf("stream: server error: %v", err)
 		}
 	}()
 
@@ -433,7 +433,7 @@ func (s *MJPEGServer) removeClient(ch chan []byte) {
 const boundary = "vior-frame-boundary"
 
 func (s *MJPEGServer) handleStream(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Client connected: %s", r.RemoteAddr)
+	log.Printf("stream: MJPEG client connected: %s", r.RemoteAddr)
 
 	ch, err := s.addClient()
 	if err != nil {
@@ -480,7 +480,7 @@ func (s *MJPEGServer) handleStream(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 
 		case <-ctx.Done():
-			log.Printf("Client disconnected: %s", r.RemoteAddr)
+			log.Printf("stream: MJPEG client disconnected: %s", r.RemoteAddr)
 			return
 		}
 	}
@@ -557,12 +557,12 @@ func (s *MJPEGServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {
 func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("ws upgrade error: %v", err)
+		log.Printf("stream: ws upgrade error: %v", err)
 		return
 	}
 
 	session := protocol.NewSession(conn)
-	log.Printf("WebSocket client connected: %s [%s]", r.RemoteAddr, session.ID)
+	log.Printf("stream: ws client connected: %s [%s]", r.RemoteAddr, session.ID)
 
 	// Only one client at a time.
 	s.wsConnMu.Lock()
@@ -599,7 +599,7 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Wait for hello message.
 	hello, err := session.WaitForHello()
 	if err != nil {
-		log.Printf("ws hello error [%s]: %v", session.ID, err)
+		log.Printf("stream: ws hello error [%s]: %v", session.ID, err)
 		session.Send(protocol.MsgError, &protocol.ErrorMessage{
 			Code:    "hello_failed",
 			Message: err.Error(),
@@ -607,7 +607,7 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Client hello: %s %dx%d @%.1fx [%s]", hello.Name, hello.Width, hello.Height, hello.DPR, session.ID)
+	log.Printf("stream: client hello: %s %dx%d @%.1fx [%s]", hello.Name, hello.Width, hello.Height, hello.DPR, session.ID)
 
 	// Admission policy:
 	//   1. Already-trusted deviceID (paired before on this server)  → admit
@@ -617,15 +617,15 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	ip := remoteIP(r.RemoteAddr)
 	switch {
 	case trustedDevices.IsTrusted(hello.DeviceID):
-		log.Printf("ws admitted trusted device [%s] id=%s", session.ID, hello.DeviceID)
+		log.Printf("stream: admitted trusted device [%s] id=%s", session.ID, hello.DeviceID)
 		_ = trustedDevices.Add(hello.DeviceID, hello.Name) // touch LastSeen
 		clearPairAttempts(ip)
 	case strings.EqualFold(strings.TrimSpace(hello.PairCode), pairCode):
 		if hello.DeviceID != "" {
 			if err := trustedDevices.Add(hello.DeviceID, hello.Name); err != nil {
-				log.Printf("trust store add failed [%s]: %v", session.ID, err)
+				log.Printf("trust: store add failed [%s]: %v", session.ID, err)
 			} else {
-				log.Printf("ws paired new device [%s] id=%s name=%q", session.ID, hello.DeviceID, hello.Name)
+				log.Printf("trust: paired new device [%s] id=%s name=%q", session.ID, hello.DeviceID, hello.Name)
 			}
 		}
 		clearPairAttempts(ip)
@@ -652,7 +652,7 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Notify handler — this triggers virtual display creation.
 	if err := s.handler.OnClientConnect(session, hello); err != nil {
-		log.Printf("ws connect handler error [%s]: %v", session.ID, err)
+		log.Printf("stream: connect handler error [%s]: %v", session.ID, err)
 		session.Send(protocol.MsgError, &protocol.ErrorMessage{
 			Code:    "setup_failed",
 			Message: err.Error(),

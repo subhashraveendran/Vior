@@ -153,7 +153,7 @@ func (a *App) StartServer() error {
 	// Start USB Accessory Mode scanning.
 	a.usbAcc = usb.NewAccessory()
 	a.usbAcc.OnConnect = func(width, height int, dpr float32) {
-		log.Printf("USB: device connected %dx%d @%.1fx", width, height, dpr)
+		log.Printf("usb: device connected %dx%d @%.1fx", width, height, dpr)
 		a.handleUSBConnect(width, height, dpr)
 	}
 	a.usbAcc.OnTouch = func(action byte, x, y float32) {
@@ -171,7 +171,7 @@ func (a *App) StartServer() error {
 		}
 	}
 	a.usbAcc.OnDisconnect = func() {
-		log.Println("USB: device disconnected")
+		log.Println("usb: device disconnected")
 		if a.session != nil {
 			a.session.Stop()
 			a.session = nil
@@ -181,7 +181,7 @@ func (a *App) StartServer() error {
 		runtime.EventsEmit(a.ctx, "client:disconnected", "usb")
 	}
 	if err := a.usbAcc.Start(); err != nil {
-		log.Printf("USB accessory scan failed: %v", err)
+		log.Printf("usb: accessory scan failed: %v", err)
 	}
 
 	return nil
@@ -190,7 +190,7 @@ func (a *App) StartServer() error {
 // StopServer stops the server, capture, virtual display, and discovery.
 func (a *App) StopServer() error {
 	a.stopEverything()
-	log.Println("Server stopped")
+	log.Println("session: server stopped")
 	return nil
 }
 
@@ -247,7 +247,7 @@ func (a *App) OnClientConnect(sess *protocol.Session, hello *protocol.HelloMessa
 	a.currentClientTrusted = stream.TrustedDevices().IsTrusted(hello.DeviceID)
 	a.clientMu.Unlock()
 
-	log.Printf("Client connected: %s %dx%d @%.1fx mode=%s", hello.Name, hello.Width, hello.Height, hello.DPR, hello.Mode)
+	log.Printf("session: client connected: %s %dx%d @%.1fx mode=%s", hello.Name, hello.Width, hello.Height, hello.DPR, hello.Mode)
 
 	// Tear down previous capture before reconfiguring.
 	if a.session != nil {
@@ -309,7 +309,7 @@ func (a *App) OnClientConnect(sess *protocol.Session, hello *protocol.HelloMessa
 }
 
 func (a *App) OnClientResize(sess *protocol.Session, msg *protocol.ResizeMessage) error {
-	log.Printf("Client resized: %dx%d @%.1fx", msg.Width, msg.Height, msg.DPR)
+	log.Printf("session: client resized: %dx%d @%.1fx", msg.Width, msg.Height, msg.DPR)
 
 	if a.session != nil {
 		a.session.Stop()
@@ -366,7 +366,7 @@ func (a *App) OnClientInput(_ *protocol.Session, msg *protocol.InputMessage) err
 		return input.DefaultController.TypeKey(msg.Key)
 	}
 	if a.touchMapper == nil {
-		log.Printf("OnClientInput dropped %s/%s: touchMapper not initialised", msg.Event, msg.Action)
+		log.Printf("input: dropped %s/%s — touchMapper not initialised", msg.Event, msg.Action)
 		return nil
 	}
 	var err error
@@ -378,16 +378,16 @@ func (a *App) OnClientInput(_ *protocol.Session, msg *protocol.InputMessage) err
 	case "scroll":
 		err = a.touchMapper.HandleScroll(msg.DX, msg.DY)
 	default:
-		log.Printf("OnClientInput: unknown event %q", msg.Event)
+		log.Printf("input: unknown event %q", msg.Event)
 	}
 	if err != nil {
-		log.Printf("OnClientInput %s/%s error: %v", msg.Event, msg.Action, err)
+		log.Printf("input: %s/%s error: %v", msg.Event, msg.Action, err)
 	}
 	return err
 }
 
 func (a *App) OnClientDisconnect(sess *protocol.Session) {
-	log.Printf("Client disconnected: %s", sess.ID)
+	log.Printf("session: client disconnected: %s", sess.ID)
 
 	a.clientMu.Lock()
 	if a.client == sess {
@@ -423,13 +423,13 @@ func (a *App) handleUSBConnect(width, height int, dpr float32) {
 		Mode:   "extend",
 	})
 	if err != nil {
-		log.Printf("USB: configure failed: %v", err)
+		log.Printf("usb: configure failed: %v", err)
 		return
 	}
 
 	a.session = capture.NewSession(setup.DisplayIndex, a.cfg.Quality, a.cfg.FrameRate)
 	if err := a.session.Start(); err != nil {
-		log.Printf("USB: capture failed: %v", err)
+		log.Printf("usb: capture failed: %v", err)
 		return
 	}
 	a.touchMapper = input.NewTouchMapper(input.DefaultController, setup.DisplayBounds)
@@ -441,7 +441,7 @@ func (a *App) handleUSBConnect(width, height int, dpr float32) {
 	go func() {
 		for frame := range a.session.FrameCh {
 			if err := a.usbAcc.SendFrame(frame); err != nil {
-				log.Printf("USB: send frame error: %v", err)
+				log.Printf("usb: send frame error: %v", err)
 				return
 			}
 		}
@@ -536,7 +536,7 @@ func (a *App) StartStream(sc StreamConfig) error {
 		return fmt.Errorf("server failed: %w", err)
 	}
 
-	log.Printf("Stream started on port %d (display %d)", a.cfg.Port, a.cfg.DisplayIndex)
+	log.Printf("session: stream started on port %d (display %d)", a.cfg.Port, a.cfg.DisplayIndex)
 	return nil
 }
 
@@ -550,7 +550,7 @@ func (a *App) StopStream() error {
 	}
 	a.session = nil
 	a.server = nil
-	log.Println("Stream stopped")
+	log.Println("session: stream stopped")
 	return nil
 }
 
@@ -875,7 +875,7 @@ func (a *App) OnClientFileOffer(session *protocol.Session, msg *protocol.FileOff
 	// this device once; making them re-approve every file is friction.
 	if a.currentClientTrusted {
 		if err := a.fileMgr.AcceptFile(msg.ID); err != nil {
-			log.Printf("auto-accept failed [%s]: %v", msg.ID, err)
+			log.Printf("filetransfer: auto-accept failed [%s]: %v", msg.ID, err)
 		} else if a.ctx != nil {
 			runtime.EventsEmit(a.ctx, "file:auto-accepted", msg.ID)
 		}

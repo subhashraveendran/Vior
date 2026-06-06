@@ -170,7 +170,7 @@ func (m *Manager) HandleReject(msg *protocol.FileRejectMessage) {
 func (m *Manager) sendChunks(t *Transfer) {
 	f, err := os.Open(t.Path)
 	if err != nil {
-		log.Printf("file transfer: open error: %v", err)
+		log.Printf("filetransfer: open error: %v", err)
 		return
 	}
 	defer f.Close()
@@ -192,7 +192,7 @@ func (m *Manager) sendChunks(t *Transfer) {
 				Data:   encoded,
 			})
 			if sendErr != nil {
-				log.Printf("file transfer: send error: %v", sendErr)
+				log.Printf("filetransfer: send error: %v", sendErr)
 				return
 			}
 
@@ -208,7 +208,7 @@ func (m *Manager) sendChunks(t *Transfer) {
 			break
 		}
 		if err != nil {
-			log.Printf("file transfer: read error: %v", err)
+			log.Printf("filetransfer: read error: %v", err)
 			return
 		}
 	}
@@ -224,7 +224,7 @@ func (m *Manager) sendChunks(t *Transfer) {
 		Hash: hash,
 	})
 
-	log.Printf("File sent: %s (%d bytes)", t.Name, offset)
+	log.Printf("filetransfer: sent %s (%d bytes)", t.Name, offset)
 }
 
 // ── Receiving ───────────────────────────────────────────────────────
@@ -364,7 +364,7 @@ func (m *Manager) HandleComplete(msg *protocol.FileCompleteMessage) {
 	t.Hash = msg.Hash
 	t.mu.Unlock()
 
-	log.Printf("File received: %s (%d bytes)", t.Path, t.Transferred)
+	log.Printf("filetransfer: received %s (%d bytes)", t.Path, t.Transferred)
 
 	if m.OnFileReceived != nil {
 		m.OnFileReceived(t)

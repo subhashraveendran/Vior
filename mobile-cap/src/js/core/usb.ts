@@ -22,6 +22,15 @@ window.onUsbFrame = function (b64: string): void {
 
 // ── Cable attached + AOA handshake done ───────────────────────────
 window.onUsbConnected = function (): void {
+  // Policy when both transports are alive: USB wins for video (low
+  // latency, no Wi-Fi dependency). Close any active WS so we don't
+  // have two competing video sources writing to the same <img>, two
+  // file-transfer paths, and two sets of input forwarding.
+  if (transportMode === 'wifi' && ws) {
+    console.log('usb: cable arrived during Wi-Fi session — closing WS so USB owns the transport');
+    try { ws.close(); } catch (_) { /* ignore */ }
+    ws = null;
+  }
   transportMode = 'usb';
   connected = true;
   // Remember USB preference so a later disconnect returns the user
@@ -67,8 +76,14 @@ window.onUsbConnected = function (): void {
 // ── Cable yanked / desktop quit ───────────────────────────────────
 window.onUsbDisconnected = function (): void {
   // Only act if USB was the active transport. A Wi-Fi session shouldn't
-  // be torn down by a stale USB-disconnect from a previous run.
-  if (transportMode !== 'usb') return;
+  // be torn down by a stale USB-disconnect from a previous run. Log the
+  // skip path explicitly — silent early-returns are murder to debug
+  // when the user reports "Wi-Fi died when I unplugged the cable".
+  if (transportMode !== 'usb') {
+    console.log('usb: onUsbDisconnected ignored (transport=' + transportMode + ')');
+    return;
+  }
+  console.log('usb: cable disconnected, tearing down USB transport');
   transportMode = 'wifi';
   connected = false;
 

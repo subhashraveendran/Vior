@@ -89,19 +89,19 @@ func (s *Session) ReadLoop(handler MessageHandler) error {
 		_, msg, err := s.Conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
-				log.Printf("ws read error [%s]: %v", s.ID, err)
+				log.Printf("protocol: ws read error [%s]: %v", s.ID, err)
 			}
 			return err
 		}
 
 		env, err := Decode(msg)
 		if err != nil {
-			log.Printf("ws decode error [%s]: %v", s.ID, err)
+			log.Printf("protocol: ws decode error [%s]: %v", s.ID, err)
 			continue
 		}
 
 		if err := s.dispatch(env, handler); err != nil {
-			log.Printf("ws dispatch error [%s] type=%s: %v", s.ID, env.Type, err)
+			log.Printf("protocol: ws dispatch error [%s] type=%s: %v", s.ID, env.Type, err)
 			s.Send(MsgError, &ErrorMessage{Code: "handler_error", Message: err.Error()})
 		}
 	}

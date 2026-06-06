@@ -126,6 +126,27 @@ $('conn-cancel').addEventListener('click', function () {
 });
 
 let connectTimeoutId: ReturnType<typeof setTimeout> | null = null;
+// Live keepalive instance. Recreated on every doConnect so a stale
+// timer from a previous session can't fire pings into a fresh socket.
+// Stopped from onclose AND doDisconnect.
+let keepalive: ViorKeepalive | null = null;
+// Banner update timer — polls msSinceLastPong every 1s so the header
+// chip dot tracks pong freshness without us having to plumb a
+// callback through the keepalive module. Lives for the duration of a
+// connected WS; cleared in cleanupKeepalive.
+let healthTickId: ReturnType<typeof setInterval> | null = null;
+
+function cleanupKeepalive(): void {
+  if (keepalive) { try { keepalive.stop(); } catch (_) { /* ignore */ } keepalive = null; }
+  if (healthTickId) { clearInterval(healthTickId); healthTickId = null; }
+}
+
+// "Replaced by another session" pathway — set when the server sends
+// {code:"occupied"}. We use this flag from onclose to suppress the
+// reconnect-loop the user would otherwise see (two tabs ping-pong
+// fighting over one server).
+let replacedByOtherSession = false;
+
 function doConnect(): void {
   setConnState('connecting');
   viorState.set({ state: 'connecting', transport: 'wifi' });
@@ -200,6 +221,21 @@ function doConnect(): void {
 
   ws.onmessage = function (e: MessageEvent) {
     const msg = JSON.parse(e.data as string) as WSMessage;
+    // Any inbound traffic is a liveness proof — refresh freshness
+    // before we branch on type so even messages we don't recognise
+    // (forward-compat) keep the health dot green.
+    if (keepalive) keepalive.noteInbound();
+    if (msg.type === 'pong') {
+      if (keepalive) keepalive.notePong();
+      return;
+    }
+    if (msg.type === 'ping') {
+      // Server-driven app-level ping (today the server doesn't issue
+      // these — it uses gorilla's spec ping — but reply anyway so a
+      // future symmetric heartbeat works without a client update).
+      try { ws!.send(JSON.stringify({ type: 'pong' })); } catch (_) {}
+      return;
+    }
     if (msg.type === 'ready') {
       if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
       const data = msg.data as { resolution: string };
@@ -247,6 +283,54 @@ function doConnect(): void {
         : intentNow === 'files' ? 'Ready for file transfer'
         : (selectedMode === 'mirror' ? 'Mirroring' : 'Extended display');
       toast('success', 'Connected', successMsg + ' on ' + serverName + '.');
+
+      // Spin up the app-level keepalive: pings every 15s, force-close
+      // on missed pong, fast-ping on visibilitychange. Without this,
+      // a backgrounded mobile silently loses TCP after a few minutes
+      // of Doze and the user sees a green dot over a dead socket.
+      cleanupKeepalive();
+      const kpAttempts = reconnectAttempts;
+      keepalive = viorKeepalive.create({
+        onLost: function (reason) {
+          console.warn('[ws] keepalive lost (' + reason + ') — forcing reconnect');
+          // The keepalive already called ws.close() — onclose will run
+          // the reconnect path. Reset the attempt counter so a
+          // genuinely-fine connection doesn't burn its budget on the
+          // first transient blip. Preserve the count if we were
+          // already mid-reconnect.
+          if (kpAttempts === 0) reconnectAttempts = 0;
+        },
+      });
+      keepalive.attach(ws!);
+      // 1s health tick → header dot tone. Cheap; one DOM mutation per
+      // second, no layout impact (class swap on a single element).
+      if (healthTickId) clearInterval(healthTickId);
+      healthTickId = setInterval(function () {
+        if (!keepalive) return;
+        viorKeepalive.applyHealthTone(keepalive.msSinceLastPong());
+      }, 1000);
+
+      // Save resume metadata so the next cold app launch can skip the
+      // pair prompt and head straight back to this server. We capture
+      // the server's deviceId (from /info) async so the resume record
+      // can also drive the DHCP-drift fallback on next boot.
+      (async function () {
+        try {
+          const r = await fetch('http://' + host + ':' + port + '/info', {
+            signal: AbortSignal.timeout ? AbortSignal.timeout(2000) : undefined,
+          });
+          const info = r.ok ? await r.json() : {};
+          const deviceId = localStorage.getItem('vior_device_id') || '';
+          viorKeepalive.saveResume({
+            host, port, deviceId,
+            serverDeviceId: (info && info.deviceId) || undefined,
+            ts: Date.now(),
+          });
+          if (info && info.deviceId) {
+            try { localStorage.setItem('vior_known_device_' + host + ':' + port, info.deviceId); } catch (_) {}
+          }
+        } catch (_) { /* best-effort */ }
+      })();
     } else if (msg.type === 'error') {
       if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
       $('connecting-overlay').classList.add('hidden');
@@ -263,6 +347,16 @@ function doConnect(): void {
         }
         toast('error', 'Pair code rejected', 'Enter the 6-character code shown on the desktop.');
         promptPair();
+      } else if (code === 'occupied') {
+        // Second-tab scenario: the desktop server already has a WS
+        // client. Surface a clean "you were replaced" message and stop
+        // the reconnect-loop dance — racing the other tab is pointless
+        // and looks broken. The replacing tab keeps the session.
+        replacedByOtherSession = true;
+        reconnectAttempts = maxReconnect; // suppress onclose retry
+        toast('warning', 'Replaced by another session', 'Another device is using this desktop.');
+        // Don't drop the server selection — user might want to retry
+        // after the other side disconnects.
       } else {
         toast('error', 'Connection failed', errMsg);
       }
@@ -279,6 +373,28 @@ function doConnect(): void {
 
   ws.onclose = function () {
     stopFramePolling();
+    // Always stop the keepalive before we either reconnect or give up
+    // — the timers belong to the dead socket. doConnect re-creates a
+    // fresh instance on the next 'ready'.
+    cleanupKeepalive();
+    if (replacedByOtherSession) {
+      // Don't reconnect — the user was actively replaced. Reset for
+      // future manual Connect attempts but stay quiet right now.
+      replacedByOtherSession = false;
+      connected = false;
+      setConnState('offline');
+      hideStream();
+      viorState.set({ state: 'disconnected' });
+      showView('disc');
+      $('recon-banner').classList.add('hidden');
+      $('files-offline').classList.remove('hidden');
+      $('files-active').classList.add('hidden');
+      $('remote-offline').classList.remove('hidden');
+      $('remote-active').classList.add('hidden');
+      $('connecting-overlay').classList.add('hidden');
+      setTimeout(function () { startDiscovery(); }, 300);
+      return;
+    }
     if (connected && reconnectAttempts < maxReconnect) {
       // Transient drop (WiFi blip) — trust survives because we never
       // remove vior_known_ here; the saved deviceID re-admits us
@@ -290,7 +406,16 @@ function doConnect(): void {
       $('recon-banner').classList.remove('hidden');
       $('recon-sub').textContent = 'attempt ' + reconnectAttempts + ' of ' + maxReconnect + ' · backing off';
       $('stat-status').textContent = 'Reconnecting';
-      setTimeout(function () { if (connected) doConnect(); }, Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 10000));
+      // Visible header-chip text — "Reconnecting (2/5)…" so the user
+      // can see we're working, not stuck. Overrides the state-machine
+      // label in core/state.ts for this transitional moment.
+      const lbl = document.getElementById('conn-label');
+      if (lbl) lbl.textContent = 'Reconnecting (' + reconnectAttempts + '/' + maxReconnect + ')…';
+      // Backoff capped at 30s per the sustain spec (was 10s) — gives
+      // the desktop time to recover from a longer-form blip without
+      // burning through the attempt budget at the worst moment.
+      setTimeout(function () { if (connected) doConnect(); },
+        Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000));
     } else if (connected) {
       connected = false;
       setConnState('offline');
@@ -388,6 +513,12 @@ function doDisconnect(): void {
   // the second tap of Connect refused to retry on transient failure
   // because the counter was still pinned at maxReconnect.
   reconnectAttempts = 0;
+  cleanupKeepalive();
+  // Clear the resume hint — the user explicitly said "stop", so we
+  // shouldn't silently reattach on next boot. They can still tap the
+  // server from discovery (which is faster than re-pairing thanks to
+  // the deviceID round-trip).
+  viorKeepalive.clearResume();
   if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
   connected = false;
   if (ws) { try { ws.close(); } catch (_) {} ws = null; }

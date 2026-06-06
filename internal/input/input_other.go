@@ -28,5 +28,9 @@ func (c *stubController) TypeKey(key string) error {
 func (c *stubController) Scroll(dx, dy int) error {
 	return fmt.Errorf("input control not supported on this platform")
 }
+func (c *stubController) CurrentMousePos() (int, int, error) {
+	return 0, 0, fmt.Errorf("input control not supported on this platform")
+}
+func (c *stubController) MainDisplayBounds() (int, int, int, int) { return 0, 0, 0, 0 }
 
 var _ Controller = (*stubController)(nil)

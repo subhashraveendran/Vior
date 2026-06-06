@@ -308,9 +308,6 @@ func (a *App) OnClientResize(sess *protocol.Session, msg *protocol.ResizeMessage
 }
 
 func (a *App) OnClientInput(_ *protocol.Session, msg *protocol.InputMessage) error {
-	if a.touchMapper == nil {
-		return nil
-	}
 	// One-time accessibility check on the first input event after a
 	// client connects. If the OS hasn't granted us input-injection
 	// rights, the network path looks healthy but every CGEvent post is
@@ -322,17 +319,32 @@ func (a *App) OnClientInput(_ *protocol.Session, msg *protocol.InputMessage) err
 			runtime.EventsEmit(a.ctx, "permission:accessibility-missing", nil)
 		}
 	}
-	switch msg.Event {
-	case "touch":
-		return a.touchMapper.HandleTouch(msg.Action, msg.X, msg.Y)
-	case "mouse":
-		return a.touchMapper.HandleMouse(msg.Action, msg.DX, msg.DY)
-	case "scroll":
-		return a.touchMapper.HandleScroll(msg.DX, msg.DY)
-	case "key":
+	// Key events don't need a touchMapper, so route them first. This
+	// keeps the keyboard alive in any pathological state where the
+	// touch mapper failed to initialise (e.g. virtual display creation
+	// hiccup) but the WS session is still up.
+	if msg.Event == "key" {
 		return input.DefaultController.TypeKey(msg.Key)
 	}
-	return nil
+	if a.touchMapper == nil {
+		log.Printf("OnClientInput dropped %s/%s: touchMapper not initialised", msg.Event, msg.Action)
+		return nil
+	}
+	var err error
+	switch msg.Event {
+	case "touch":
+		err = a.touchMapper.HandleTouch(msg.Action, msg.X, msg.Y)
+	case "mouse":
+		err = a.touchMapper.HandleMouse(msg.Action, msg.DX, msg.DY)
+	case "scroll":
+		err = a.touchMapper.HandleScroll(msg.DX, msg.DY)
+	default:
+		log.Printf("OnClientInput: unknown event %q", msg.Event)
+	}
+	if err != nil {
+		log.Printf("OnClientInput %s/%s error: %v", msg.Event, msg.Action, err)
+	}
+	return err
 }
 
 func (a *App) OnClientDisconnect(sess *protocol.Session) {

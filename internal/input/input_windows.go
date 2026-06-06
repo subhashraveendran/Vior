@@ -9,10 +9,16 @@ import (
 )
 
 var (
-	user32       = syscall.NewLazyDLL("user32.dll")
-	sendInput    = user32.NewProc("SendInput")
-	setCursor    = user32.NewProc("SetCursorPos")
-	getCursorPos = user32.NewProc("GetCursorPos")
+	user32           = syscall.NewLazyDLL("user32.dll")
+	sendInput        = user32.NewProc("SendInput")
+	setCursor        = user32.NewProc("SetCursorPos")
+	getCursorPos     = user32.NewProc("GetCursorPos")
+	getSystemMetrics = user32.NewProc("GetSystemMetrics")
+)
+
+const (
+	smCXScreen = 0
+	smCYScreen = 1
 )
 
 type winPoint struct{ X, Y int32 }
@@ -141,6 +147,12 @@ func (c *winController) CurrentMousePos() (int, int, error) {
 	var p winPoint
 	getCursorPos.Call(uintptr(unsafe.Pointer(&p)))
 	return int(p.X), int(p.Y), nil
+}
+
+func (c *winController) MainDisplayBounds() (int, int, int, int) {
+	w, _, _ := getSystemMetrics.Call(uintptr(smCXScreen))
+	h, _, _ := getSystemMetrics.Call(uintptr(smCYScreen))
+	return 0, 0, int(int32(w)), int(int32(h))
 }
 
 var _ Controller = (*winController)(nil)

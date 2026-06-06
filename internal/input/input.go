@@ -20,6 +20,11 @@ type Controller interface {
 	Scroll(dx, dy int) error
 	// CurrentMousePos returns the current absolute mouse cursor position.
 	CurrentMousePos() (int, int, error)
+	// MainDisplayBounds returns the host's primary (visible) display rectangle
+	// in absolute pixel coordinates. The Remote trackpad uses this to detect
+	// when the cursor has wandered onto an invisible virtual display and
+	// needs to be warped back so the user can see it move.
+	MainDisplayBounds() (x, y, w, h int)
 }
 
 // DefaultController returns the platform-specific input controller.

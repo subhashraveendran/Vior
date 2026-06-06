@@ -32,6 +32,14 @@ var (
 	virtualRefresh float64
 	noWebSocket    bool
 	noDiscovery    bool
+	// persistPair defaults to true now (was opt-in). A rotating pair
+	// code on every server restart broke trusted-device reconnect for
+	// any mobile that had only been admitted via pair code (not yet
+	// promoted to the trust store) — the user would type the new code,
+	// curse, and assume the connection had "died" forever. The trust
+	// store still admits paired devices by deviceID, so this only
+	// affects the first-connect window; setting --persist-pair=false
+	// restores the old behaviour for users who explicitly want it.
 	persistPair    bool
 )
 
@@ -208,7 +216,7 @@ func init() {
 	startCmd.Flags().Float64Var(&virtualRefresh, "virtual-refresh", 60, "virtual display refresh rate")
 	startCmd.Flags().BoolVar(&noWebSocket, "no-websocket", false, "disable WebSocket mode (legacy streaming)")
 	startCmd.Flags().BoolVar(&noDiscovery, "no-discovery", false, "disable UDP discovery broadcasting")
-	startCmd.Flags().BoolVar(&persistPair, "persist-pair", false, "load/save pair code at ~/.vior/pair.txt so it survives restarts")
+	startCmd.Flags().BoolVar(&persistPair, "persist-pair", true, "load/save pair code at ~/.vior/pair.txt so it survives restarts (default true; pass --persist-pair=false to rotate on every launch)")
 }
 
 func printURLs(port int) {

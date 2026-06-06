@@ -119,6 +119,14 @@ func (a *App) StartServer() error {
 		return fmt.Errorf("server already running")
 	}
 
+	// Persist the pair code to ~/.vior/pair.txt so a desktop restart
+	// (quit & relaunch, system reboot, crash recovery) doesn't rotate
+	// the code out from under a phone the user just paired. Trusted
+	// devices already reconnect by deviceID — this is purely for the
+	// short window between "user typed code" and "device added to trust
+	// store", which the user perceives as "the connection died".
+	stream.EnablePersistedPair()
+
 	// Auto-select free port if not explicitly set.
 	if a.cfg.Port == 0 {
 		port, err := config.FreePort()

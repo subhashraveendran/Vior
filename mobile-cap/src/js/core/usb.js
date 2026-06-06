@@ -1,3 +1,4 @@
+// MIGRATED → see usb.ts (this .js stays as the runtime source until Vite bundling lands)
 'use strict';
 // ── USB callbacks (Java bridge) ──
 window.onUsbFrame = function (b64) {

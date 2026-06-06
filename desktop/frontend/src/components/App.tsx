@@ -23,25 +23,36 @@ import ConnectedScreen   from '../screens/Connected'
 import SettingsScreen    from '../screens/Settings'
 import PermissionsModal  from '../screens/Permissions'
 
+import type {
+  AccentHex,
+  AppConfig,
+  ClientInfo,
+  Mode,
+  Nav,
+  ServerStatus,
+  Toast,
+  ToastTone,
+} from '../types'
+
 export default function App() {
-  const [serverStatus, setServerStatus] = useState(null)
-  const [client, setClient] = useState(null)
-  const [config, setConfig] = useState({ port: 0, quality: 80, frameRate: 30 })
-  const [nav, setNav] = useState('server')
-  const [mode, setMode] = useState('extend')
-  const [errorState, setErrorState] = useState(false)
-  const [showUpdate, setShowUpdate] = useState(false)
-  const [showPerms, setShowPerms] = useState(false)
-  const [toasts, setToasts] = useState([])
-  const [accent, setAccent] = useState(localStorage.getItem('vior_accent') || '#ff8a4c')
+  const [serverStatus, setServerStatus] = useState<ServerStatus | null>(null)
+  const [client, setClient] = useState<ClientInfo | null>(null)
+  const [config, setConfig] = useState<AppConfig>({ port: 0, quality: 80, frameRate: 30, host: '0.0.0.0', transferDir: '.' } as AppConfig)
+  const [nav, setNav] = useState<Nav>('server')
+  const [mode, setMode] = useState<Mode>('extend')
+  const [errorState, setErrorState] = useState<boolean>(false)
+  const [showUpdate, setShowUpdate] = useState<boolean>(false)
+  const [showPerms, setShowPerms] = useState<boolean>(false)
+  const [toasts, setToasts] = useState<Toast[]>([])
+  const [accent, setAccent] = useState<AccentHex>(localStorage.getItem('vior_accent') || '#ff8a4c')
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- accent applies
   // once at boot; subsequent changes flow through Appearance → applyAccent
   // directly, so re-running this effect on every accent change would double-write.
   useEffect(() => { applyAccent(accent) }, [])
-  const idRef = useRef(100)
+  const idRef = useRef<number>(100)
 
-  const toast = useCallback((tone, title, msg) => {
+  const toast = useCallback((tone: ToastTone, title: string, msg: string | null) => {
     const id = ++idRef.current
     setToasts(ts => [...ts, { id, tone, title, msg }])
     setTimeout(() => setToasts(ts => ts.filter(t => t.id !== id)), 3500)
@@ -54,13 +65,13 @@ export default function App() {
       // method is exercised on launch (catches a broken Wails binding
       // before the user clicks anything).
       try { await GetVersion() } catch {}
-      try { const c = await GetConfig(); setConfig({ port: c.port, quality: c.quality, frameRate: c.frameRate }) } catch {}
+      try { const c = await GetConfig(); setConfig({ ...c, port: c.port, quality: c.quality, frameRate: c.frameRate }) } catch {}
       try {
         const s = await GetServerStatus()
         if (s.running) {
           setServerStatus(s)
           const cs = await GetConnectedClients()
-          if (cs?.length > 0) setClient(cs[0])
+          if (cs?.length > 0) setClient(cs[0]!)
         }
       } catch {}
     })()
@@ -68,7 +79,7 @@ export default function App() {
 
   // events
   useEffect(() => {
-    const off1 = EventsOn('client:connected', (info) => {
+    const off1 = EventsOn('client:connected', (info: ClientInfo) => {
       setClient(info); setErrorState(false)
       toast('success', 'Device connected', info.name)
     })
@@ -111,14 +122,14 @@ export default function App() {
     if (!serverStatus?.url) return
     navigator.clipboard?.writeText(serverStatus.url).then(() => toast('success', 'Copied', serverStatus.url))
   }
-  const updateConfig = async (c) => {
+  const updateConfig = async (c: AppConfig) => {
     setConfig(c)
-    try { await UpdateConfig({ ...c, host: '0.0.0.0', transferDir: '.' }) } catch {}
+    try { await UpdateConfig({ ...c, host: '0.0.0.0', transferDir: '.' } as AppConfig) } catch {}
   }
 
   const running = !!serverStatus?.running
   const connected = !!client
-  const sidebarState = connected ? ['dot-ok', 'Connected'] : running ? ['dot-ok', 'Running'] : ['dot-idle', 'Stopped']
+  const sidebarState: [string, string] = connected ? ['dot-ok', 'Connected'] : running ? ['dot-ok', 'Running'] : ['dot-idle', 'Stopped']
 
   let body
   if (nav === 'settings') body = <SettingsScreen config={config} onChange={updateConfig} accent={accent} setAccent={setAccent} />
@@ -139,9 +150,9 @@ export default function App() {
       <div className="dbody">
         <div className="sidebar">
           {[
-            { id: 'server', label: 'Server', icon: Icons.display },
-            { id: 'files', label: 'Files', icon: Icons.files },
-            { id: 'settings', label: 'Settings', icon: Icons.settings },
+            { id: 'server' as const, label: 'Server', icon: Icons.display },
+            { id: 'files' as const, label: 'Files', icon: Icons.files },
+            { id: 'settings' as const, label: 'Settings', icon: Icons.settings },
           ].map(n => (
             <button key={n.id} className={`nav-item ${nav === n.id ? 'active' : ''}`} onClick={() => setNav(n.id)}>
               {n.icon(18)}
@@ -157,7 +168,7 @@ export default function App() {
         <div className="main">{body}</div>
       </div>
       {showPerms && <PermissionsModal onDone={() => setShowPerms(false)} />}
-      <ToastHost toasts={toasts} onClose={(id) => setToasts(ts => ts.filter(t => t.id !== id))} />
+      <ToastHost toasts={toasts} onClose={(id: number) => setToasts(ts => ts.filter(t => t.id !== id))} />
     </div>
   )
 }

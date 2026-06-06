@@ -4,4 +4,6 @@ import App from './components/App'
 import './style.css'
 import './app.css'
 
-createRoot(document.getElementById('app')).render(<App />)
+const root = document.getElementById('app')
+if (!root) throw new Error('#app root element not found')
+createRoot(root).render(<App />)

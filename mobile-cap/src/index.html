@@ -425,8 +425,9 @@
   }
 
   /* ── Remote ── */
-  .remote { height: 100%; display: flex; flex-direction: column; position: relative; }
-  .remote-mode { padding: 16px 20px 0; }
+  .remote { height: 100%; display: flex; flex-direction: column; position: relative; overflow-y: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .remote::-webkit-scrollbar { display: none; }
+  .remote-mode { padding: 16px 20px 0; flex: none; }
   .remote-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 16px 20px 20px; }
   .trackpad-area {
     flex: 1; min-height: 0; display: flex; gap: 8px;
@@ -570,7 +571,17 @@
     background: var(--surface-3); border: none; color: var(--text-2);
     width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
   }
-  .sheet-body { padding: 16px 16px 22px; overflow-y: auto; scrollbar-width: none; }
+  .sheet-body {
+    /* flex:1 + min-height:0 are both required for overflow-y to actually
+       kick in inside a flex column — without them the body sized to its
+       content and the page just clipped in landscape. */
+    flex: 1; min-height: 0;
+    padding: 16px 16px 22px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
   .sheet-body::-webkit-scrollbar { display: none; }
 
   .vior-toggle {

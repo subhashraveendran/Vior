@@ -78,6 +78,13 @@ static void queryPointer(Display *dpy, int *outX, int *outY) {
 	*outX = rx; *outY = ry;
 }
 
+static void rootSize(Display *dpy, int *w, int *h) {
+	if (!dpy) { *w = 0; *h = 0; return; }
+	int s = DefaultScreen(dpy);
+	*w = DisplayWidth(dpy, s);
+	*h = DisplayHeight(dpy, s);
+}
+
 static void pressKey(Display *dpy, const char *key) {
 	if (!dpy || !key) return;
 	KeySym ks = XStringToKeysym(key);
@@ -134,6 +141,12 @@ func (c *linuxController) CurrentMousePos() (int, int, error) {
 	var x, y C.int
 	C.queryPointer(c.dpy, &x, &y)
 	return int(x), int(y), nil
+}
+
+func (c *linuxController) MainDisplayBounds() (int, int, int, int) {
+	var w, h C.int
+	C.rootSize(c.dpy, &w, &h)
+	return 0, 0, int(w), int(h)
 }
 
 var _ Controller = (*linuxController)(nil)

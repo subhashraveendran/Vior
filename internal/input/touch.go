@@ -54,6 +54,19 @@ func (t *TouchMapper) HandleMouse(action string, dx, dy float64) error {
 		if err != nil {
 			return err
 		}
+		// If the cursor was parked on an invisible virtual display (created
+		// for the Stream tab's extend-mode capture), the user would never
+		// see the Remote-tab trackpad move it because the new absolute
+		// target is outside any visible screen. Warp back to the main
+		// display before applying the delta so the cursor is visible
+		// again immediately.
+		mx, my, mw, mh := t.controller.MainDisplayBounds()
+		if mw > 0 && mh > 0 {
+			if x < mx || y < my || x >= mx+mw || y >= my+mh {
+				x = mx + mw/2
+				y = my + mh/2
+			}
+		}
 		return t.controller.MoveMouse(x+int(dx), y+int(dy))
 	case "click":
 		return t.controller.Click(ButtonLeft)

@@ -90,8 +90,22 @@ static void showCursor(void) {
 	CGDisplayShowCursor(kCGDirectMainDisplay);
 }
 
+// Bounds of the main physical display (top-left origin, pixel-equivalent
+// points). Used by the Remote trackpad to decide whether the cursor is
+// parked on an invisible virtual display and needs to be snapped back.
+static void getMainBounds(int *x, int *y, int *w, int *h) {
+	CGRect r = CGDisplayBounds(CGMainDisplayID());
+	*x = (int)r.origin.x;
+	*y = (int)r.origin.y;
+	*w = (int)r.size.width;
+	*h = (int)r.size.height;
+}
+
 static void postScroll(double dx, double dy) {
-	CGEventRef scroll = CGEventCreateScrollWheelEvent(NULL, kCGScrollEventUnitPixel, 1,
+	// wheelCount=2 so both vertical (wheel1=dy) and horizontal (wheel2=dx)
+	// axes are honoured. Previously wheelCount=1 silently dropped dx,
+	// which made two-finger horizontal scroll from the trackpad a no-op.
+	CGEventRef scroll = CGEventCreateScrollWheelEvent(NULL, kCGScrollEventUnitPixel, 2,
 		(int32_t)dy, (int32_t)dx);
 	CGEventPost(kCGHIDEventTap, scroll);
 	CFRelease(scroll);
@@ -265,6 +279,12 @@ func (c *darwinController) CurrentMousePos() (int, int, error) {
 	var x, y C.int
 	C.getMousePos(&x, &y)
 	return int(x), int(y), nil
+}
+
+func (c *darwinController) MainDisplayBounds() (int, int, int, int) {
+	var x, y, w, h C.int
+	C.getMainBounds(&x, &y, &w, &h)
+	return int(x), int(y), int(w), int(h)
 }
 
 var _ Controller = (*darwinController)(nil)

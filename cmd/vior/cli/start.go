@@ -276,20 +276,26 @@ func (h *cliSessionHandler) OnClientConnect(sess *protocol.Session, hello *proto
 }
 
 func (h *cliSessionHandler) OnClientInput(_ *protocol.Session, msg *protocol.InputMessage) error {
-	if h.touchMapper == nil {
-		return nil
-	}
-	switch msg.Event {
-	case "touch":
-		return h.touchMapper.HandleTouch(msg.Action, msg.X, msg.Y)
-	case "mouse":
-		return h.touchMapper.HandleMouse(msg.Action, msg.DX, msg.DY)
-	case "scroll":
-		return h.touchMapper.HandleScroll(msg.DX, msg.DY)
-	case "key":
+	if msg.Event == "key" {
 		return input.DefaultController.TypeKey(msg.Key)
 	}
-	return nil
+	if h.touchMapper == nil {
+		log.Printf("OnClientInput dropped %s/%s: touchMapper not initialised", msg.Event, msg.Action)
+		return nil
+	}
+	var err error
+	switch msg.Event {
+	case "touch":
+		err = h.touchMapper.HandleTouch(msg.Action, msg.X, msg.Y)
+	case "mouse":
+		err = h.touchMapper.HandleMouse(msg.Action, msg.DX, msg.DY)
+	case "scroll":
+		err = h.touchMapper.HandleScroll(msg.DX, msg.DY)
+	}
+	if err != nil {
+		log.Printf("OnClientInput %s/%s error: %v", msg.Event, msg.Action, err)
+	}
+	return err
 }
 
 func (h *cliSessionHandler) OnClientResize(session *protocol.Session, msg *protocol.ResizeMessage) error {

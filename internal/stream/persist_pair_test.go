@@ -11,7 +11,9 @@ import (
 // a valid override (4-8 digits) EnablePersistedPair must replace the
 // in-memory pair code with it.
 func TestEnablePersistedPairLoadsOverride(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome)
 
 	pairCodeMu.Lock()
 	saved := pairCode
@@ -38,7 +40,9 @@ func TestEnablePersistedPairLoadsOverride(t *testing.T) {
 // NOT be auto-created. Deleting pair.txt always falls back to the
 // machine-derived value (the user's stable "phone number").
 func TestEnablePersistedPairKeepsDerivedWhenNoOverride(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome)
 
 	pairCodeMu.Lock()
 	saved := pairCode
@@ -68,7 +72,9 @@ func TestEnablePersistedPairKeepsDerivedWhenNoOverride(t *testing.T) {
 // or wrong length) is ignored — derived value stays in force, file is
 // NOT rewritten.
 func TestEnablePersistedPairIgnoresGarbage(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome)
 
 	pairCodeMu.Lock()
 	saved := pairCode
@@ -101,7 +107,9 @@ func TestEnablePersistedPairIgnoresGarbage(t *testing.T) {
 // subsequent EnablePersistedPair re-loads it (mimicking a process
 // restart).
 func TestSetPairCodePersists(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome)
 
 	pairCodeMu.Lock()
 	saved := pairCode
@@ -132,7 +140,9 @@ func TestSetPairCodePersists(t *testing.T) {
 // TestSetPairCodeValidation rejects non-numeric / too-short / too-long
 // values without touching the on-disk state.
 func TestSetPairCodeValidation(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome)
 	for _, bad := range []string{"abc", "12", "12a4", "123456789"} {
 		if err := SetPairCode(bad); err == nil {
 			t.Errorf("SetPairCode(%q) should have failed", bad)
@@ -143,7 +153,9 @@ func TestSetPairCodeValidation(t *testing.T) {
 // TestSetPairCodeEmptyClears: passing "" wipes the override and falls
 // back to the machine-derived code.
 func TestSetPairCodeEmptyClears(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome)
 	pairCodeMu.Lock()
 	saved := pairCode
 	pairCodeMu.Unlock()

@@ -141,6 +141,15 @@ func TestHandleChunkOverrunStopsWriting(t *testing.T) {
 	if t2.Transferred > 10 {
 		t.Errorf("Transferred=%d, expected ≤10 after overrun guard", t2.Transferred)
 	}
+	// Release the open file handle so Windows TempDir cleanup can unlink it.
+	t.Cleanup(func() {
+		t2.mu.Lock()
+		if t2.file != nil {
+			t2.file.Close()
+			t2.file = nil
+		}
+		t2.mu.Unlock()
+	})
 }
 
 // TestAcceptFileBlocksTraversalEvenAfterSanitize is paranoia — confirm
@@ -159,4 +168,13 @@ func TestAcceptFileWritesInsideReceiveDir(t *testing.T) {
 	if !strings.HasPrefix(got.Path, dir) {
 		t.Errorf("Path %q is not inside ReceiveDir %q", got.Path, dir)
 	}
+	// Release the open file handle so Windows TempDir cleanup can unlink it.
+	t.Cleanup(func() {
+		got.mu.Lock()
+		if got.file != nil {
+			got.file.Close()
+			got.file = nil
+		}
+		got.mu.Unlock()
+	})
 }

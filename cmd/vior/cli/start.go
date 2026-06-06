@@ -32,6 +32,7 @@ var (
 	virtualRefresh float64
 	noWebSocket    bool
 	noDiscovery    bool
+	persistPair    bool
 )
 
 var startCmd = &cobra.Command{
@@ -55,6 +56,12 @@ a pre-configured virtual display directly (legacy mode).`,
 			return fmt.Errorf("failed to write PID file: %w", err)
 		}
 		defer os.Remove(pidFile())
+
+		// Opt-in: load/store the pair code at ~/.vior/pair.txt so the
+		// same code survives restarts. Surprises pair-only users less.
+		if persistPair {
+			stream.EnablePersistedPair()
+		}
 
 		// Legacy mode: explicit virtual display dimensions provided.
 		legacyMode := noWebSocket || (virtualWidth > 0 && virtualHeight > 0)
@@ -201,6 +208,7 @@ func init() {
 	startCmd.Flags().Float64Var(&virtualRefresh, "virtual-refresh", 60, "virtual display refresh rate")
 	startCmd.Flags().BoolVar(&noWebSocket, "no-websocket", false, "disable WebSocket mode (legacy streaming)")
 	startCmd.Flags().BoolVar(&noDiscovery, "no-discovery", false, "disable UDP discovery broadcasting")
+	startCmd.Flags().BoolVar(&persistPair, "persist-pair", false, "load/save pair code at ~/.vior/pair.txt so it survives restarts")
 }
 
 func printURLs(port int) {

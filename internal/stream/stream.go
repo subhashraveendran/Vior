@@ -37,6 +37,35 @@ func TrustedDevices() *trust.Store { return trustedDevices }
 // terminal and exposed via /info + embedded in the QR for verification.
 var pairCode = generatePairCode()
 
+// EnablePersistedPair configures the pair-code to be loaded from
+// ~/.vior/pair.txt on every server start (and persisted there the
+// first time). Trusted devices don't notice — they're admitted by
+// deviceID — but pair-only "quick connect" users get a stable code
+// across restarts. Call once before the first WS upgrade.
+func EnablePersistedPair() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Printf("stream: persisted pair disabled (no home dir): %v", err)
+		return
+	}
+	path := filepath.Join(home, ".vior", "pair.txt")
+	if b, err := os.ReadFile(path); err == nil {
+		code := strings.ToUpper(strings.TrimSpace(string(b)))
+		if len(code) == 6 {
+			pairCode = code
+			log.Printf("stream: loaded persisted pair code from %s", path)
+			return
+		}
+		log.Printf("stream: %s contents invalid (%q); regenerating", path, code)
+	}
+	_ = os.MkdirAll(filepath.Dir(path), 0o700)
+	if err := os.WriteFile(path, []byte(pairCode), 0o600); err != nil {
+		log.Printf("stream: failed to persist pair code: %v", err)
+	} else {
+		log.Printf("stream: persisted pair code to %s", path)
+	}
+}
+
 // serverID is a stable per-install ID persisted at ~/.vior/server-id so
 // mobiles can detect when the same desktop reappears at a different IP
 // (DHCP lease renewal, Wi-Fi/Ethernet hand-off). Exposed via /info.

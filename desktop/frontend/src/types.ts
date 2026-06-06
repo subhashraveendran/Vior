@@ -81,6 +81,9 @@ export interface ConnectedScreenProps {
   errorState: boolean
   onRetry: () => void
   onStop: () => void
+  accessibilityOk: boolean | null
+  onFixAccessibility: () => void
+  showFilesTab: boolean
 }
 
 export interface SettingsScreenProps {

@@ -1,7 +1,20 @@
-// Settings — stream quality, resolution, fps, connectivity (USB +
-// menu bar toggle), displays (stub), USB/ADB (stub), about, and the
-// gateway into Appearance.
-import React, { useState, useEffect } from 'react'
+// Settings — the only screen always reachable regardless of state.
+// Intentionally small surface:
+//   • Stream quality preset (perf / balanced / quality)
+//   • Auto-launch at login (persisted in localStorage; harness picks
+//     it up at next launch via LaunchAtLogin login item — actual OS
+//     wiring is a follow-up, the toggle is here so the UI is stable.)
+//   • macOS menu-bar visibility (existing, persists to ~/.vior/menubar.flag)
+//   • USB connections allowed (auto-accept paired devices over USB)
+//   • Local discovery on/off (lets the user disable mDNS broadcast on
+//     untrusted networks)
+//   • Theme / Appearance (existing)
+//
+// Removed: resolution presets (cosmetic only, not respected by the
+// capture pipeline — virtual displays match the phone's panel size),
+// frame-rate toggle (now folded into the quality preset), and the
+// fake Displays / USB-ADB placeholder rows.
+import React, { useEffect, useState } from 'react'
 import { GetMenuBarVisible, SetMenuBarVisible } from '../lib/api'
 import { Icons } from '../lib/icons'
 import Glyph from '../lib/Glyph'
@@ -17,31 +30,28 @@ interface Preset {
   f: number
 }
 
-interface Resolution {
-  id: string
-  label: string
-  sub: string
-}
-
 export default function SettingsScreen({ config, onChange, accent, setAccent }: SettingsScreenProps): React.JSX.Element {
   const presets: Preset[] = [
-    { id: 'performance', label: 'Performance', sub: 'Lower latency', q: 60, f: 60 },
-    { id: 'balanced', label: 'Balanced', sub: 'Recommended', q: 80, f: 30 },
-    { id: 'quality', label: 'Quality', sub: 'Sharper image', q: 92, f: 30 },
-  ]
-  const resolutions: Resolution[] = [
-    { id: 'auto', label: 'Auto', sub: 'Match the display' },
-    { id: '2560', label: '2560 × 1600', sub: 'Retina' },
-    { id: '1920', label: '1920 × 1200', sub: '' },
-    { id: '1280', label: '1280 × 800', sub: 'Bandwidth saver' },
+    { id: 'performance', label: 'Performance', sub: 'Lower latency · 60 fps · q60', q: 60, f: 60 },
+    { id: 'balanced',    label: 'Balanced',    sub: 'Recommended · 30 fps · q80', q: 80, f: 30 },
+    { id: 'quality',     label: 'Quality',     sub: 'Sharper image · 30 fps · q92', q: 92, f: 30 },
   ]
   const cur: string = presets.find(p => p.q === config.quality && p.f === config.frameRate)?.id || 'balanced'
-  const [res, setRes] = useState<string>('auto')
-  const [usb, setUsb] = useState<boolean>(true)
-  const [adb, setAdb] = useState<boolean>(true)
+
+  // Settings persisted in localStorage. The backend doesn't wire these
+  // yet (autoLaunch needs a Login Item plist; discovery needs a config
+  // toggle to plumb through); the UI keeps state stable so the user's
+  // choice survives reloads when the backend lands.
+  const [autoLaunch, setAutoLaunch] = useState<boolean>(localStorage.getItem('vior_autolaunch') === '1')
+  const [usbAccept, setUsbAccept] = useState<boolean>(localStorage.getItem('vior_usb_accept') !== '0')
+  const [discovery, setDiscovery] = useState<boolean>(localStorage.getItem('vior_discovery') !== '0')
   const [menuBar, setMenuBar] = useState<boolean>(true)
   useEffect(() => { GetMenuBarVisible?.().then(setMenuBar).catch(() => {}) }, [])
   const toggleMenuBar = (v: boolean): void => { setMenuBar(v); SetMenuBarVisible?.(v) }
+  const toggleAutoLaunch = (v: boolean): void => { setAutoLaunch(v); localStorage.setItem('vior_autolaunch', v ? '1' : '0') }
+  const toggleUsbAccept = (v: boolean): void => { setUsbAccept(v); localStorage.setItem('vior_usb_accept', v ? '1' : '0') }
+  const toggleDiscovery = (v: boolean): void => { setDiscovery(v); localStorage.setItem('vior_discovery', v ? '1' : '0') }
+
   const [appearance, setAppearance] = useState<boolean>(false)
   const style: string = localStorage.getItem('vior_style') || 'precise'
   const density: string = localStorage.getItem('vior_density') || 'regular'
@@ -62,44 +72,15 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }: 
         ))}
       </div>
 
-      <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>Resolution</div>
-      <div className="card" style={{ overflow: 'hidden' }}>
-        {resolutions.map((r, i) => (
-          <button key={r.id} onClick={() => setRes(r.id)} style={{
-            display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
-            padding: '13px 15px', background: res === r.id ? 'var(--accent-weak)' : 'transparent',
-            border: 'none', borderTop: i ? '1px solid var(--border)' : 'none', cursor: 'pointer',
-          }}>
-            <span style={{ flex: 1, minWidth: 0 }}>
-              <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--text-1)' }}>{r.label}</span>
-              {r.sub && <span className="mono" style={{ display: 'block', fontSize: 11.5, color: 'var(--text-3)', marginTop: 2 }}>{r.sub}</span>}
-            </span>
-            {res === r.id
-              ? <span style={{ color: 'var(--accent)' }}>{Icons.check(18)}</span>
-              : <span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px solid var(--border-strong)', flex: 'none' }} />}
-          </button>
-        ))}
-      </div>
-
-      <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>Frame rate</div>
-      <div className="seg" style={{ gridTemplateColumns: '1fr 1fr' }}>
-        {['30', '60'].map(v => (
-          <button key={v} className={`seg-btn ${String(config.frameRate) === v ? 'active' : ''}`}
-            onClick={() => onChange({ ...config, frameRate: parseInt(v) } as AppConfig)}>
-            <div className="seg-row"><span>{v} fps</span></div>
-          </button>
-        ))}
-      </div>
-
-      <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>Connectivity</div>
+      <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>General</div>
       <div className="card">
         <div className="settings-row">
           <div className="settings-row-body">
-            <div className="settings-row-title">Allow USB connections</div>
-            <div className="settings-row-sub">Connect over cable when Wi-Fi drops</div>
+            <div className="settings-row-title">Launch Vior at login</div>
+            <div className="settings-row-sub">Server starts in the background, ready for the phone</div>
           </div>
-          <button className={`toggle ${usb ? 'toggle-on' : 'toggle-off'}`} onClick={() => setUsb(!usb)}>
-            <span className="toggle-knob" style={{ transform: `translateX(${usb ? 17 : 0}px)` }} />
+          <button className={`toggle ${autoLaunch ? 'toggle-on' : 'toggle-off'}`} onClick={() => toggleAutoLaunch(!autoLaunch)}>
+            <span className="toggle-knob" style={{ transform: `translateX(${autoLaunch ? 17 : 0}px)` }} />
           </button>
         </div>
         <div className="settings-row">
@@ -113,47 +94,25 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }: 
         </div>
       </div>
 
-      <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>Displays</div>
-      <div className="card">
-        <div className="settings-row">
-          <span style={{ color: 'var(--text-3)' }}>{Icons.monitor2(18)}</span>
-          <div className="settings-row-body">
-            <div className="settings-row-title">Built-in Retina Display</div>
-            <div className="settings-row-sub">2560 × 1600</div>
-          </div>
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', padding: '4px 9px', borderRadius: 'var(--r-pill)', background: 'var(--accent-weak)' }}>Primary</span>
-        </div>
-        <div className="settings-row">
-          <span style={{ color: 'var(--text-3)' }}>{Icons.monitor2(18)}</span>
-          <div className="settings-row-body">
-            <div className="settings-row-title">DELL U2720Q</div>
-            <div className="settings-row-sub">3840 × 2160</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>USB / ADB</div>
+      <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>Connectivity</div>
       <div className="card">
         <div className="settings-row">
           <div className="settings-row-body">
-            <div className="settings-row-title">{adb ? '1 device attached' : 'No bridge installed'}</div>
-            <div className="settings-row-sub">{adb ? 'Pixel 8 Pro · usb-2' : 'platform-tools not found'}</div>
+            <div className="settings-row-title">Local discovery</div>
+            <div className="settings-row-sub">Broadcast on the LAN so the phone finds Vior automatically</div>
           </div>
-          {adb
-            ? <button className="btn btn-ghost btn-sm" onClick={() => setAdb(true)}>{Icons.refresh(17)} Restart</button>
-            : <button className="btn btn-primary btn-sm" onClick={() => setAdb(true)}>{Icons.download(17)} Install</button>}
+          <button className={`toggle ${discovery ? 'toggle-on' : 'toggle-off'}`} onClick={() => toggleDiscovery(!discovery)}>
+            <span className="toggle-knob" style={{ transform: `translateX(${discovery ? 17 : 0}px)` }} />
+          </button>
         </div>
-      </div>
-
-      <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>About</div>
-      <div className="card">
         <div className="settings-row">
-          <Glyph size={28} />
           <div className="settings-row-body">
-            <div className="settings-row-title">Vior</div>
-            <div className="settings-row-sub">Phase 2 · open source</div>
+            <div className="settings-row-title">Auto-accept paired USB devices</div>
+            <div className="settings-row-sub">Skip the connect prompt for phones you've paired before</div>
           </div>
-          <a href="https://github.com/subhashraveendran/Vior" target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>Check for updates</a>
+          <button className={`toggle ${usbAccept ? 'toggle-on' : 'toggle-off'}`} onClick={() => toggleUsbAccept(!usbAccept)}>
+            <span className="toggle-knob" style={{ transform: `translateX(${usbAccept ? 17 : 0}px)` }} />
+          </button>
         </div>
       </div>
 
@@ -168,6 +127,18 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }: 
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-3)' }}><path d="M9 5l7 7-7 7"/></svg>
         </div>
       </button>
+
+      <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>About</div>
+      <div className="card">
+        <div className="settings-row">
+          <Glyph size={28} />
+          <div className="settings-row-body">
+            <div className="settings-row-title">Vior</div>
+            <div className="settings-row-sub">Phase 2 · open source</div>
+          </div>
+          <a href="https://github.com/subhashraveendran/Vior" target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>Check for updates</a>
+        </div>
+      </div>
     </div>
   )
 }

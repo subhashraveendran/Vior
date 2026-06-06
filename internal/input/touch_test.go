@@ -85,14 +85,15 @@ func TestHandleMouseMoveAccumulates(t *testing.T) {
 	}
 }
 
-// When the cursor has wandered onto a virtual display (Stream-tab touches
-// can park it there), the next Remote-tab "move" must warp the cursor
-// back to the centre of the host's primary display so the user can see
-// it. Without the warp the cursor keeps sliding around an invisible
-// region and the Remote tab looks dead.
-func TestHandleMouseMoveWarpsBackFromVirtualDisplay(t *testing.T) {
+// When the cursor lives on the captured (virtual) display the Remote
+// tab is mirroring, the next "move" must apply the delta in place — NOT
+// warp the cursor back to the main display. Warping in that case yanks
+// the host's main-screen cursor on every touch (the "remote moves too"
+// bug) and breaks the user's ability to actually drive the virtual
+// display from the Remote tab.
+func TestHandleMouseMoveStaysOnCapturedDisplay(t *testing.T) {
 	c := &fakeCtrl{
-		curX: 2500, curY: 300, // off-screen, past mainW=1920
+		curX: 2500, curY: 300, // on the virtual display, off the main
 		mainW: 1920, mainH: 1080,
 	}
 	tm := NewTouchMapper(c, image.Rect(1920, 0, 4000, 1300))
@@ -104,7 +105,30 @@ func TestHandleMouseMoveWarpsBackFromVirtualDisplay(t *testing.T) {
 	if len(c.moves) != 1 {
 		t.Fatalf("expected one move, got %v", c.moves)
 	}
-	// Should have warped to centre (960, 540) then applied dx=10,dy=0.
+	// Cursor was inside the captured display → no warp; just dx applied.
+	if c.moves[0] != [2]int{2510, 300} {
+		t.Fatalf("expected in-place delta, got %v", c.moves[0])
+	}
+}
+
+// Cursor parked on a stale display (outside both main and the current
+// captured display) is the only case where the warp-back-to-main rescue
+// should trigger.
+func TestHandleMouseMoveWarpsBackFromStaleDisplay(t *testing.T) {
+	c := &fakeCtrl{
+		curX: 5000, curY: 5000, // off main AND off captured
+		mainW: 1920, mainH: 1080,
+	}
+	tm := NewTouchMapper(c, image.Rect(1920, 0, 4000, 1300))
+
+	if err := tm.HandleMouse("move", 10, 0); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(c.moves) != 1 {
+		t.Fatalf("expected one move, got %v", c.moves)
+	}
+	// Warp to main centre (960, 540) then apply dx=10, dy=0.
 	if c.moves[0] != [2]int{970, 540} {
 		t.Fatalf("expected warp-to-main + delta, got %v", c.moves[0])
 	}

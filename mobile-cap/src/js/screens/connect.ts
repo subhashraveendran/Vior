@@ -267,3 +267,46 @@ function doDisconnect(): void {
 // server is selected (see handler above).
 const pairOnlyBtn = $('pair-only-btn');
 if (pairOnlyBtn) pairOnlyBtn.addEventListener('click', function () { promptPair(); });
+
+// ── Entry-mode toggle (Wi-Fi vs USB cable) ─────────────────────────
+// Switches the empty-view body without changing actual transport.
+// USB callbacks fire from native regardless; this just hides
+// irrelevant fields so USB users don't see IP/pair prompts they
+// can't use.
+function applyEntryMode(mode: 'wifi' | 'usb'): void {
+  const wifi = $('entry-wifi');
+  const usb = $('entry-usb');
+  if (!wifi || !usb) return;
+  if (mode === 'usb') { wifi.classList.add('hidden'); usb.classList.remove('hidden'); }
+  else { usb.classList.add('hidden'); wifi.classList.remove('hidden'); }
+  const seg = $('entry-mode-seg');
+  if (seg) {
+    seg.querySelectorAll<HTMLElement>('.seg-btn').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.entry === mode);
+    });
+  }
+  localStorage.setItem('vior_entry_mode', mode);
+}
+const entryModeSeg = $('entry-mode-seg');
+if (entryModeSeg) {
+  entryModeSeg.querySelectorAll<HTMLElement>('.seg-btn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      const m = (b.dataset.entry === 'usb') ? 'usb' : 'wifi';
+      applyEntryMode(m);
+    });
+  });
+}
+applyEntryMode(((localStorage.getItem('vior_entry_mode') as 'wifi' | 'usb') || 'wifi'));
+// Re-apply whenever the empty view becomes visible — covers the case
+// where USB disconnect flips back to discovery while user was in USB
+// mode but the seg state didn't update mid-session.
+(window as unknown as { syncEntryMode?: () => void }).syncEntryMode = function (): void {
+  applyEntryMode(((localStorage.getItem('vior_entry_mode') as 'wifi' | 'usb') || 'wifi'));
+};
+
+// USB troubleshooting link — open Android USB settings intent.
+const usbHelpBtn = $('usb-help-btn');
+if (usbHelpBtn) usbHelpBtn.addEventListener('click', function () {
+  toast('info', 'USB checklist',
+    'Use a data cable. Allow "Vior USB access" prompt. Restart Vior desktop if needed.');
+});

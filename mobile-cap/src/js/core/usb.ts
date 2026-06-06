@@ -24,6 +24,9 @@ window.onUsbFrame = function (b64: string): void {
 window.onUsbConnected = function (): void {
   transportMode = 'usb';
   connected = true;
+  // Remember USB preference so a later disconnect returns the user
+  // to the USB entry surface (not Wi-Fi).
+  try { localStorage.setItem('vior_entry_mode', 'usb'); } catch (_) {}
   // Populate the same fields a Wi-Fi connect would, so the Connected
   // card + stream overlay render correctly.
   serverName = 'Desktop via USB';
@@ -71,6 +74,8 @@ window.onUsbDisconnected = function (): void {
   // Flip back to discovery view; reset card + tabs.
   const showFn = (window as unknown as { showView?: (n: string) => void }).showView;
   if (typeof showFn === 'function') showFn('disc');
+  const sync = (window as unknown as { syncEntryMode?: () => void }).syncEntryMode;
+  if (typeof sync === 'function') sync();
   $('files-offline')?.classList.remove('hidden');
   $('files-active')?.classList.add('hidden');
   $('remote-offline')?.classList.remove('hidden');

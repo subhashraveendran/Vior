@@ -58,6 +58,10 @@ type HelloMessage struct {
 	Mode     string  `json:"mode"` // "extend" or "mirror"
 	PairCode string  `json:"pairCode,omitempty"`
 	DeviceID string  `json:"deviceId,omitempty"`
+	// Platform is an optional friendly OS label sent by the client
+	// (e.g. "iOS 18", "Android 14", "Web · Chrome"). Recorded in the
+	// trust store so the desktop "Trusted Devices" UI can show a pill.
+	Platform string `json:"platform,omitempty"`
 	// Intent declares why the client connected: "display" (default —
 	// virtual display + stream), "remote" (touchpad/keyboard only, no
 	// virtual display, input maps to the main display), or "files"

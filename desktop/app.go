@@ -1023,6 +1023,70 @@ func (a *App) CheckPermissions() error {
 	return capture.CheckScreenRecordingPermission()
 }
 
+// ── Trusted devices (Settings UI) ───────────────────────────────────
+
+// TrustedDevice is the Wails-facing shape of a trust.Entry. Times are
+// emitted as RFC3339 strings so the frontend can format with
+// Intl.RelativeTimeFormat without going through Date(0) sentinels.
+type TrustedDevice struct {
+	DeviceID  string `json:"deviceId"`
+	Name      string `json:"name"`
+	Platform  string `json:"platform"`
+	FirstSeen string `json:"firstSeen"`
+	LastSeen  string `json:"lastSeen"`
+}
+
+// ListTrustedDevices returns every device admitted via pair-code at
+// least once. Sorted by LastSeen descending so the most-recently-used
+// device appears at the top of the Settings card.
+func (a *App) ListTrustedDevices() []TrustedDevice {
+	entries := stream.TrustedDevices().List()
+	out := make([]TrustedDevice, len(entries))
+	for i, e := range entries {
+		out[i] = TrustedDevice{
+			DeviceID:  e.DeviceID,
+			Name:      e.Name,
+			Platform:  e.Platform,
+			FirstSeen: e.FirstSeen.Format(time.RFC3339),
+			LastSeen:  e.LastSeen.Format(time.RFC3339),
+		}
+	}
+	// Sort by LastSeen descending. Stable sort is overkill for a short
+	// list; a hand-rolled bubble compare here keeps the dependency
+	// surface flat (no `sort` import elsewhere in this file).
+	for i := 0; i < len(out); i++ {
+		for j := i + 1; j < len(out); j++ {
+			if out[j].LastSeen > out[i].LastSeen {
+				out[i], out[j] = out[j], out[i]
+			}
+		}
+	}
+	return out
+}
+
+// ForgetTrustedDevice removes a single device from the trust store.
+// Frontend should refresh ListTrustedDevices after this returns.
+func (a *App) ForgetTrustedDevice(deviceID string) error {
+	if deviceID == "" {
+		return fmt.Errorf("deviceID required")
+	}
+	return stream.TrustedDevices().Forget(deviceID)
+}
+
+// ClearAllTrustedDevices wipes the entire trust list. The next connect
+// from any previously-paired device will re-prompt for the pair code.
+func (a *App) ClearAllTrustedDevices() error {
+	return stream.TrustedDevices().Clear()
+}
+
+// SetPairCode persists a user-chosen pair-code override at
+// ~/.vior/pair.txt. Pass an empty string to clear the override and
+// fall back to the machine-derived default. Validation (4-8 digits)
+// happens inside stream.SetPairCode.
+func (a *App) SetPairCode(code string) error {
+	return stream.SetPairCode(code)
+}
+
 // HasAccessibility reports whether the app is trusted to inject input
 // events. On macOS this requires the user to add Vior to System Settings
 // → Privacy & Security → Accessibility. Without it the Remote tab on the

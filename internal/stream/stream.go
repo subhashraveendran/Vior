@@ -5,6 +5,8 @@ package stream
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"log"
@@ -13,12 +15,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/subhashraveendran/vior/internal/machineid"
 	"github.com/subhashraveendran/vior/internal/protocol"
 	"github.com/subhashraveendran/vior/internal/trust"
 )
@@ -33,37 +37,122 @@ var trustedDevices = trust.Default()
 // forget devices from the UI (e.g. Settings → Trusted devices).
 func TrustedDevices() *trust.Store { return trustedDevices }
 
-// pairCode is a short hex string generated at server start. Printed to the
-// terminal and exposed via /info + embedded in the QR for verification.
-var pairCode = generatePairCode()
+// pairCode is the 4-digit numeric "phone number" for this Vior install.
+// It is derived deterministically from the machine UUID — the user can
+// memorise it once and it survives reinstalls + ~/.vior/pair.txt wipes.
+// A user-set override (SetPairCode) is read from ~/.vior/pair.txt if
+// EnablePersistedPair was called.
+var (
+	pairCodeMu sync.RWMutex
+	pairCode   = derivePair()
+)
 
-// EnablePersistedPair configures the pair-code to be loaded from
-// ~/.vior/pair.txt on every server start (and persisted there the
-// first time). Trusted devices don't notice — they're admitted by
-// deviceID — but pair-only "quick connect" users get a stable code
-// across restarts. Call once before the first WS upgrade.
-func EnablePersistedPair() {
+// derivePair returns the stable 4-digit pair code for this machine.
+// Strategy: SHA-256("vior-pair:" + machineID), walk the lower-case hex
+// digest collecting decimal digits 0-9 until we have 4. SHA-256 hex is
+// 64 chars long and on average ~25 of them are decimal digits, so the
+// "<4 collected" branch is statistically impossible — but the fallback
+// (Uint32 of the first 4 bytes mod 10000) is there for defence in depth.
+func derivePair() string {
+	id := machineid.ID()
+	sum := sha256.Sum256([]byte("vior-pair:" + id))
+	hexed := hex.EncodeToString(sum[:])
+	var b strings.Builder
+	for _, c := range hexed {
+		if c >= '0' && c <= '9' {
+			b.WriteByte(byte(c))
+			if b.Len() == 4 {
+				return b.String()
+			}
+		}
+	}
+	// Fallback: take the first 4 bytes as a uint32, mod 10000, zero-pad.
+	return fmt.Sprintf("%04d", binary.BigEndian.Uint32(sum[:4])%10000)
+}
+
+// pairFilePath returns ~/.vior/pair.txt or "" if no home directory.
+func pairFilePath() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		log.Printf("stream: persisted pair disabled (no home dir): %v", err)
+		return ""
+	}
+	return filepath.Join(home, ".vior", "pair.txt")
+}
+
+var pairOverrideRe = regexp.MustCompile(`^[0-9]{4,8}$`)
+
+// EnablePersistedPair loads the user-override pair code from
+// ~/.vior/pair.txt if it exists. The default machine-derived code is
+// never persisted, so deleting the file always falls back cleanly to
+// the same derived value (the user's "phone number"). Call once before
+// the first WS upgrade.
+func EnablePersistedPair() {
+	path := pairFilePath()
+	if path == "" {
+		log.Printf("stream: persisted pair disabled (no home dir)")
 		return
 	}
-	path := filepath.Join(home, ".vior", "pair.txt")
-	if b, err := os.ReadFile(path); err == nil {
-		code := strings.ToUpper(strings.TrimSpace(string(b)))
-		if len(code) == 6 {
-			pairCode = code
-			log.Printf("stream: loaded persisted pair code from %s", path)
-			return
+	b, err := os.ReadFile(path)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			log.Printf("stream: read %s failed: %v (using derived pair)", path, err)
 		}
-		log.Printf("stream: %s contents invalid (%q); regenerating", path, code)
+		log.Printf("stream: using derived pair code %s", PairCode())
+		return
 	}
-	_ = os.MkdirAll(filepath.Dir(path), 0o700)
-	if err := os.WriteFile(path, []byte(pairCode), 0o600); err != nil {
-		log.Printf("stream: failed to persist pair code: %v", err)
-	} else {
-		log.Printf("stream: persisted pair code to %s", path)
+	code := strings.TrimSpace(string(b))
+	if !pairOverrideRe.MatchString(code) {
+		log.Printf("stream: %s contents invalid (%q); using derived pair", path, code)
+		return
 	}
+	pairCodeMu.Lock()
+	pairCode = code
+	pairCodeMu.Unlock()
+	log.Printf("stream: loaded persisted pair-code override from %s", path)
+}
+
+// SetPairCode persists a user-chosen pair code (4–8 digits) to
+// ~/.vior/pair.txt atomically and updates the in-memory value. Returns
+// an error for invalid input or filesystem failures. Pass an empty
+// string to clear the override and fall back to the machine-derived
+// default.
+func SetPairCode(s string) error {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		path := pairFilePath()
+		if path == "" {
+			return fmt.Errorf("no home directory")
+		}
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		pairCodeMu.Lock()
+		pairCode = derivePair()
+		pairCodeMu.Unlock()
+		return nil
+	}
+	if !pairOverrideRe.MatchString(s) {
+		return fmt.Errorf("pair code must be 4-8 digits (0-9)")
+	}
+	path := pairFilePath()
+	if path == "" {
+		return fmt.Errorf("no home directory")
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, []byte(s), 0o600); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	pairCodeMu.Lock()
+	pairCode = s
+	pairCodeMu.Unlock()
+	return nil
 }
 
 // serverID is a stable per-install ID persisted at ~/.vior/server-id so
@@ -101,10 +190,10 @@ func loadOrCreateServerID() string {
 // ServerID returns the stable per-install server identifier.
 func ServerID() string { return serverID }
 
-// pairAttempts tracks failed pair-code submissions per remote IP. A
-// script kiddie on the LAN can otherwise brute-force a 6-char hex pair
-// (16.7M combos, but file transfers are the prize) in hours by spamming
-// hellos. Throttle each IP to maxPairAttempts every pairAttemptWindow.
+// pairAttempts tracks failed pair-code submissions per remote IP. With
+// the 4-digit numeric pair (10000 combos) brute force is ~33 hours at
+// the throttle below — acceptable for LAN use. Throttle each IP to
+// maxPairAttempts every pairAttemptWindow.
 const (
 	maxPairAttempts   = 5
 	pairAttemptWindow = time.Minute
@@ -168,16 +257,13 @@ func remoteIP(remoteAddr string) string {
 	return host
 }
 
-func generatePairCode() string {
-	b := make([]byte, 3)
-	if _, err := rand.Read(b); err != nil {
-		return "000000"
-	}
-	return strings.ToUpper(hex.EncodeToString(b))
+// PairCode returns the active pair code: the user-override if set, else
+// the machine-derived 4-digit numeric default.
+func PairCode() string {
+	pairCodeMu.RLock()
+	defer pairCodeMu.RUnlock()
+	return pairCode
 }
-
-// PairCode returns the active 6-char hex pair code.
-func PairCode() string { return pairCode }
 
 const (
 	// maxClients limits concurrent MJPEG stream connections.
@@ -506,7 +592,7 @@ func (s *MJPEGServer) handleInfo(w http.ResponseWriter, r *http.Request) {
 	// deviceId is the stable server-install ID. Mobiles save it and
 	// use it to re-find the server at a new IP after DHCP drift.
 	fmt.Fprintf(w, `{"name":"%s","version":"%s","platform":"%s","pairCode":"%s","deviceId":"%s"}`,
-		name, "0.1.0", friendlyPlatform(), pairCode, serverID)
+		name, "0.1.0", friendlyPlatform(), PairCode(), serverID)
 }
 
 func friendlyDeviceName() string {
@@ -618,14 +704,17 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case trustedDevices.IsTrusted(hello.DeviceID):
 		log.Printf("stream: admitted trusted device [%s] id=%s", session.ID, hello.DeviceID)
-		_ = trustedDevices.Add(hello.DeviceID, hello.Name) // touch LastSeen
+		// Touch LastSeen + refresh name/platform so the Settings UI
+		// reflects the latest device label even between repairs.
+		_ = trustedDevices.Touch(hello.DeviceID, hello.Name, hello.Platform)
 		clearPairAttempts(ip)
-	case strings.EqualFold(strings.TrimSpace(hello.PairCode), pairCode):
+	case strings.TrimSpace(hello.PairCode) == PairCode():
 		if hello.DeviceID != "" {
-			if err := trustedDevices.Add(hello.DeviceID, hello.Name); err != nil {
+			if err := trustedDevices.Touch(hello.DeviceID, hello.Name, hello.Platform); err != nil {
 				log.Printf("trust: store add failed [%s]: %v", session.ID, err)
 			} else {
-				log.Printf("trust: paired new device [%s] id=%s name=%q", session.ID, hello.DeviceID, hello.Name)
+				log.Printf("trust: paired new device [%s] id=%s name=%q platform=%q",
+					session.ID, hello.DeviceID, hello.Name, hello.Platform)
 			}
 		}
 		clearPairAttempts(ip)
@@ -635,7 +724,7 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		// 16M-combo hex pair code in roughly a day.
 		over := recordPairAttempt(ip)
 		log.Printf("stream: pair mismatch [%s] from %s: got %q want %q (deviceID=%q untrusted) over=%v",
-			session.ID, ip, hello.PairCode, pairCode, hello.DeviceID, over)
+			session.ID, ip, hello.PairCode, PairCode(), hello.DeviceID, over)
 		if over {
 			session.Send(protocol.MsgError, &protocol.ErrorMessage{
 				Code:    "rate_limited",

@@ -2,9 +2,9 @@
 //
 // UX: collapse everything onto one centred column with the QR as the
 // hero element (Deskreen-style — large, instantly scannable, with a
-// copy-URL fallback right under it). Pair code is rendered ABC-123
-// purely for visual chunking — the server stores the raw 6-char form
-// and the mobile parses both with or without the dash.
+// copy-URL fallback right under it). Pair code is a 4-digit number —
+// the user's "phone number" for Vior — stable for the life of the
+// hardware, so they can memorise it once.
 //
 // Pre-connect surface intentionally hides Files / Permissions / virtual-
 // display info: there's no client to send a file to, no input to inject,
@@ -21,11 +21,12 @@ interface WaitingScreenProps extends BaseWaitingScreenProps {
   disconnectBanner: string | null
 }
 
-// formatPair splits "ABC123" → "ABC-123" purely for readability.
+// formatPair renders the pair code. Now that the code is 4 numeric
+// digits there's nothing to chunk — but the helper stays so any
+// future digit-grouping (e.g. 6-digit override) lives in one place.
 function formatPair(code: string | undefined): string {
   if (!code) return ''
-  if (code.length <= 3) return code
-  return `${code.slice(0, 3)}-${code.slice(3)}`
+  return code
 }
 
 export default function WaitingScreen({ status, onStop, onCopy, onCopyPair, disconnectBanner }: WaitingScreenProps): React.JSX.Element {

@@ -34,9 +34,9 @@ document.addEventListener('click', function (e: MouseEvent) {
 });
 if ($('pair-prompt-cancel')) $('pair-prompt-cancel').addEventListener('click', closePair);
 if ($('pair-prompt-go')) $('pair-prompt-go').addEventListener('click', function () {
-  // Live formatter inserts "ABC-123" — strip the dash before sending.
+  // Digits-only — the live formatter already strips non-numeric input.
   const v = (($('pair-prompt-input') as HTMLInputElement).value || '')
-    .toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
+    .replace(/[^0-9]/g, '').trim();
   if (!v) return;
   ($('manual-pair') as HTMLInputElement).value = v;
   closePair();
@@ -51,7 +51,7 @@ if ($('pair-prompt-go')) $('pair-prompt-go').addEventListener('click', function 
   }
 });
 
-// Pair-only flow: user typed a 6-char code, didn't pick a server.
+// Pair-only flow: user typed a 4-digit code, didn't pick a server.
 // Probe every IP in the local /24 in parallel, ask each one's /info,
 // match the pairCode field, connect to the first hit.
 async function pairOnlyConnect(pair: string): Promise<void> {
@@ -91,7 +91,7 @@ async function pairOnlyConnect(pair: string): Promise<void> {
         const r = await fetch('http://' + host + ':8080/info', { signal: ctrl.signal });
         if (!r.ok) return null;
         const info = await r.json();
-        if ((info.pairCode || '').toUpperCase() === pair.toUpperCase()) {
+        if ((info.pairCode || '') === pair) {
           return { host, port: 8080, info };
         }
       } catch (_) { /* timeout or refused */ }
@@ -198,7 +198,7 @@ function doConnect(): void {
 
   ws.onopen = function () {
     const dpr = window.devicePixelRatio || 1;
-    const pair = (($('manual-pair') as HTMLInputElement | null) && ($('manual-pair') as HTMLInputElement).value || '').toUpperCase().trim();
+    const pair = (($('manual-pair') as HTMLInputElement | null) && ($('manual-pair') as HTMLInputElement).value || '').replace(/[^0-9]/g, '').trim();
     // Stable per-install device ID — once the server trusts us, we never
     // need to re-enter the pair code from this app install again.
     let deviceID = localStorage.getItem('vior_device_id');
@@ -212,10 +212,17 @@ function doConnect(): void {
     const intentFn = (window as unknown as { viorIntent?: () => 'display' | 'remote' | 'files' }).viorIntent;
     const intent = (typeof intentFn === 'function' ? intentFn() : 'display');
     const skipDisplay = intent === 'remote' || intent === 'files';
+    // Friendly platform label so the desktop "Trusted Devices" UI can
+    // show an "iOS" / "Android" / "Mobile" pill. Cheap UA sniff — the
+    // value is never used for security, only display.
+    const ua = navigator.userAgent || '';
+    let platform = 'Mobile';
+    if (/iPad|iPhone|iPod/.test(ua)) platform = 'iOS';
+    else if (/Android/.test(ua)) platform = 'Android';
     ws!.send(JSON.stringify({ type: 'hello', data: {
       width: Math.round(screen.width * dpr), height: Math.round(screen.height * dpr),
       dpr: dpr, name: 'Vior Mobile', mode: selectedMode, pairCode: pair, deviceId: deviceID,
-      intent: intent, skipDisplay: skipDisplay
+      intent: intent, skipDisplay: skipDisplay, platform: platform
     }}));
   };
 
@@ -349,7 +356,7 @@ function doConnect(): void {
         if (selectedServer) {
           try { localStorage.removeItem('vior_known_' + selectedServer.host + ':' + selectedServer.port); } catch (_) {}
         }
-        toast('error', 'Pair code rejected', 'Enter the 6-character code shown on the desktop.');
+        toast('error', 'Pair code rejected', 'Enter the 4-digit code shown on the desktop.');
         promptPair();
       } else if (code === 'occupied') {
         // Second-tab scenario: the desktop server already has a WS
@@ -631,15 +638,14 @@ function clearCascadeMemory(): void {
   try { localStorage.removeItem(CASCADE_KEY); } catch (_) {}
 }
 
-// Normalise pair-code input: strip dashes/spaces/non-alphanumerics and
-// uppercase. Returns at most 6 chars. Centralised here so every step's
-// input field can call into the same rule.
+// Normalise pair-code input: strip everything that isn't a decimal
+// digit and truncate to 4 chars. The pair code is the machine's
+// "phone number" — short enough to memorise, no chunking needed.
 function normalisePairCode(raw: string): string {
-  return (raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  return (raw || '').replace(/[^0-9]/g, '').slice(0, 4);
 }
 function formatPairCode(raw: string): string {
-  const clean = normalisePairCode(raw);
-  return clean.length > 3 ? clean.slice(0, 3) + '-' + clean.slice(3) : clean;
+  return normalisePairCode(raw);
 }
 
 // Permissive IP/URL parser. Accepts:
@@ -663,7 +669,7 @@ function parseAddrInput(raw: string): ParsedAddr | null {
   if (q !== -1) {
     const query = s.slice(q + 1);
     s = s.slice(0, q);
-    const m = query.match(/(?:pair|code)=([A-Za-z0-9-]+)/);
+    const m = query.match(/(?:pair|code)=([0-9A-Za-z-]+)/);
     if (m) pair = normalisePairCode(m[1]);
   }
   // Drop any path component.
@@ -682,8 +688,8 @@ function parseAddrInput(raw: string): ParsedAddr | null {
 // probes the local /24.
 function cascadeSubmitPair(raw: string): void {
   const pair = normalisePairCode(raw);
-  if (pair.length !== 6) {
-    toast('error', 'Pair code too short', 'Enter all 6 characters.');
+  if (pair.length !== 4) {
+    toast('error', 'Pair code too short', 'Enter all 4 digits.');
     return;
   }
   const mp = document.getElementById('manual-pair') as HTMLInputElement | null;
@@ -740,7 +746,7 @@ const cascadeCGo = document.getElementById('cascade-c-go') as HTMLButtonElement 
 if (cascadeCInput) {
   cascadeCInput.addEventListener('input', function () {
     cascadeCInput.value = formatPairCode(cascadeCInput.value);
-    const ok = normalisePairCode(cascadeCInput.value).length === 6;
+    const ok = normalisePairCode(cascadeCInput.value).length === 4;
     if (cascadeCGo) cascadeCGo.disabled = !ok;
   });
   cascadeCInput.addEventListener('keydown', function (e: Event) {
@@ -826,26 +832,14 @@ if (cascadeWifiLink) cascadeWifiLink.addEventListener('click', function () {
 };
 (window as unknown as { clearCascadeMemory?: () => void }).clearCascadeMemory = clearCascadeMemory;
 
-// ── Pair-prompt input: live ABC-123 formatting ─────────────────────
-// We accept up to 7 chars (6 + the dash). On every keystroke we strip
-// non-alphanumeric and re-insert the dash so the user sees the same
-// "ABC-123" shape as the desktop's pair-code display.
+// ── Pair-prompt input: live digit-only formatting ──────────────────
+// Pair code is now 4 numeric digits. Strip everything else and clamp.
 const pairInput = $('pair-prompt-input') as HTMLInputElement | null;
 if (pairInput) {
   pairInput.addEventListener('input', function () {
-    const raw = (pairInput.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
-    const formatted = raw.length > 3 ? raw.slice(0, 3) + '-' + raw.slice(3) : raw;
-    if (pairInput.value !== formatted) pairInput.value = formatted;
+    const raw = (pairInput.value || '').replace(/[^0-9]/g, '').slice(0, 4);
+    if (pairInput.value !== raw) pairInput.value = raw;
   });
-}
-// Strip the dash before sending to manual-pair / WS.
-const pairGo = $('pair-prompt-go');
-if (pairGo) {
-  // Wrap the existing onclick chain: existing handler reads .value and
-  // upper-cases it — by the time it runs we want only A-Z0-9. Replace
-  // .value just before the existing click fires by overriding it here.
-  // We can't reorder listeners cleanly, so we normalize in the handler
-  // above; the existing one already uppercases + trims.
 }
 
 // ── USB transition helpers ─────────────────────────────────────────

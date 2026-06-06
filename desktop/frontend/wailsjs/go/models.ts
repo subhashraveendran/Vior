@@ -157,6 +157,26 @@ export namespace main {
 	        this.url = source["url"];
 	    }
 	}
+	export class TrustedDevice {
+	    deviceId: string;
+	    name: string;
+	    platform: string;
+	    firstSeen: string;
+	    lastSeen: string;
+
+	    static createFrom(source: any = {}) {
+	        return new TrustedDevice(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.deviceId = source["deviceId"];
+	        this.name = source["name"];
+	        this.platform = source["platform"];
+	        this.firstSeen = source["firstSeen"];
+	        this.lastSeen = source["lastSeen"];
+	    }
+	}
 	export class VirtualDisplayConfig {
 	    width: number;
 	    height: number;
@@ -302,11 +322,12 @@ export namespace protocol {
 	    mode: string;
 	    pairCode?: string;
 	    deviceId?: string;
-	
+	    platform?: string;
+
 	    static createFrom(source: any = {}) {
 	        return new HelloMessage(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.width = source["width"];
@@ -316,6 +337,7 @@ export namespace protocol {
 	        this.mode = source["mode"];
 	        this.pairCode = source["pairCode"];
 	        this.deviceId = source["deviceId"];
+	        this.platform = source["platform"];
 	    }
 	}
 	export class InputMessage {

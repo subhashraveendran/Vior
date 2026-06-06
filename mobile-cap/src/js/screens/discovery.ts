@@ -1,8 +1,9 @@
-// MIGRATED → see discovery.ts
 'use strict';
 // ── Discovery ──
-var foundServers = {}, discoveryTimeout = null, scanning = false;
-function startDiscovery() {
+let foundServers: Record<string, ServerInfo> = {};
+let discoveryTimeout: ReturnType<typeof setTimeout> | null = null;
+let scanning = false;
+function startDiscovery(): void {
   foundServers = {}; selectedServer = null; scanning = true;
   if (localStorage.getItem('vior_wifi') === '0' || localStorage.getItem('vior_usb_only') === '1') {
     $('disc-status').textContent = 'Wi-Fi discovery off';
@@ -23,20 +24,20 @@ function startDiscovery() {
       '<div class="empty-body">Looking for Vior servers on your network.</div>' +
     '</div>';
   showView('disc');
-  $('connect-btn').disabled = true;
+  ($('connect-btn') as HTMLButtonElement).disabled = true;
   $('connect-label').textContent = 'Select a server';
 
-  var last = localStorage.getItem('vior_last');
-  if (last) { var p = last.split(':'); probeServer(p[0], parseInt(p[1])); }
+  const last = localStorage.getItem('vior_last');
+  if (last) { const p = last.split(':'); probeServer(p[0], parseInt(p[1])); }
 
-  getLocalIP(function (ip) {
+  getLocalIP(function (ip: string | null) {
     if (!ip) { setTimeout(showEmpty, 2500); return; }
-    var base = ip.split('.').slice(0, 3).join('.');
+    const base = ip.split('.').slice(0, 3).join('.');
     // Parallel /24 sweep — fire all 254 probes at once; AbortController
     // inside probeServer enforces a 1.5s per-probe timeout. Total wall
     // time ≈ 1.5s instead of ~5s for sequential 13×300ms batching.
-    var probes = [];
-    for (var i = 1; i < 255; i++) probes.push(probeServer(base + '.' + i, 8080));
+    const probes: Promise<void>[] = [];
+    for (let i = 1; i < 255; i++) probes.push(probeServer(base + '.' + i, 8080));
     Promise.allSettled(probes).then(function () {
       scanning = false;
       if (!selectedServer && Object.keys(foundServers).length === 0) showEmpty();
@@ -50,23 +51,23 @@ function startDiscovery() {
   }, 4000);
 }
 
-function probeServer(host, port) {
-  var key = host + ':' + port;
+function probeServer(host: string, port: number): Promise<void> {
+  const key = host + ':' + port;
   if (foundServers[key]) return Promise.resolve();
-  var ctrl = new AbortController();
+  const ctrl = new AbortController();
   setTimeout(function () { ctrl.abort(); }, 1500);
   return fetch('http://' + host + ':' + port + '/info', { signal: ctrl.signal })
-    .then(function (r) { return r.json(); })
-    .then(function (info) {
+    .then(function (r) { return r.json() as Promise<ServerInfo>; })
+    .then(function (info: ServerInfo) {
       if (foundServers[key]) return;
       foundServers[key] = info;
-      clearTimeout(discoveryTimeout);
+      if (discoveryTimeout) clearTimeout(discoveryTimeout);
       $('disc-status').textContent = Object.keys(foundServers).length + ' server' + (Object.keys(foundServers).length > 1 ? 's' : '') + ' found';
       renderServerList();
       if (!selectedServer) {
         selectServer(host, port, info.name || host, info.platform || '');
-        var last = localStorage.getItem('vior_last');
-        var auto = localStorage.getItem('vior_autoconnect') !== '0';
+        const last = localStorage.getItem('vior_last');
+        const auto = localStorage.getItem('vior_autoconnect') !== '0';
         if (auto && last === host + ':' + port && !connected) {
           setTimeout(function () { if (!connected) doConnect(); }, 400);
         }
@@ -75,14 +76,14 @@ function probeServer(host, port) {
     .catch(function () {});
 }
 
-function renderServerList() {
-  var list = $('disc-list');
+function renderServerList(): void {
+  const list = $('disc-list');
   list.innerHTML = '';
   Object.keys(foundServers).forEach(function (key) {
-    var info = foundServers[key];
-    var parts = key.split(':');
-    var host = parts[0], port = parseInt(parts[1]);
-    var row = document.createElement('button');
+    const info = foundServers[key];
+    const parts = key.split(':');
+    const host = parts[0], port = parseInt(parts[1]);
+    const row = document.createElement('button');
     row.className = 'server-row';
     row.dataset.key = key;
     if (selectedServer && selectedServer.host === host && selectedServer.port === port) row.classList.add('selected');
@@ -103,29 +104,30 @@ function renderServerList() {
   });
 }
 
-function selectServer(host, port, name, platform) {
+function selectServer(host: string, port: number, name: string, platform: string): void {
   selectedServer = { host: host, port: port };
   serverName = name || host; serverPlatform = platform || '';
   renderServerList();
-  $('connect-btn').disabled = false;
+  ($('connect-btn') as HTMLButtonElement).disabled = false;
   $('connect-label').textContent = 'Connect';
 }
 
-function showView(name) {
+function showView(name: string): void {
   $('disc-view').classList.toggle('hidden', name !== 'disc');
   $('empty-view').classList.toggle('hidden', name !== 'empty');
   $('connected-view').classList.toggle('hidden', name !== 'connected');
 }
-function showEmpty() { showView('empty'); $('disc-status').textContent = 'No servers found'; }
+function showEmpty(): void { showView('empty'); $('disc-status').textContent = 'No servers found'; }
 
-function getLocalIP(cb) {
+function getLocalIP(cb: (ip: string | null) => void): void {
   try {
-    var pc = new RTCPeerConnection({ iceServers: [] }), done = false;
+    const pc = new RTCPeerConnection({ iceServers: [] });
+    let done = false;
     pc.createDataChannel('');
     pc.createOffer().then(function (o) { return pc.setLocalDescription(o); });
-    pc.onicecandidate = function (e) {
+    pc.onicecandidate = function (e: RTCPeerConnectionIceEvent) {
       if (done || !e || !e.candidate) return;
-      var m = e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+      const m = e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
       if (m && m[1] !== '0.0.0.0') { done = true; pc.close(); cb(m[1]); }
     };
     setTimeout(function () { if (!done) { done = true; pc.close(); cb(null); } }, 3000);
@@ -134,4 +136,3 @@ function getLocalIP(cb) {
 
 $('disc-refresh').addEventListener('click', startDiscovery);
 $('rescan-btn').addEventListener('click', startDiscovery);
-

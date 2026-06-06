@@ -231,6 +231,19 @@ func (m *Manager) sendChunks(t *Transfer) {
 
 // HandleOffer processes an incoming file offer from remote.
 func (m *Manager) HandleOffer(msg *protocol.FileOfferMessage) {
+	// Enforce the same upper bound the desktop→mobile path uses
+	// (MaxDownloadSize / 2 GiB). Without this the WS-chunked path is
+	// happy to write multi-terabyte garbage to ~/Downloads/Vior.
+	if msg.Size < 0 || msg.Size > MaxDownloadSize {
+		log.Printf("filetransfer: rejecting offer %s (%d bytes > max %d)", msg.ID, msg.Size, MaxDownloadSize)
+		if m.Send != nil {
+			_ = m.Send(protocol.MsgFileReject, &protocol.FileRejectMessage{
+				ID:     msg.ID,
+				Reason: fmt.Sprintf("file too large (max %d bytes)", MaxDownloadSize),
+			})
+		}
+		return
+	}
 	t := &Transfer{
 		ID:       msg.ID,
 		Name:     sanitizeFilename(msg.Name),
@@ -263,7 +276,17 @@ func (m *Manager) AcceptFile(id string) error {
 
 	// Create receive directory.
 	os.MkdirAll(m.ReceiveDir, 0755)
-	destPath := filepath.Join(m.ReceiveDir, t.Name)
+	destPath := filepath.Join(m.ReceiveDir, sanitizeFilename(t.Name))
+	// Belt-and-suspenders: filepath.Join + the sanitizer should already
+	// keep the dest inside ReceiveDir, but a mid-stream rename of
+	// ReceiveDir or an exotic Unicode glyph that survives sanitization
+	// could still slip out. Re-derive the cleaned absolute path and
+	// confirm it lives under ReceiveDir before we open the file.
+	absRoot, _ := filepath.Abs(m.ReceiveDir)
+	absDest, _ := filepath.Abs(destPath)
+	if rel, err := filepath.Rel(absRoot, absDest); err != nil || strings.HasPrefix(rel, "..") || rel == ".." {
+		return fmt.Errorf("filetransfer: refusing to write outside %s (got %s)", m.ReceiveDir, destPath)
+	}
 	destPath = uniquePath(destPath)
 
 	f, err := os.Create(destPath)
@@ -299,13 +322,23 @@ func (m *Manager) HandleChunk(msg *protocol.FileChunkMessage) {
 
 	data, err := base64.StdEncoding.DecodeString(msg.Data)
 	if err != nil {
-		log.Printf("file transfer: decode chunk error: %v", err)
+		log.Printf("filetransfer: decode chunk error: %v", err)
 		return
 	}
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.file == nil {
+		return
+	}
+
+	// Guard against a misbehaving sender that keeps streaming past the
+	// advertised Size — without this the receive file would grow
+	// without bound on an unauthenticated socket.
+	if t.Size > 0 && t.Transferred+int64(len(data)) > t.Size {
+		log.Printf("filetransfer: chunk overshoots advertised size for %s (%d > %d) — closing", t.ID, t.Transferred+int64(len(data)), t.Size)
+		t.file.Close()
+		t.file = nil
 		return
 	}
 
@@ -572,13 +605,78 @@ func imagePreview(path string) string {
 	return "data:image/jpeg;base64," + buf.String()
 }
 
+// sanitizeFilename strips anything that would let a sender escape the
+// ReceiveDir or trigger surprising behaviour on the host filesystem.
+// Rules:
+//   - filepath.Base + strip "../"/"..\\" segments so a sender can't pivot
+//     up the tree (e.g. "../../.ssh/authorized_keys").
+//   - Drop NULs and ASCII control chars (some macOS APIs and shells
+//     barf on them; truncation attacks on \x00 are a classic).
+//   - Replace path separators, ":" (macOS resource-fork shorthand), and
+//     other reserved chars with "_".
+//   - Strip leading dots so the file isn't hidden + leading dashes so
+//     it can't be mistaken for a CLI flag if anyone shells over it.
+//   - Cap at 255 bytes — common UFS/ext4/APFS NAME_MAX limit.
+//   - Reject Windows reserved device names (CON, AUX, NUL, PRN, COM1…)
+//     defensively, even though we're not on Windows — a synced
+//     Downloads folder might be.
 func sanitizeFilename(name string) string {
 	name = filepath.Base(name)
+	// Remove "../" and "..\\" path-traversal fragments before they can
+	// be re-joined into a path.
 	name = strings.ReplaceAll(name, "..", "")
-	name = strings.ReplaceAll(name, "/", "")
-	name = strings.ReplaceAll(name, "\\", "")
-	if name == "" || name == "." {
+	// Replace anything risky with "_". Includes NULs, control chars,
+	// path separators, colon, and the Windows-reserved < > " | ? *.
+	var b strings.Builder
+	for _, r := range name {
+		switch {
+		case r == 0, r < 0x20, r == 0x7f:
+			b.WriteByte('_')
+		case r == '/', r == '\\', r == ':':
+			b.WriteByte('_')
+		case r == '<', r == '>', r == '"', r == '|', r == '?', r == '*':
+			b.WriteByte('_')
+		default:
+			b.WriteRune(r)
+		}
+	}
+	name = b.String()
+	// Strip leading dots (".env", ".bashrc") and leading dashes
+	// ("-rf" looking like a flag). Trailing dots/spaces confuse Windows.
+	name = strings.TrimLeft(name, ". -")
+	name = strings.TrimRight(name, ". ")
+	if name == "" {
 		name = "received_file"
+	}
+	// Reject Windows reserved device names case-insensitively (the
+	// receive dir might live on a synced cloud folder that gets shared
+	// to a Windows machine).
+	upper := strings.ToUpper(name)
+	stem := upper
+	if dot := strings.Index(stem, "."); dot > 0 {
+		stem = stem[:dot]
+	}
+	switch stem {
+	case "CON", "PRN", "AUX", "NUL",
+		"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+		"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9":
+		name = "_" + name
+	}
+	// NAME_MAX-ish cap. Truncate from the middle so the extension
+	// survives — if it doesn't have an extension, just take the first
+	// 255 bytes.
+	const maxLen = 255
+	if len(name) > maxLen {
+		ext := filepath.Ext(name)
+		if len(ext) > 0 && len(ext) < 32 {
+			keep := maxLen - len(ext)
+			if keep < 1 {
+				keep = 1
+			}
+			name = name[:keep] + ext
+		} else {
+			name = name[:maxLen]
+		}
 	}
 	return name
 }

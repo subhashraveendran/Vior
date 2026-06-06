@@ -1,0 +1,63 @@
+/* requires: tokens.css (--bg, --text-*, --accent, --surface-*, --r*, --font-*) */
+  /* ── Sheet ── */
+  .sheet-backdrop {
+    position: fixed; inset: 0; z-index: 55; background: var(--bg);
+    display: flex; flex-direction: column;
+    animation: vFade .25s var(--ease);
+  }
+  @keyframes vFade { from { opacity: 0; } to { opacity: 1; } }
+  .sheet {
+    background: var(--bg);
+    flex: 1; min-height: 0;
+    display: flex; flex-direction: column;
+    padding-top: env(safe-area-inset-top, 0);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  @keyframes sheetUp { from { transform: translateY(26px); } to { transform: translateY(0); } }
+  .sheet-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 15px 16px 13px; border-bottom: 1px solid var(--border);
+  }
+  .sheet-title { font-size: 16px; font-weight: 600; color: var(--text-1); }
+  .sheet-close {
+    background: var(--surface-3); border: none; color: var(--text-2);
+    width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  }
+  .sheet-body {
+    /* flex:1 + min-height:0 are both required for overflow-y to actually
+       kick in inside a flex column — without them the body sized to its
+       content and the page just clipped in landscape. */
+    flex: 1; min-height: 0;
+    padding: 16px 16px 22px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+  .sheet-body::-webkit-scrollbar { display: none; }
+
+  .vior-toggle {
+    display: inline-block; width: 42px; height: 25px; border-radius: var(--r-pill);
+    background: var(--accent); padding: 3px; cursor: pointer; flex: none;
+    transition: background .2s;
+  }
+  .vior-toggle.off { background: var(--surface-3); }
+  .vior-toggle .vior-knob {
+    display: block; width: 19px; height: 19px; border-radius: 50%;
+    background: #fff; transform: translateX(17px);
+    transition: transform .2s var(--ease);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+  .vior-toggle.off .vior-knob { transform: translateX(0); }
+
+  .accent-swatch {
+    flex: 1; height: 48px; border-radius: var(--r-sm);
+    background: var(--swatch-color); border: 1px solid var(--border);
+    display: grid; place-items: center; cursor: pointer; color: #12100c;
+    transition: transform .14s, border-color .14s;
+  }
+  .accent-swatch:active { transform: scale(0.96); }
+  .accent-swatch.active { border: 2px solid var(--text-1); }
+  .accent-swatch svg { opacity: 0; }
+  .accent-swatch.active svg { opacity: 1; }
+

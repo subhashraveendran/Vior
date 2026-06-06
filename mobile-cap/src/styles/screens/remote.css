@@ -1,0 +1,67 @@
+/* requires: tokens.css (--bg, --text-*, --accent, --surface-*, --r*, --font-*) */
+  /* ── Remote ── */
+  .remote { height: 100%; display: flex; flex-direction: column; position: relative; overflow-y: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .remote::-webkit-scrollbar { display: none; }
+  .remote-mode { padding: 16px 20px 0; flex: none; }
+  .remote-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 16px 20px 20px; }
+  .trackpad-area {
+    flex: 1; min-height: 0; display: flex; gap: 8px;
+  }
+  .trackpad {
+    flex: 1; position: relative; border-radius: var(--r-lg); overflow: hidden;
+    background: var(--surface-1); border: 1px solid var(--border);
+    touch-action: none; user-select: none;
+    background-image: radial-gradient(var(--border) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  .trackpad-hint {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    pointer-events: none;
+  }
+  .trackpad-hint-inner { display: flex; flex-direction: column; align-items: center; gap: 9px; color: var(--text-3); }
+  .trackpad-hint-text { font-size: 13px; font-weight: 500; }
+  .trackpad-delta {
+    font-family: var(--font-mono); font-size: 14px; color: var(--accent);
+    background: var(--surface-0); padding: 6px 12px; border-radius: var(--r-pill);
+    border: 1px solid var(--accent-line);
+  }
+  .scroll-strip {
+    width: 40px; flex: none; border-radius: var(--r-lg);
+    border: 1px solid var(--border); background: var(--surface-1);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    color: var(--text-3); touch-action: none; user-select: none;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .scroll-strip.active { background: var(--accent-weak); border-color: var(--accent-line); color: var(--accent); }
+  .click-bar { display: flex; gap: 9px; }
+  .click-btn {
+    flex: 1; min-height: 56px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r);
+    color: var(--text-1); font-size: 14px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: background .12s;
+    touch-action: manipulation;
+  }
+  .click-btn:active { background: var(--press); }
+  .keycap {
+    min-height: 48px;
+    background: var(--surface-2); color: var(--text-1);
+    border: 1px solid var(--border); border-radius: var(--r-sm);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    padding: 4px 6px; font-family: var(--font-sans);
+    transition: background .14s, transform .1s;
+    touch-action: manipulation;
+  }
+  .keycap:active { transform: scale(0.94); background: var(--press); }
+  .keycap-label { font-size: 14px; font-weight: 600; line-height: 1.1; }
+  .keycap-label-icon { font-size: 10.5px; }
+  .keycap-sub { font-family: var(--font-mono); font-size: 9px; color: var(--text-3); }
+  .keycap-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .flash-pill {
+    position: absolute; top: 70px; left: 50%; transform: translateX(-50%); z-index: 46;
+    padding: 7px 14px; border-radius: var(--r-pill);
+    background: var(--surface-3); border: 1px solid var(--accent-line);
+    box-shadow: var(--shadow-2);
+    font-size: 12.5px; font-weight: 600; color: var(--accent); white-space: nowrap;
+  }
+

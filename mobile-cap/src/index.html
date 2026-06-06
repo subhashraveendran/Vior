@@ -12,7 +12,23 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<!-- Modular CSS: tokens → components → layout → screens → remaps.
+     Order matters — later rules override earlier ones. Capacitor copies
+     the whole src/ tree, so relative paths resolve under android assets. -->
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/components.css">
+<link rel="stylesheet" href="styles/components/toast.css">
+<link rel="stylesheet" href="styles/layout.css">
+<link rel="stylesheet" href="styles/screens/discovery.css">
+<link rel="stylesheet" href="styles/screens/empty.css">
+<link rel="stylesheet" href="styles/screens/connecting.css">
+<link rel="stylesheet" href="styles/screens/connected.css">
+<link rel="stylesheet" href="styles/screens/stream.css">
+<link rel="stylesheet" href="styles/screens/files.css">
+<link rel="stylesheet" href="styles/screens/remote.css">
+<link rel="stylesheet" href="styles/screens/qr.css">
+<link rel="stylesheet" href="styles/screens/settings.css">
+<link rel="stylesheet" href="styles/theme-remaps.css">
 </head>
 <body>
 
@@ -546,6 +562,18 @@
   </div>
 </div>
 
-<script src="app.js" defer></script>
+<!-- Modular JS: globals shared across files via document-order defer.
+     Order matters — declarations in core.js must run before screens
+     reference them. Each screen module attaches its own DOM listeners. -->
+<script src="js/core.js" defer></script>
+<script src="js/screens/discovery.js" defer></script>
+<script src="js/screens/qr.js" defer></script>
+<script src="js/screens/connect.js" defer></script>
+<script src="js/screens/stream.js" defer></script>
+<script src="js/screens/remote.js" defer></script>
+<script src="js/screens/files.js" defer></script>
+<script src="js/screens/settings.js" defer></script>
+<script src="js/core/usb.js" defer></script>
+<script src="js/main.js" defer></script>
 </body>
 </html>

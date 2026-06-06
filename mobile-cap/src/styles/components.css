@@ -1,0 +1,49 @@
+/* requires: tokens.css (--bg, --text-*, --accent, --surface-*, --r*, --font-*) */
+  /* ── Status dot ── */
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
+  .dot-ok { background: var(--ok); box-shadow: 0 0 0 4px rgba(70,211,154,0.16); }
+  .dot-warn { background: var(--warn); box-shadow: 0 0 0 4px rgba(243,193,75,0.16); }
+  .dot-err { background: var(--err); box-shadow: 0 0 0 4px rgba(255,111,111,0.16); }
+  .dot-idle { background: var(--idle); }
+  .dot-pulse { animation: pulse 1.8s var(--ease) infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(70,211,154,0.45); } 50% { box-shadow: 0 0 0 7px rgba(70,211,154,0); } }
+
+  /* ── Spinner ── */
+  .spin {
+    width: 22px; height: 22px; border-radius: 50%; display: inline-block;
+    border: 2.4px solid var(--surface-3); border-top-color: var(--accent);
+    animation: vSpin 0.9s linear infinite;
+  }
+  @keyframes vSpin { to { transform: rotate(360deg); } }
+
+  /* ── Card / inset ── */
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--r-lg); }
+  .inset { background: var(--surface-0); border: 1px solid var(--border); border-radius: var(--r); }
+
+  /* ── Buttons ── */
+  .btn {
+    font-family: var(--font-sans);
+    font-weight: 600; font-size: 15px; letter-spacing: -0.01em;
+    border: 1px solid transparent; border-radius: var(--r);
+    padding: 0 calc(var(--sp) * 4); min-height: 48px;
+    display: inline-flex; align-items: center; justify-content: center; gap: calc(var(--sp) * 2);
+    transition: background .16s var(--ease), border-color .16s, transform .12s, box-shadow .2s, color .16s;
+    user-select: none; white-space: nowrap;
+  }
+  .btn:active { transform: translateY(1px) scale(0.995); }
+  .btn-primary {
+    background: var(--accent); color: var(--on-accent);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.18) inset, 0 6px 18px rgba(255,138,76,0.18);
+  }
+  .btn-primary:active { background: var(--accent-2); }
+  .btn-ghost { background: var(--surface-2); color: var(--text-1); border-color: var(--border); }
+  .btn-ghost:active { background: var(--surface-3); }
+  .btn-quiet { background: transparent; color: var(--text-2); }
+  .btn-quiet:active { background: var(--hover); color: var(--text-1); }
+  .btn-danger { background: transparent; color: var(--err); border-color: rgba(255,111,111,0.3); }
+  .btn-danger:active { background: rgba(255,111,111,0.10); }
+  .btn:disabled { opacity: 0.4; }
+  .btn-sm { min-height: 38px; font-size: 13.5px; border-radius: var(--r-sm); padding: 0 calc(var(--sp) * 3); }
+  .btn-block { width: 100%; }
+  .btn svg { flex: none; }
+

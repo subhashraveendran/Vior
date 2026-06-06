@@ -1,0 +1,27 @@
+/* requires: tokens.css (--bg, --text-*, --accent, --surface-*, --r*, --font-*) */
+  /* ── Connecting overlay ── */
+  .connecting {
+    position: absolute; inset: 0; z-index: 40;
+    background: var(--surface-0);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 32px;
+  }
+  .conn-spinner-wrap { position: relative; width: 92px; height: 92px; margin-bottom: 26px; display: grid; place-items: center; }
+  .conn-spinner-ring { position: absolute; inset: 0; border-radius: 50%; border: 3px solid var(--surface-3); border-top-color: var(--accent); animation: vSpin .9s linear infinite; }
+  .conn-spinner-core {
+    width: 60px; height: 60px; border-radius: var(--r-lg);
+    background: var(--surface-2); border: 1px solid var(--border);
+    display: grid; place-items: center; color: var(--accent);
+  }
+  .conn-spinner-core.failed { background: rgba(255,111,111,0.12); border-color: rgba(255,111,111,0.4); color: var(--err); }
+  .conn-title { font-size: 18px; font-weight: 600; color: var(--text-1); }
+  .conn-sub { font-size: 14px; color: var(--text-2); margin-top: 6px; text-align: center; line-height: 1.5; }
+  .conn-sub b { color: var(--text-1); font-weight: 600; }
+  .bar { height: 6px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; position: relative; }
+  .bar-indef::before {
+    content: ''; position: absolute; top: 0; bottom: 0; left: -40%; width: 40%;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: vIndef 1.3s var(--ease) infinite;
+  }
+  @keyframes vIndef { from { left: -40%; } to { left: 100%; } }
+

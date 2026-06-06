@@ -54,18 +54,14 @@
       </div>
 
       <div class="wordmark">
-        <span class="glyph big">
-          <span class="g-screen"></span>
-          <span class="g-stand"></span>
-          <span class="g-phone"></span>
-        </span>
+        <img class="glyph big" src="img/icon.svg" alt="" width="56" height="56" style="border-radius: 14px;">
         <h1>Vior</h1>
       </div>
 
       <p class="tagline">
-        Phone <strong>→</strong> Mac, Linux, Windows.<br>
-        Extend display, file transfer, trackpad, keyboard, shortcuts.
-        <strong>One app.</strong>
+        Turn your <strong>phone or tablet</strong> into a real second screen for your
+        <strong>Mac, Linux, or Windows</strong> computer.<br>
+        Send files, control with trackpad &amp; keyboard, all over <strong>Wi-Fi or a USB cable</strong>.
       </p>
 
       <div class="hero-ctas">
@@ -84,6 +80,7 @@
         <span><span class="tick">✓</span> Linux</span>
         <span><span class="tick">✓</span> Windows</span>
         <span><span class="tick">✓</span> Android</span>
+        <span style="color: var(--text-3);">iOS — coming soon</span>
         <span class="mono">MIT licensed</span>
       </div>
     </div>
@@ -98,11 +95,7 @@
       <div class="radar-tick t2"></div>
       <div class="radar-tick t3"></div>
       <div class="radar-core">
-        <span class="glyph big" style="transform: scale(1.6);">
-          <span class="g-screen"></span>
-          <span class="g-stand"></span>
-          <span class="g-phone"></span>
-        </span>
+        <img src="img/icon.svg" alt="" width="92" height="92" style="border-radius: 22px; display: block;">
       </div>
     </div>
   </div>
@@ -112,24 +105,39 @@
 <section class="section" id="features">
   <div class="wrap">
     <div class="section-label">// what it does</div>
-    <h2 class="section-title">Three jobs. Done well.</h2>
-    <p class="section-sub">No subscriptions, no cloud round-trip, no proprietary protocol. Your phone, your computer, your network.</p>
+    <h2 class="section-title">Everything in one app.</h2>
+    <p class="section-sub">No accounts. No cloud. No subscription. Just your phone, your computer, and your network.</p>
 
     <div class="features">
       <div class="feature">
-        <div class="feature-icon">&lt;/&gt;</div>
-        <h3>Extend display</h3>
-        <p>Use your phone or tablet as a real second monitor. MJPEG over LAN, ~30 FPS, auto resolution matching.</p>
+        <div class="feature-icon">📺</div>
+        <h3>Second screen</h3>
+        <p>Use your phone or tablet as a real extra monitor — drag windows onto it. Or mirror your main screen to share.</p>
       </div>
       <div class="feature">
-        <div class="feature-icon">↗</div>
-        <h3>WiFi mouse + keyboard</h3>
-        <p>Trackpad gestures, full keyboard, and 40+ system shortcuts (Cmd+Tab, mission control, media). WiFi-Mouse-style, but open.</p>
+        <div class="feature-icon">📡</div>
+        <h3>Wi-Fi or USB cable</h3>
+        <p>Same network? Auto-discovery finds your computer. No Wi-Fi? Plug the cable in — works without any router.</p>
       </div>
       <div class="feature">
-        <div class="feature-icon">⇄</div>
-        <h3>File drop</h3>
-        <p>Drag a file onto the app or tap Send on the phone. Direct LAN transfer, progress bar, image previews.</p>
+        <div class="feature-icon">📁</div>
+        <h3>File transfer</h3>
+        <p>Drag a file onto the desktop app, or tap Send on the phone. Goes directly between devices — never touches a cloud.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🖱️</div>
+        <h3>Trackpad + keyboard</h3>
+        <p>Phone becomes a wireless trackpad with right-click, scroll, and a full keyboard with 40+ system shortcuts.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🔒</div>
+        <h3>Pair-code security</h3>
+        <p>One-time 6-digit code on the desktop. Trusted devices reconnect instantly — no re-pairing.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">⚡</div>
+        <h3>Single binary</h3>
+        <p>Download one app, double-click to run. No installers, no drivers (Windows has an optional one), no setup wizard.</p>
       </div>
     </div>
   </div>
@@ -174,22 +182,22 @@
 <!-- ── How it works ── -->
 <section class="section" id="how">
   <div class="wrap">
-    <div class="section-label">// flow</div>
-    <h2 class="section-title">Three taps to connected.</h2>
-    <p class="section-sub">Zero configuration. Auto-discovery over UDP, auto-reconnect, auto-resolution.</p>
+    <div class="section-label">// how it works</div>
+    <h2 class="section-title">Connect in 3 steps.</h2>
+    <p class="section-sub">No accounts, no setup wizard, no driver install. Just three taps.</p>
 
     <div class="steps">
       <div class="step">
-        <h3>Start the server</h3>
-        <p>Open Vior on your computer. One button — <code>Start Server</code>. A QR code appears.</p>
+        <h3>1. Start on computer</h3>
+        <p>Open Vior on your Mac, Linux, or Windows machine and click <code>Start Server</code>. You'll see a QR code and a 6-digit pair code.</p>
       </div>
       <div class="step">
-        <h3>Open the mobile app</h3>
-        <p>Vior auto-discovers any server on your LAN. Tap to connect, or scan the QR.</p>
+        <h3>2. Open on phone</h3>
+        <p>Open the Vior Android app (or any browser on iOS). It finds your computer automatically over Wi-Fi, or you can scan the QR code.</p>
       </div>
       <div class="step">
-        <h3>Stream &amp; control</h3>
-        <p>Use the phone as a second display, send files, or jump to the Remote tab for trackpad + shortcuts.</p>
+        <h3>3. Enter pair code · once</h3>
+        <p>Type the 6-digit code shown on the desktop. From then on, that device is trusted — it auto-connects without asking again.</p>
       </div>
     </div>
   </div>
@@ -199,8 +207,8 @@
 <section class="section" id="platforms">
   <div class="wrap">
     <div class="section-label">// runs on</div>
-    <h2 class="section-title">Everywhere you work.</h2>
-    <p class="section-sub">Native virtual display on macOS, Linux, and Windows. Android client built on Capacitor — iOS is on the roadmap.</p>
+    <h2 class="section-title">Cross-platform from day one.</h2>
+    <p class="section-sub">Server runs natively on macOS, Linux, and Windows. Mobile client is an Android APK — iOS app is coming soon (Wi-Fi today via Safari + Add to Home Screen).</p>
 
     <div class="platforms">
       <table>
@@ -248,6 +256,15 @@
             <td class="ver">—</td>
             <td><span class="tick">✓ Capacitor APK</span></td>
             <td class="ver">aarch64</td>
+          </tr>
+          <tr style="opacity: .72;">
+            <td class="os">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.43 12.91c-.03-3.07 2.5-4.55 2.62-4.62-1.43-2.09-3.66-2.38-4.45-2.41-1.9-.19-3.7 1.12-4.66 1.12-.97 0-2.45-1.09-4.03-1.06-2.07.03-3.98 1.2-5.05 3.06-2.16 3.74-.55 9.27 1.54 12.31 1.04 1.49 2.27 3.16 3.87 3.1 1.55-.06 2.13-1 4-1 1.86 0 2.39 1 4.02.97 1.66-.03 2.71-1.5 3.72-3 1.18-1.72 1.66-3.39 1.69-3.48-.04-.02-3.24-1.24-3.27-4.93zM14.34 3.95C15.2 2.92 15.78 1.49 15.62 0c-1.28.05-2.83.86-3.71 1.88-.79.9-1.49 2.37-1.3 3.77 1.42.11 2.87-.72 3.73-1.7z"/></svg>
+              iOS 16+
+            </td>
+            <td class="ver">—</td>
+            <td><span style="color: var(--text-3);">⏳ Coming soon</span></td>
+            <td class="ver">today: Safari PWA</td>
           </tr>
         </tbody>
       </table>

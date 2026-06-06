@@ -250,6 +250,10 @@ function doConnect(): void {
         localStorage.setItem('vior_known_' + host + ':' + port, '1');
         // Clear the consecutive-failure counter — we just succeeded.
         localStorage.removeItem('vior_fail_' + host + ':' + port);
+        // Successful connect resets the cascade memory — next launch
+        // starts at step A again rather than dropping the user into
+        // pair-code entry they no longer need.
+        localStorage.removeItem('vior_last_entry_step');
       } catch (_) {}
       frameBaseUrl = 'http://' + host + ':' + port;
       $('connecting-overlay').classList.add('hidden');
@@ -538,41 +542,37 @@ function doDisconnect(): void {
   setTimeout(function () { startDiscovery(); }, 300);
 }
 
-// Pair-only entry from the Empty view — opens the pair-prompt modal
-// without requiring a server selection. promptPair() handles focus +
-// reveal; pair-prompt-go falls through to pairOnlyConnect() when no
-// server is selected (see handler above).
-const pairOnlyBtn = $('pair-only-btn');
-if (pairOnlyBtn) pairOnlyBtn.addEventListener('click', function () { promptPair(); });
-
 // ── Entry-mode toggle (Wi-Fi vs USB cable) ─────────────────────────
-// Switches the empty-view body without changing actual transport.
-// USB callbacks fire from native regardless; this just hides
-// irrelevant fields so USB users don't see IP/pair prompts they
-// can't use.
+// The toggle now lives in the persistent app-shell pill above the
+// content area (`#transport-toggle`), not inside the empty view, so
+// users can flip transport mid-flow without backing out of whatever
+// cascade step they're on. localStorage key is preserved
+// (`vior_entry_mode`) so existing installs don't lose their preference.
 function applyEntryMode(mode: 'wifi' | 'usb'): void {
-  const wifi = $('entry-wifi');
-  const usb = $('entry-usb');
+  const wifi = document.getElementById('entry-wifi');
+  const usb = document.getElementById('entry-usb');
   if (!wifi || !usb) return;
   if (mode === 'usb') { wifi.classList.add('hidden'); usb.classList.remove('hidden'); }
   else { usb.classList.add('hidden'); wifi.classList.remove('hidden'); }
-  const seg = $('entry-mode-seg');
-  if (seg) {
-    seg.querySelectorAll<HTMLElement>('.seg-btn').forEach(function (b) {
-      b.classList.toggle('active', b.dataset.entry === mode);
-    });
+  // Reflect into the new persistent toggle pill.
+  const wifiBtn = document.getElementById('transport-wifi');
+  const usbBtn = document.getElementById('transport-usb');
+  if (wifiBtn) {
+    wifiBtn.classList.toggle('active', mode === 'wifi');
+    wifiBtn.setAttribute('aria-selected', mode === 'wifi' ? 'true' : 'false');
   }
-  localStorage.setItem('vior_entry_mode', mode);
+  if (usbBtn) {
+    usbBtn.classList.toggle('active', mode === 'usb');
+    usbBtn.setAttribute('aria-selected', mode === 'usb' ? 'true' : 'false');
+  }
+  try { localStorage.setItem('vior_entry_mode', mode); } catch (_) {}
 }
-const entryModeSeg = $('entry-mode-seg');
-if (entryModeSeg) {
-  entryModeSeg.querySelectorAll<HTMLElement>('.seg-btn').forEach(function (b) {
-    b.addEventListener('click', function () {
-      const m = (b.dataset.entry === 'usb') ? 'usb' : 'wifi';
-      applyEntryMode(m);
-    });
+document.querySelectorAll<HTMLElement>('#transport-toggle .transport-btn').forEach(function (b) {
+  b.addEventListener('click', function () {
+    const m = (b.dataset.transport === 'usb') ? 'usb' : 'wifi';
+    applyEntryMode(m);
   });
-}
+});
 applyEntryMode(((localStorage.getItem('vior_entry_mode') as 'wifi' | 'usb') || 'wifi'));
 // Re-apply whenever the empty view becomes visible — covers the case
 // where USB disconnect flips back to discovery while user was in USB
@@ -582,25 +582,249 @@ applyEntryMode(((localStorage.getItem('vior_entry_mode') as 'wifi' | 'usb') || '
 };
 
 // USB troubleshooting link — open Android USB settings intent.
-const usbHelpBtn = $('usb-help-btn');
+const usbHelpBtn = document.getElementById('usb-help-btn');
 if (usbHelpBtn) usbHelpBtn.addEventListener('click', function () {
   toast('info', 'USB checklist',
     'Use a data cable. Allow "Vior USB access" prompt. Restart Vior desktop if needed.');
 });
 
-// ── Manual-setup disclosure (Wi-Fi screen) ─────────────────────────
-// 90% of users connect via auto-discovery + tap. Hide the IP / QR /
-// pair-only block behind a chevron so the empty view stays calm.
-const manualToggle = $('manual-toggle');
-if (manualToggle) {
-  manualToggle.addEventListener('click', function () {
-    const block = $('manual-block');
-    if (!block) return;
-    const open = !block.classList.contains('hidden');
-    block.classList.toggle('hidden', open);
-    manualToggle.setAttribute('aria-expanded', open ? 'false' : 'true');
+// "Try again" button for USB hello-ack timeout. Calls into the Java
+// bridge to resend the hello frame + reset the 3s timer.
+const usbRetryBtn = document.getElementById('usb-retry-btn');
+if (usbRetryBtn) usbRetryBtn.addEventListener('click', function () {
+  const bridge = (window as unknown as { Android?: { usbRetryHello?: () => void } }).Android;
+  // Optimistic UI: drop straight back to verifying — the timeout will
+  // re-fire if the desktop is still silent.
+  const setStage = (window as unknown as { setUsbStage?: (s: 'waiting' | 'verifying' | 'connected' | 'failed') => void }).setUsbStage;
+  if (typeof setStage === 'function') setStage('verifying');
+  if (bridge && typeof bridge.usbRetryHello === 'function') {
+    try { bridge.usbRetryHello(); } catch (e) { console.error('usbRetryHello bridge', e); }
+  } else {
+    // No Java bridge (browser preview) — just fake-toast.
+    toast('info', 'Retrying', 'Re-sending USB handshake…');
+  }
+});
+
+// ── Progressive disclosure cascade (Wi-Fi entry) ───────────────────
+// Steps:
+//   A — scanning (auto)
+//   B — no servers, primary "Scan QR Code", tiny escape → C
+//   C — pair-code entry, primary "Connect", tiny escape → D
+//   D — IP entry, primary "Connect", tiny escape ← C
+// Refresh on B/C/D restarts the scan (goes back to A).
+// Last-used step persisted in `vior_last_entry_step` so retry-after-
+// app-restart skips the user ahead, unless a Wi-Fi connect succeeded
+// (the connect path clears it).
+type CascadeStep = 'a' | 'b' | 'c' | 'd';
+const CASCADE_KEY = 'vior_last_entry_step';
+
+function setCascadeStep(step: CascadeStep, opts?: { persist?: boolean }): void {
+  (['a', 'b', 'c', 'd'] as CascadeStep[]).forEach(function (s) {
+    const el = document.getElementById('cascade-' + s);
+    if (el) el.classList.toggle('hidden', s !== step);
+  });
+  if (opts && opts.persist === false) return;
+  try { localStorage.setItem(CASCADE_KEY, step); } catch (_) {}
+}
+
+function clearCascadeMemory(): void {
+  try { localStorage.removeItem(CASCADE_KEY); } catch (_) {}
+}
+
+// Normalise pair-code input: strip dashes/spaces/non-alphanumerics and
+// uppercase. Returns at most 6 chars. Centralised here so every step's
+// input field can call into the same rule.
+function normalisePairCode(raw: string): string {
+  return (raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+}
+function formatPairCode(raw: string): string {
+  const clean = normalisePairCode(raw);
+  return clean.length > 3 ? clean.slice(0, 3) + '-' + clean.slice(3) : clean;
+}
+
+// Permissive IP/URL parser. Accepts:
+//   192.168.1.4
+//   192.168.1.4:8080
+//   http://192.168.1.4:8080
+//   http://192.168.1.4:8080/?pair=ABC123
+//   vior://192.168.1.4:8080/?pair=ABC123
+//   vior://192.168.1.4
+// Returns { host, port, pair? } or null on garbage. Pasted whitespace
+// is trimmed; port defaults to 8080.
+interface ParsedAddr { host: string; port: number; pair?: string }
+function parseAddrInput(raw: string): ParsedAddr | null {
+  let s = (raw || '').trim();
+  if (!s) return null;
+  // Strip a scheme if present, treat vior:// like http://.
+  s = s.replace(/^\s*(vior|http|https):\/\//i, '');
+  // Pull out a ?pair=… or ?code=… query if present, then drop the query.
+  let pair: string | undefined;
+  const q = s.indexOf('?');
+  if (q !== -1) {
+    const query = s.slice(q + 1);
+    s = s.slice(0, q);
+    const m = query.match(/(?:pair|code)=([A-Za-z0-9-]+)/);
+    if (m) pair = normalisePairCode(m[1]);
+  }
+  // Drop any path component.
+  const slash = s.indexOf('/');
+  if (slash !== -1) s = s.slice(0, slash);
+  // Now s should be host or host:port.
+  const m = s.match(/^([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})(?::([0-9]{1,5}))?$/);
+  if (!m) return null;
+  const host = m[1];
+  const port = m[2] ? parseInt(m[2], 10) : 8080;
+  if (port < 1 || port > 65535) return null;
+  return { host: host, port: port, pair: pair };
+}
+
+// Helper: from cascade-c input, build a connect attempt that pair-only
+// probes the local /24.
+function cascadeSubmitPair(raw: string): void {
+  const pair = normalisePairCode(raw);
+  if (pair.length !== 6) {
+    toast('error', 'Pair code too short', 'Enter all 6 characters.');
+    return;
+  }
+  const mp = document.getElementById('manual-pair') as HTMLInputElement | null;
+  if (mp) mp.value = pair;
+  clearCascadeMemory();
+  pairOnlyConnect(pair);
+}
+
+// Helper: from cascade-d input, parse + connect.
+function cascadeSubmitAddr(raw: string): void {
+  const parsed = parseAddrInput(raw);
+  if (!parsed) {
+    toast('error', 'Invalid address', 'Use 192.168.1.4 or 192.168.1.4:8080.');
+    return;
+  }
+  if (parsed.pair) {
+    const mp = document.getElementById('manual-pair') as HTMLInputElement | null;
+    if (mp) mp.value = parsed.pair;
+  }
+  clearCascadeMemory();
+  selectServer(parsed.host, parsed.port, parsed.host, '');
+  reconnectAttempts = 0;
+  // If we already have a pair code in hand, trust the pre-pair path
+  // straight to doConnect; otherwise let initiateConnect decide (which
+  // routes via the pair-prompt modal for unknown servers).
+  if (parsed.pair) { doConnect(); } else { initiateConnect(); }
+}
+
+// ── Wire cascade controls ─────────────────────────────────────────
+const cascadeBScan = document.getElementById('cascade-b-scan');
+if (cascadeBScan) cascadeBScan.addEventListener('click', function () {
+  // Defer to QR module if loaded; otherwise show toast.
+  const startQR = (window as unknown as { startQRScan?: () => void }).startQRScan
+    || (window as unknown as { openQR?: () => void }).openQR;
+  if (typeof startQR === 'function') {
+    try { startQR(); } catch (e) { console.error('startQR', e); }
+  } else {
+    // Fall back to the legacy scan-qr-btn which the QR module listens to.
+    const legacy = document.getElementById('scan-qr-btn');
+    if (legacy) legacy.click();
+    else toast('warning', 'QR scanner unavailable', 'Use Pair code or IP instead.');
+  }
+});
+const cascadeBNext = document.getElementById('cascade-b-next');
+if (cascadeBNext) cascadeBNext.addEventListener('click', function () { setCascadeStep('c'); });
+const cascadeBRefresh = document.getElementById('cascade-b-refresh');
+if (cascadeBRefresh) cascadeBRefresh.addEventListener('click', function () {
+  clearCascadeMemory(); setCascadeStep('a', { persist: false });
+  try { startDiscovery(); } catch (_) {}
+});
+
+const cascadeCInput = document.getElementById('cascade-c-input') as HTMLInputElement | null;
+const cascadeCGo = document.getElementById('cascade-c-go') as HTMLButtonElement | null;
+if (cascadeCInput) {
+  cascadeCInput.addEventListener('input', function () {
+    cascadeCInput.value = formatPairCode(cascadeCInput.value);
+    const ok = normalisePairCode(cascadeCInput.value).length === 6;
+    if (cascadeCGo) cascadeCGo.disabled = !ok;
+  });
+  cascadeCInput.addEventListener('keydown', function (e: Event) {
+    const ke = e as KeyboardEvent;
+    if (ke.key === 'Enter') { ke.preventDefault(); if (cascadeCGo && !cascadeCGo.disabled) cascadeCGo.click(); }
   });
 }
+if (cascadeCGo) cascadeCGo.addEventListener('click', function () {
+  if (!cascadeCInput) return;
+  cascadeSubmitPair(cascadeCInput.value);
+});
+const cascadeCNext = document.getElementById('cascade-c-next');
+if (cascadeCNext) cascadeCNext.addEventListener('click', function () { setCascadeStep('d'); });
+const cascadeCRefresh = document.getElementById('cascade-c-refresh');
+if (cascadeCRefresh) cascadeCRefresh.addEventListener('click', function () {
+  clearCascadeMemory(); setCascadeStep('a', { persist: false });
+  try { startDiscovery(); } catch (_) {}
+});
+
+const cascadeDInput = document.getElementById('cascade-d-input') as HTMLInputElement | null;
+const cascadeDGo = document.getElementById('cascade-d-go') as HTMLButtonElement | null;
+if (cascadeDInput) {
+  cascadeDInput.addEventListener('input', function () {
+    const parsed = parseAddrInput(cascadeDInput.value);
+    if (cascadeDGo) cascadeDGo.disabled = !parsed;
+  });
+  cascadeDInput.addEventListener('paste', function () {
+    // Defer to next tick so .value reflects the pasted content, then
+    // re-run validation. Allows pasting a vior:// URL or a full http URL.
+    setTimeout(function () {
+      const parsed = parseAddrInput(cascadeDInput.value);
+      if (cascadeDGo) cascadeDGo.disabled = !parsed;
+    }, 0);
+  });
+  cascadeDInput.addEventListener('keydown', function (e: Event) {
+    const ke = e as KeyboardEvent;
+    if (ke.key === 'Enter') { ke.preventDefault(); if (cascadeDGo && !cascadeDGo.disabled) cascadeDGo.click(); }
+  });
+}
+if (cascadeDGo) cascadeDGo.addEventListener('click', function () {
+  if (!cascadeDInput) return;
+  cascadeSubmitAddr(cascadeDInput.value);
+});
+const cascadeDBack = document.getElementById('cascade-d-back');
+if (cascadeDBack) cascadeDBack.addEventListener('click', function () { setCascadeStep('c'); });
+const cascadeDRefresh = document.getElementById('cascade-d-refresh');
+if (cascadeDRefresh) cascadeDRefresh.addEventListener('click', function () {
+  clearCascadeMemory(); setCascadeStep('a', { persist: false });
+  try { startDiscovery(); } catch (_) {}
+});
+
+// "Open Wi-Fi settings" corner link on the cascade — same intent the
+// Settings sheet uses. Reuses the existing helper if available so
+// behaviour stays in lock-step.
+const cascadeWifiLink = document.getElementById('cascade-wifi-link');
+if (cascadeWifiLink) cascadeWifiLink.addEventListener('click', function () {
+  const fn = (window as unknown as { openWifiSettings?: () => void }).openWifiSettings;
+  if (typeof fn === 'function') {
+    try { fn(); return; } catch (_) { /* fall through */ }
+  }
+  const legacy = document.getElementById('open-wifi-settings');
+  if (legacy) { legacy.click(); return; }
+  toast('info', 'Wi-Fi settings', 'Open Settings → Wi-Fi on your device.');
+});
+
+// Cascade resume on boot: if the user previously bailed past step A,
+// drop them back at the same step on next launch. Cleared on
+// successful connect / explicit refresh.
+(function resumeCascade(): void {
+  try {
+    const s = localStorage.getItem(CASCADE_KEY) as CascadeStep | null;
+    if (s === 'b' || s === 'c' || s === 'd') {
+      // Defer so showEmpty() running later still flips empty-view in.
+      setTimeout(function () { setCascadeStep(s, { persist: false }); }, 0);
+    }
+  } catch (_) { /* localStorage blocked */ }
+})();
+
+// Public hook so the discovery module can drive cascade transitions
+// (A → B when "no servers found" fires).
+(window as unknown as { setCascadeStep?: (s: CascadeStep) => void }).setCascadeStep = function (s) {
+  setCascadeStep(s);
+};
+(window as unknown as { clearCascadeMemory?: () => void }).clearCascadeMemory = clearCascadeMemory;
 
 // ── Pair-prompt input: live ABC-123 formatting ─────────────────────
 // We accept up to 7 chars (6 + the dash). On every keystroke we strip
@@ -625,18 +849,46 @@ if (pairGo) {
 }
 
 // ── USB transition helpers ─────────────────────────────────────────
-// Tiny shim so usb.ts can flip the orb between "waiting" and
-// "connected" states without coupling to DOM details.
-(window as unknown as { setUsbStage?: (s: 'waiting' | 'connected') => void }).setUsbStage = function (s: 'waiting' | 'connected'): void {
-  const stage = $('usb-stage');
-  const title = $('usb-title');
-  const body = $('usb-body');
+// Tiny shim so usb.ts can flip the orb through its 4-state lifecycle
+// without coupling to DOM details:
+//   waiting   — no cable plugged yet
+//   verifying — cable up, waiting for the Vior magic+version ack
+//   connected — peer verified, transport promoted to USB
+//   failed    — handshake timed out (3s) → recovery surface w/ retry
+(window as unknown as {
+  setUsbStage?: (s: 'waiting' | 'verifying' | 'connected' | 'failed') => void;
+}).setUsbStage = function (s: 'waiting' | 'verifying' | 'connected' | 'failed'): void {
+  const stage = document.getElementById('usb-stage');
+  const title = document.getElementById('usb-title');
+  const body = document.getElementById('usb-body');
+  const retry = document.getElementById('usb-retry-btn');
+  const checklist = document.getElementById('usb-checklist');
   if (stage) stage.setAttribute('data-state', s);
-  if (s === 'connected') {
-    if (title) title.textContent = 'Cable detected!';
-    if (body) body.textContent = 'Setting up…';
-  } else {
-    if (title) title.textContent = 'Waiting for cable…';
-    if (body) body.textContent = 'Plug your tablet into the desktop. We start automatically — no IP, no pair code.';
+  switch (s) {
+    case 'verifying':
+      if (title) title.textContent = 'Verifying cable…';
+      if (body) body.textContent = 'Cable detected. Checking the desktop is running Vior…';
+      if (retry) retry.classList.add('hidden');
+      if (checklist) checklist.classList.add('hidden');
+      break;
+    case 'connected':
+      if (title) title.textContent = 'Cable detected!';
+      if (body) body.textContent = 'Setting up…';
+      if (retry) retry.classList.add('hidden');
+      if (checklist) checklist.classList.add('hidden');
+      break;
+    case 'failed':
+      if (title) title.textContent = 'Vior desktop not responding';
+      if (body) body.textContent = 'Cable connected, but the Vior desktop app didn\'t reply. Make sure it\'s running, then try again.';
+      if (retry) retry.classList.remove('hidden');
+      if (checklist) checklist.classList.remove('hidden');
+      break;
+    case 'waiting':
+    default:
+      if (title) title.textContent = 'Waiting for cable…';
+      if (body) body.textContent = 'Plug your tablet into the desktop. We start automatically — no IP, no pair code.';
+      if (retry) retry.classList.add('hidden');
+      if (checklist) checklist.classList.remove('hidden');
+      break;
   }
 };

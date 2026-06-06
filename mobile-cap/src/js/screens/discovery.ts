@@ -157,7 +157,19 @@ function showView(name: string): void {
   $('empty-view').classList.toggle('hidden', name !== 'empty');
   $('connected-view').classList.toggle('hidden', name !== 'connected');
 }
-function showEmpty(): void { showView('empty'); $('disc-status').textContent = 'No servers found'; }
+function showEmpty(): void {
+  showView('empty'); $('disc-status').textContent = 'No servers found';
+  // Drive the cascade: a fresh "no servers" event moves the user to
+  // step B (Scan QR). If they previously escaped to C/D we honour the
+  // persisted choice instead (handled inside setCascadeStep + the
+  // resume-on-boot block in connect.ts).
+  try {
+    const persisted = localStorage.getItem('vior_last_entry_step');
+    const next = (persisted === 'c' || persisted === 'd') ? persisted : 'b';
+    const fn = (window as unknown as { setCascadeStep?: (s: 'a' | 'b' | 'c' | 'd') => void }).setCascadeStep;
+    if (typeof fn === 'function') fn(next as 'b' | 'c' | 'd');
+  } catch (_) { /* localStorage blocked — leave on step A */ }
+}
 
 function getLocalIP(cb: (ip: string | null) => void): void {
   try {
@@ -175,19 +187,18 @@ function getLocalIP(cb: (ip: string | null) => void): void {
 }
 
 $('disc-refresh').addEventListener('click', startDiscovery);
-$('rescan-btn').addEventListener('click', startDiscovery);
+const rescanBtn = document.getElementById('rescan-btn');
+if (rescanBtn) rescanBtn.addEventListener('click', startDiscovery);
 
-// "Connect manually" disclosure on the discovery view → jump to the
-// empty view which already houses the manual IP / QR / pair-code
-// disclosure block. Keeps discovery free of pre-connect clutter.
+// "Connect manually" disclosure on the discovery view → jump straight
+// to cascade step C (pair-code entry) which is the most common manual
+// path. Users who want IP can drop further to step D from there.
 const discManualLink = $('disc-manual-link');
 if (discManualLink) {
   discManualLink.addEventListener('click', function () {
     showView('empty');
-    const block = $('manual-block');
-    const toggle = $('manual-toggle');
-    if (block) block.classList.remove('hidden');
-    if (toggle) toggle.setAttribute('aria-expanded', 'true');
+    const fn = (window as unknown as { setCascadeStep?: (s: 'a' | 'b' | 'c' | 'd') => void }).setCascadeStep;
+    if (typeof fn === 'function') fn('c');
   });
 }
 

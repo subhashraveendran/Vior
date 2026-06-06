@@ -20,18 +20,46 @@ window.onUsbFrame = function (b64: string): void {
   frameCount++;
 };
 
-// ── Cable attached + AOA handshake done ───────────────────────────
+// ── Cable attached at the OS layer ────────────────────────────────
+// IMPORTANT: arriving here means the AOA cable handshake completed —
+// it does NOT mean the peer is Vior. We stay in "verifying" until a
+// FrameHelloAck with the magic + version comes back from the desktop.
+// Until then we don't:
+//   • flip transportMode to 'usb'
+//   • close any active Wi-Fi WS
+//   • show the connected card
+//   • forward any input
+// This blocks the "cable handshakes at the OS layer but the desktop
+// side isn't running Vior" failure mode the previous code had.
 window.onUsbConnected = function (): void {
   // If a teardown was queued from a sub-1.5s flap, cancel it — we're
   // back on the same cable and want to keep all the connected-card
   // state without a visible flash.
   cancelPendingUsbTeardown();
+
+  // Surface the cable in the Wi-Fi transport pill as a "Cable detected"
+  // nudge, no matter which transport the user is currently viewing.
+  const wifiBadge = document.getElementById('transport-wifi-badge');
+  if (wifiBadge) wifiBadge.classList.remove('hidden');
+
+  // Show "Verifying cable…" on the orb regardless of which surface is
+  // visible. If the user is on the Wi-Fi cascade they'll see the badge
+  // and can swap to USB to watch the handshake.
+  const setStage = (window as unknown as { setUsbStage?: (s: 'waiting' | 'verifying' | 'connected' | 'failed') => void }).setUsbStage;
+  if (typeof setStage === 'function') setStage('verifying');
+};
+
+// ── Magic + version verified by the desktop ───────────────────────
+// Only at this point do we promote the cable to the active transport
+// (closing any Wi-Fi WS, flipping the view, etc.). Until this fires
+// the cable is "wired but unverified".
+window.onUsbHelloAck = function (): void {
   // Policy when both transports are alive: USB wins for video (low
   // latency, no Wi-Fi dependency). Close any active WS so we don't
   // have two competing video sources writing to the same <img>, two
   // file-transfer paths, and two sets of input forwarding.
   if (transportMode === 'wifi' && ws) {
-    console.log('usb: cable arrived during Wi-Fi session — closing WS so USB owns the transport');
+    console.log('usb: cable verified during Wi-Fi session — closing WS so USB owns the transport');
     try { ws.close(); } catch (_) { /* ignore */ }
     ws = null;
   }
@@ -41,9 +69,9 @@ window.onUsbConnected = function (): void {
   // to the USB entry surface (not Wi-Fi).
   try { localStorage.setItem('vior_entry_mode', 'usb'); } catch (_) {}
 
-  // Flip the orb to "Cable detected!" before the connected card swaps in.
-  const setStage = (window as unknown as { setUsbStage?: (s: 'waiting' | 'connected') => void }).setUsbStage;
+  const setStage = (window as unknown as { setUsbStage?: (s: 'waiting' | 'verifying' | 'connected' | 'failed') => void }).setUsbStage;
   if (typeof setStage === 'function') setStage('connected');
+
   // Populate the same fields a Wi-Fi connect would, so the Connected
   // card + stream overlay render correctly.
   serverName = 'Desktop via USB';
@@ -51,13 +79,10 @@ window.onUsbConnected = function (): void {
   selectedMode = 'extend';
 
   setConnState('online');
-  // USB cable is its own auth boundary — no scan/pair/connecting
-  // states. Jump straight to connected.
   if (typeof viorState !== 'undefined') {
     viorState.set({ state: 'connected', serverName: serverName, transport: 'usb' });
   }
 
-  // Connected card: show "Desktop via USB" with a USB pill.
   const cardName = $('scard-name');
   const cardMeta = $('scard-meta');
   const statMode = $('stat-mode');
@@ -67,7 +92,6 @@ window.onUsbConnected = function (): void {
   if (statMode) statMode.textContent = 'USB';
   if (statStatus) statStatus.textContent = 'Live';
 
-  // Flip the view to the connected card + unlock Files / Remote tabs.
   const showFn = (window as unknown as { showView?: (n: string) => void }).showView;
   if (typeof showFn === 'function') showFn('connected');
   $('files-offline')?.classList.add('hidden');
@@ -75,11 +99,22 @@ window.onUsbConnected = function (): void {
   $('remote-offline')?.classList.add('hidden');
   $('remote-active')?.classList.remove('hidden');
 
-  // Stream overlay text.
   const t = $('stream-mode-text');
   if (t) t.textContent = 'USB · live';
 
-  toast('success', 'USB connected', 'Streaming over cable. No Wi-Fi needed.');
+  toast('success', 'USB connected', 'Verified Vior desktop — streaming over cable.');
+};
+
+// ── No hello-ack within the 3s window ─────────────────────────────
+// Cable came up but the desktop didn't speak Vior back. Most common
+// cause: desktop app isn't running. Show the recovery surface with a
+// "Try again" button (calls Android.usbRetryHello via the JS bridge).
+window.onUsbHelloTimeout = function (): void {
+  console.log('usb: hello-ack timeout — desktop probably not running Vior');
+  // Don't tear down the cable — the user might launch Vior and retry.
+  // Just flip the orb into a failed state with recovery copy.
+  const setStage = (window as unknown as { setUsbStage?: (s: 'waiting' | 'verifying' | 'connected' | 'failed') => void }).setUsbStage;
+  if (typeof setStage === 'function') setStage('failed');
 };
 
 // usbTeardownTimer debounces a flap: a real cable yank vs. a 100-1500ms
@@ -99,12 +134,21 @@ function cancelPendingUsbTeardown(): void {
 
 // ── Cable yanked / desktop quit ───────────────────────────────────
 window.onUsbDisconnected = function (): void {
+  // Clear the "Cable detected" badge on the Wi-Fi transport pill no
+  // matter what — even if USB never reached the verified state, the
+  // cable just went away.
+  const wifiBadge = document.getElementById('transport-wifi-badge');
+  if (wifiBadge) wifiBadge.classList.add('hidden');
+
   // Only act if USB was the active transport. A Wi-Fi session shouldn't
   // be torn down by a stale USB-disconnect from a previous run. Log the
   // skip path explicitly — silent early-returns are murder to debug
   // when the user reports "Wi-Fi died when I unplugged the cable".
   if (transportMode !== 'usb') {
     console.log('usb: onUsbDisconnected ignored (transport=' + transportMode + ')');
+    // But still reset the orb in case we were in verifying/failed.
+    const setStage = (window as unknown as { setUsbStage?: (s: 'waiting' | 'verifying' | 'connected' | 'failed') => void }).setUsbStage;
+    if (typeof setStage === 'function') setStage('waiting');
     return;
   }
   // Debounce: schedule the teardown 1.5s out. If the cable re-enumerates
@@ -132,7 +176,7 @@ function doUsbTeardown(): void {
   if (typeof viorState !== 'undefined') viorState.set({ state: 'disconnected' });
 
   // Reset orb back to its breathing "waiting" state.
-  const setStage = (window as unknown as { setUsbStage?: (s: 'waiting' | 'connected') => void }).setUsbStage;
+  const setStage = (window as unknown as { setUsbStage?: (s: 'waiting' | 'verifying' | 'connected' | 'failed') => void }).setUsbStage;
   if (typeof setStage === 'function') setStage('waiting');
 
   // Flip back to discovery view; reset card + tabs.

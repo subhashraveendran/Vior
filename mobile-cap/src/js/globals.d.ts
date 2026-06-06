@@ -30,11 +30,16 @@ interface BarcodeDetectorLike {
 }
 
 // USB bridge callbacks installed on `window` by the Android side.
+// `onUsbHelloAck` fires once the desktop has verified the magic +
+// version we sent in FrameHello; `onUsbHelloTimeout` fires after a 3s
+// silence (peer is not actually Vior, or the desktop app is down).
 interface UsbBridge {
   onUsbFrame: (b64: string) => void;
   onUsbConnected: () => void;
   onUsbDisconnected: () => void;
   onUsbReady: (w: number, h: number) => void;
+  onUsbHelloAck: () => void;
+  onUsbHelloTimeout: () => void;
 }
 
 interface Window extends Partial<UsbBridge> {

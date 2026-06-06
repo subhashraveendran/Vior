@@ -274,8 +274,26 @@ func (a *Accessory) readInput() {
 
 		switch frameType {
 		case FrameHello:
-			w, h, dpr := DecodeHello(data)
-			log.Printf("usb: hello %dx%d @%.1fx", w, h, dpr)
+			w, h, dpr, ver, ok := DecodeHello(data)
+			if !ok {
+				// Peer is some other AOA accessory (or stale Vior with
+				// the pre-magic protocol) — bail before we feed garbage
+				// to OnConnect / treat any payload as touch coords.
+				log.Println("usb: peer is not Vior (magic mismatch)")
+				a.handleDisconnect()
+				return
+			}
+			if ver != ProtocolVersion {
+				log.Printf("usb: peer is not Vior (protocol version mismatch: got %d, want %d)", ver, ProtocolVersion)
+				a.handleDisconnect()
+				return
+			}
+			log.Printf("usb: hello %dx%d @%.1fx (proto v%d, verified)", w, h, dpr, ver)
+			// Reply with our matching magic+version so the phone can
+			// flip transportMode='usb' (it stays "verifying" until ack).
+			if _, err := a.outEP.Write(EncodeHelloAck()); err != nil {
+				log.Printf("usb: hello-ack write failed: %v", err)
+			}
 			if a.OnConnect != nil {
 				a.OnConnect(w, h, dpr)
 			}

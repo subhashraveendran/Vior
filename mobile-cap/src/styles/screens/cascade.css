@@ -1,0 +1,101 @@
+/* requires: tokens.css (--bg, --text-*, --accent, --surface-*, --r*, --font-*) */
+
+  /* ── Persistent transport toggle ──
+     Lives just below the header in the app shell — always reachable
+     during the entry cascade so users can swap Wi-Fi ⇄ USB mid-flow
+     without diving into Settings. Hidden post-connect (the transport
+     is locked at that point). */
+  .transport-toggle {
+    flex: none;
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin: 10px 14px 0;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    background: var(--surface-0);
+  }
+  .transport-btn {
+    appearance: none; border: none; background: transparent;
+    color: var(--text-2); font-family: inherit;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 9px 10px;
+    border-radius: calc(var(--r) - 4px);
+    font-size: 13.5px; font-weight: 600;
+    transition: background .14s ease, color .14s ease;
+    position: relative;
+  }
+  .transport-btn.active {
+    background: var(--surface-3);
+    color: var(--text-1);
+    box-shadow: inset 0 0 0 1px var(--border-strong);
+  }
+  .transport-btn.active svg { color: var(--accent); }
+  .transport-btn svg { color: var(--text-3); flex: none; }
+  .transport-badge {
+    display: inline-flex; align-items: center;
+    font-size: 10.5px; font-weight: 600;
+    padding: 2px 7px;
+    border-radius: var(--r-pill);
+    background: var(--accent-weak);
+    color: var(--accent);
+    margin-left: 4px;
+  }
+  /* Toggle disappears once the user is connected — no value swapping
+     transport from a stuck-on widget at that point. */
+  .hidden-post-connect { /* default: visible */ }
+  .post-connect .hidden-post-connect { display: none !important; }
+
+  /* ── Cascade step container ──
+     Exactly one .cascade-step is visible at a time. Each step is a
+     single-action surface with at most one tiny escape link to the
+     next layer. */
+  .cascade-step {
+    display: flex; flex-direction: column;
+    padding: 8px 0 0;
+  }
+  .cascade-step .empty {
+    padding: 36px 12px 24px;
+  }
+  .cascade-primary {
+    min-height: 54px;
+    font-size: 15px; font-weight: 600;
+  }
+  .cascade-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-top: 14px;
+    padding: 0 4px;
+  }
+  .cascade-refresh {
+    appearance: none; background: none; border: none;
+    color: var(--text-3); font-family: inherit;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px; font-weight: 600;
+    padding: 6px 4px;
+    cursor: pointer;
+  }
+  .cascade-refresh:active { color: var(--text-2); }
+  .cascade-escape {
+    appearance: none; background: none; border: none;
+    color: var(--text-3); font-family: inherit;
+    font-size: 12px; font-weight: 500;
+    padding: 6px 4px;
+    text-decoration: underline;
+    text-decoration-color: var(--border-strong);
+    text-underline-offset: 3px;
+    cursor: pointer;
+    text-align: right;
+  }
+  .cascade-escape:active { color: var(--text-2); }
+  /* Corner Wi-Fi link, anchored bottom of the cascade column. */
+  .cascade-wifi-link {
+    appearance: none; background: none; border: none;
+    color: var(--text-3); font-family: inherit;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 500;
+    padding: 16px 4px 4px;
+    cursor: pointer;
+    align-self: center;
+  }
+  .cascade-wifi-link:active { color: var(--text-2); }
+  .cascade-wifi-link svg { color: var(--text-3); }

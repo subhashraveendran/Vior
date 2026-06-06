@@ -119,7 +119,22 @@ function doConnect(): void {
     } else if (msg.type === 'error') {
       if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
       $('connecting-overlay').classList.add('hidden');
-      toast('error', 'Connection failed', ((msg.data as { message?: string } | undefined)?.message) || 'Check both devices on same Wi-Fi. Try manual IP.');
+      const errData = msg.data as { code?: string; message?: string } | undefined;
+      const code = errData?.code || '';
+      const errMsg = errData?.message || 'Check both devices on same Wi-Fi. Try manual IP.';
+      // Server-side pair check failed → forget the bad pair, re-open the
+      // pair-prompt modal so the user can type a fresh code without
+      // hunting through Settings.
+      if (code === 'pair_mismatch') {
+        try { (($('manual-pair') as HTMLInputElement) || {}).value = ''; } catch (_) {}
+        if (selectedServer) {
+          try { localStorage.removeItem('vior_known_' + selectedServer.host + ':' + selectedServer.port); } catch (_) {}
+        }
+        toast('error', 'Pair code rejected', 'Enter the 6-character code shown on the desktop.');
+        promptPair();
+      } else {
+        toast('error', 'Connection failed', errMsg);
+      }
       setConnState('offline');
     } else if (msg.type && msg.type.indexOf('file-') === 0) {
       try { handleFileMessage(msg); } catch (e) { console.error('file msg', e); }

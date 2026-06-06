@@ -201,6 +201,22 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    /**
+     * Persist the boot-autostart flag to a SharedPreferences file the
+     * BootReceiver can read. Called from JS via:
+     *   Android.setBootAutostart(true);
+     */
+    @android.webkit.JavascriptInterface
+    public void setBootAutostart(boolean enabled) {
+        try {
+            getSharedPreferences("vior_prefs", MODE_PRIVATE)
+                .edit().putBoolean("boot_autostart", enabled).apply();
+            Log.i(TAG, "boot_autostart=" + enabled);
+        } catch (Exception e) {
+            Log.e(TAG, "setBootAutostart failed: " + e.getMessage());
+        }
+    }
+
     private void evaluateJs(String js) {
         WebView webView = getBridge().getWebView();
         if (webView != null) {

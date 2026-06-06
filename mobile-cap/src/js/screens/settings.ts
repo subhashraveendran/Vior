@@ -77,6 +77,15 @@ document.querySelectorAll<HTMLElement>('.vior-toggle').forEach(function (t: HTML
       const label = prev ? prev.querySelector('div') : null;
       toast('info', 'Updated', (label ? label.textContent : '') + ' ' + (on ? 'enabled' : 'disabled'));
     }
+    // Mirror the boot-autostart flag to native side so the
+    // BootReceiver can read it from SharedPreferences.
+    if (key === 'vior_boot_autostart') {
+      const bridge = (window as unknown as { Android?: { setBootAutostart?: (v: boolean) => void } }).Android;
+      if (bridge && typeof bridge.setBootAutostart === 'function') {
+        try { bridge.setBootAutostart(on); } catch (_) {}
+      }
+      toast('info', 'Auto-launch on boot', on ? 'enabled' : 'disabled');
+    }
   });
 });
 
@@ -101,4 +110,81 @@ document.querySelectorAll<HTMLElement>('.vior-toggle').forEach(function (t: HTML
   } catch (e) {
     toast('error', 'Paste failed', 'Clipboard access denied.');
   }
+});
+
+// ── Saved connections list + clear ─────────────────────────────
+function renderSavedConns(): void {
+  const host = $('saved-conns-list');
+  if (!host) return;
+  // Collect every server we've successfully connected to (marked
+  // 'vior_known_<host>:<port>' = '1' in connect.ts after the 'ready'
+  // message). Show one row per host:port + a 'forget' affordance.
+  const items: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.indexOf('vior_known_') === 0) {
+      items.push(k.substring('vior_known_'.length));
+    }
+  }
+  if (items.length === 0) {
+    host.innerHTML = '<div style="padding: 14px 15px; color: var(--text-3); font-size: 12.5px;" class="mono">No saved connections yet.</div>';
+    return;
+  }
+  host.innerHTML = items.map(function (hp) {
+    return '<div style="display:flex;align-items:center;gap:12px;padding:12px 15px;border-bottom:1px solid var(--border);">' +
+             '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><rect x="2.5" y="4" width="19" height="13" rx="2"/></svg>' +
+             '<div style="flex:1;font-family:var(--font-mono);font-size:13px;">' + esc(hp) + '</div>' +
+             '<button data-forget="' + esc(hp) + '" style="background:none;border:none;color:#ff6464;cursor:pointer;font-size:12px;font-weight:600;">Forget</button>' +
+           '</div>';
+  }).join('');
+  // Wire forget buttons
+  host.querySelectorAll<HTMLButtonElement>('[data-forget]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      const hp = b.getAttribute('data-forget') || '';
+      localStorage.removeItem('vior_known_' + hp);
+      if (localStorage.getItem('vior_last') === hp) localStorage.removeItem('vior_last');
+      renderSavedConns();
+      toast('info', 'Forgotten', hp);
+    });
+  });
+}
+// Refresh the list every time the sheet opens.
+const settingsBtn = $('settings-btn');
+if (settingsBtn) settingsBtn.addEventListener('click', function () { setTimeout(renderSavedConns, 30); });
+renderSavedConns();
+
+const clearBtn = $('clear-saved-conns');
+if (clearBtn) clearBtn.addEventListener('click', function () {
+  // Forget every saved server + pair + device id. Next connect re-prompts.
+  const keys: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && (k.indexOf('vior_known_') === 0 || k === 'vior_last' || k === 'vior_pair' || k === 'vior_device_id')) {
+      keys.push(k);
+    }
+  }
+  keys.forEach(function (k) { localStorage.removeItem(k); });
+  (($('manual-pair') as HTMLInputElement) || {}).value = '';
+  renderSavedConns();
+  toast('success', 'Cleared', keys.length + ' saved key' + (keys.length === 1 ? '' : 's') + ' forgotten.');
+});
+
+// ── Advanced flag toggle reveals the Debug block ───────────────
+function syncAdvancedBlock(): void {
+  const block = $('advanced-block');
+  if (!block) return;
+  if (localStorage.getItem('vior_advanced') === '1') block.classList.remove('hidden');
+  else block.classList.add('hidden');
+}
+syncAdvancedBlock();
+const advTrack = $('advanced-track');
+if (advTrack) advTrack.addEventListener('click', function () { setTimeout(syncAdvancedBlock, 20); });
+
+// Debug: reset every preference key.
+const dbgReset = $('dbg-reset');
+if (dbgReset) dbgReset.addEventListener('click', function () {
+  const n = localStorage.length;
+  localStorage.clear();
+  toast('warning', 'All preferences cleared', n + ' keys removed. Reloading…');
+  setTimeout(function () { location.reload(); }, 800);
 });

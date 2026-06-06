@@ -70,13 +70,22 @@ func startTray(ctx context.Context, app *App) {
 			defer t.Stop()
 			for range t.C {
 				s := app.GetServerStatus()
+				clients := app.GetConnectedClients()
+				// Status entry: "Vior — Connected: <name>" / "Vior —
+				// Waiting · ABC-123" / "Vior — Ready". Mirrors the
+				// in-app state pill so the user never has to open the
+				// window to know the state.
 				var text string
 				var running C.int
-				if s.Running {
-					text = fmt.Sprintf("Server: running on :%d", s.Port)
+				switch {
+				case s.Running && len(clients) > 0:
+					text = fmt.Sprintf("Vior — Connected: %s", clients[0].Name)
 					running = 1
-				} else {
-					text = "Server: stopped"
+				case s.Running:
+					text = fmt.Sprintf("Vior — Waiting · %s", formatPairCode(s.PairCode))
+					running = 1
+				default:
+					text = "Vior — Ready"
 				}
 				cText := C.CString(text)
 				C.viorTraySetStatus(cText, running)
@@ -84,6 +93,16 @@ func startTray(ctx context.Context, app *App) {
 			}
 		}()
 	})
+}
+
+// formatPairCode splits the 6-char hex pair code into "ABC-123" purely
+// for display. Kept here so both the tray and any other Go-side surface
+// share one formatter; the mobile side parses both forms transparently.
+func formatPairCode(code string) string {
+	if len(code) <= 3 {
+		return code
+	}
+	return code[:3] + "-" + code[3:]
 }
 
 // setMenuBarVisible toggles the NSStatusItem at runtime.

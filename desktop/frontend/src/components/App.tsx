@@ -1,9 +1,18 @@
-// Top-level router. Owns the cross-screen state (server status,
-// client, config, toasts, accent) and decides which screen to render.
-// Every screen lives in ../screens/ or ../panes/; this file is
-// intentionally minimal — wiring + state, no UI markup beyond the
-// chrome (titlebar + sidebar + toast host).
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+// Top-level router. Owns cross-screen state (server status, client,
+// config, toasts, accent) and decides which screen to render based on
+// the app's lifecycle state machine:
+//
+//   init → ready (idle) → waiting (server up, no client)
+//                            ↓
+//                        connected (full ops surface)
+//                            ↓ disconnect
+//                        waiting
+//
+// Sidebar items are gated by state — pre-connect the user only sees
+// Home + Settings (Files is meaningless without a paired device). Once
+// connected, Files appears. This keeps the "dumb user" surface tiny
+// before they've done anything.
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   EventsOn,
   StartServer, StopServer, GetServerStatus,
@@ -35,6 +44,10 @@ import type {
   ToastTone,
 } from '../types'
 
+// AppState mirrors the lifecycle state machine. Derived from
+// serverStatus + client so there's no second source of truth.
+type AppState = 'ready' | 'waiting' | 'connected'
+
 export default function App() {
   const [serverStatus, setServerStatus] = useState<ServerStatus | null>(null)
   const [client, setClient] = useState<ClientInfo | null>(null)
@@ -47,6 +60,13 @@ export default function App() {
   const [toasts, setToasts] = useState<Toast[]>([])
   const [accent, setAccent] = useState<AccentHex>(localStorage.getItem('vior_accent') || '#ff8a4c')
   const [incomingOffer, setIncomingOffer] = useState<{ id: string; name: string; size: number; mimeType: string; preview?: string } | null>(null)
+  // accessibilityOk drives the Permissions card on the Connected screen.
+  // null = unknown / not yet polled; true/false = current OS state.
+  const [accessibilityOk, setAccessibilityOk] = useState<boolean | null>(null)
+  // disconnectBanner shows the transient "Device disconnected" notice
+  // for ~3 seconds after a client drops, then auto-clears back to the
+  // bare Waiting screen.
+  const [disconnectBanner, setDisconnectBanner] = useState<string | null>(null)
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- accent applies
   // once at boot; subsequent changes flow through Appearance → applyAccent
@@ -82,11 +102,17 @@ export default function App() {
   // events
   useEffect(() => {
     const off1 = EventsOn('client:connected', (info: ClientInfo) => {
-      setClient(info); setErrorState(false)
+      setClient(info); setErrorState(false); setDisconnectBanner(null)
       toast('success', 'Device connected', info.name)
+      // Once a device connects, surface the current accessibility state
+      // so the Connected screen's Permissions card has a value to render.
+      HasAccessibility(false).then(setAccessibilityOk).catch(() => setAccessibilityOk(null))
     })
     const off2 = EventsOn('client:disconnected', () => {
+      const name = client?.name || 'Device'
       setClient(null)
+      setDisconnectBanner(name)
+      window.setTimeout(() => setDisconnectBanner(null), 3000)
       toast('info', 'Device disconnected', null)
     })
     const off3 = EventsOn('permission:accessibility-missing', () => {
@@ -94,6 +120,7 @@ export default function App() {
       // user at the right Settings pane. Without Accessibility the
       // mobile Remote tab silently does nothing.
       HasAccessibility(true).catch(() => {})
+      setAccessibilityOk(false)
       toast('error', 'Remote needs Accessibility', 'System Settings → Privacy & Security → Accessibility → enable Vior.')
     })
     // Incoming file from mobile (untrusted device path). Trusted devices
@@ -105,7 +132,7 @@ export default function App() {
       toast('info', 'File accepted', `Saving to ~/Downloads/Vior · ${id.slice(0, 6)}…`)
     })
     return () => { off1 && off1(); off2 && off2(); off3 && off3(); off4 && off4(); off5 && off5() }
-  }, [toast])
+  }, [toast, client])
 
   // poll status
   useEffect(() => {
@@ -116,13 +143,23 @@ export default function App() {
     return () => clearInterval(id)
   }, [serverStatus?.running])
 
+  // Poll accessibility state while a client is connected so the card
+  // disappears the moment the user flips the toggle in System Settings.
+  useEffect(() => {
+    if (!client) { setAccessibilityOk(null); return }
+    const id = setInterval(() => {
+      HasAccessibility(false).then(setAccessibilityOk).catch(() => {})
+    }, 2500)
+    return () => clearInterval(id)
+  }, [client])
+
   const start = async () => {
     try { await StartServer(); const s = await GetServerStatus(); setServerStatus(s) }
     catch (e) { toast('error', 'Failed to start', String(e)) }
   }
   const stop = async () => {
     try { await StopServer() } catch {}
-    setServerStatus(null); setClient(null); setErrorState(false)
+    setServerStatus(null); setClient(null); setErrorState(false); setDisconnectBanner(null); setNav('server')
   }
   const sendFile = async () => {
     try { await PickAndSendFile(); toast('success', 'File sent', null) }
@@ -130,7 +167,11 @@ export default function App() {
   }
   const copyUrl = () => {
     if (!serverStatus?.url) return
-    navigator.clipboard?.writeText(serverStatus.url).then(() => toast('success', 'Copied', serverStatus.url))
+    navigator.clipboard?.writeText(serverStatus.url).then(() => toast('success', 'Copied URL', serverStatus.url))
+  }
+  const copyPair = () => {
+    if (!serverStatus?.pairCode) return
+    navigator.clipboard?.writeText(serverStatus.pairCode).then(() => toast('success', 'Copied pair code', formatPairCode(serverStatus.pairCode)))
   }
   const updateConfig = async (c: AppConfig) => {
     setConfig(c)
@@ -139,13 +180,63 @@ export default function App() {
 
   const running = !!serverStatus?.running
   const connected = !!client
-  const sidebarState: [string, string] = connected ? ['dot-ok', 'Connected'] : running ? ['dot-ok', 'Running'] : ['dot-idle', 'Stopped']
+  const state: AppState = connected ? 'connected' : running ? 'waiting' : 'ready'
+  const sidebarState: [string, string] = connected ? ['dot-ok', 'Connected'] : running ? ['dot-ok', 'Waiting'] : ['dot-idle', 'Ready']
 
-  let body
-  if (nav === 'settings') body = <SettingsScreen config={config} onChange={updateConfig} accent={accent} setAccent={setAccent} />
-  else if (!running)     body = <IdleScreen onStart={start} showUpdate={showUpdate} onUpdate={() => setShowUpdate(false)} onDismiss={() => setShowUpdate(false)} />
-  else if (!connected)   body = <WaitingScreen status={serverStatus} onStop={stop} onCopy={copyUrl} />
-  else                   body = <ConnectedScreen status={serverStatus} client={client} mode={mode} setMode={setMode} onDisconnect={stop} onSendFile={sendFile} errorState={errorState} onRetry={() => setErrorState(false)} onStop={stop} />
+  // Sidebar gating: pre-connect (ready / waiting) the user sees only
+  // Home + Settings. Files is hidden because it has no target — a
+  // dead nav item before any device joins is the kind of clutter that
+  // makes the dumb-user say "what am I supposed to click?".
+  const navItems = useMemo(() => {
+    const items: Array<{ id: Nav; label: string; icon: (n?: number) => React.JSX.Element }> = [
+      { id: 'server', label: 'Home', icon: Icons.display },
+    ]
+    if (state === 'connected') {
+      items.push({ id: 'files', label: 'Files', icon: Icons.files })
+    }
+    items.push({ id: 'settings', label: 'Settings', icon: Icons.settings })
+    return items
+  }, [state])
+
+  // If a state transition hides the current nav item, route back to Home
+  // so the user never lands on a blank pane.
+  useEffect(() => {
+    if (!navItems.some(n => n.id === nav)) setNav('server')
+  }, [navItems, nav])
+
+  let body: React.ReactNode
+  if (nav === 'settings') {
+    body = <SettingsScreen config={config} onChange={updateConfig} accent={accent} setAccent={setAccent} />
+  } else if (state === 'ready') {
+    body = <IdleScreen onStart={start} showUpdate={showUpdate} onUpdate={() => setShowUpdate(false)} onDismiss={() => setShowUpdate(false)} />
+  } else if (state === 'waiting') {
+    body = (
+      <WaitingScreen
+        status={serverStatus}
+        onStop={stop}
+        onCopy={copyUrl}
+        onCopyPair={copyPair}
+        disconnectBanner={disconnectBanner}
+      />
+    )
+  } else {
+    body = (
+      <ConnectedScreen
+        status={serverStatus}
+        client={client}
+        mode={mode}
+        setMode={setMode}
+        onDisconnect={stop}
+        onSendFile={sendFile}
+        errorState={errorState}
+        onRetry={() => setErrorState(false)}
+        onStop={stop}
+        accessibilityOk={accessibilityOk}
+        onFixAccessibility={() => HasAccessibility(true).catch(() => {})}
+        showFilesTab={nav === 'files'}
+      />
+    )
+  }
 
   return (
     <div className="dwin">
@@ -159,15 +250,11 @@ export default function App() {
       </div>
       <div className="dbody">
         <div className="sidebar">
-          {[
-            { id: 'server' as const, label: 'Server', icon: Icons.display },
-            { id: 'files' as const, label: 'Files', icon: Icons.files },
-            { id: 'settings' as const, label: 'Settings', icon: Icons.settings },
-          ].map(n => (
+          {navItems.map(n => (
             <button key={n.id} className={`nav-item ${nav === n.id ? 'active' : ''}`} onClick={() => setNav(n.id)}>
               {n.icon(18)}
               <span style={{ flex: 1 }}>{n.label}</span>
-              {n.id === 'server' && running && !connected && <span className="badge" />}
+              {n.id === 'server' && state === 'waiting' && <span className="badge" />}
             </button>
           ))}
           <div className="sidebar-foot">
@@ -250,4 +337,13 @@ function fmtSize(b: number): string {
   if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`
   if (b < 1024 * 1024 * 1024) return `${(b / 1024 / 1024).toFixed(1)} MB`
   return `${(b / 1024 / 1024 / 1024).toFixed(2)} GB`
+}
+
+// formatPairCode splits the 6-char hex pair code into ABC-123 for the
+// toast confirmation. Display-only — the server still stores the raw
+// 6-char form and the mobile parses both transparently.
+function formatPairCode(code: string | undefined): string {
+  if (!code) return ''
+  if (code.length <= 3) return code
+  return `${code.slice(0, 3)}-${code.slice(3)}`
 }

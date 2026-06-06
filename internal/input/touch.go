@@ -54,18 +54,26 @@ func (t *TouchMapper) HandleMouse(action string, dx, dy float64) error {
 		if err != nil {
 			return err
 		}
-		// If the cursor was parked on an invisible virtual display (created
-		// for the Stream tab's extend-mode capture), the user would never
-		// see the Remote-tab trackpad move it because the new absolute
-		// target is outside any visible screen. Warp back to the main
-		// display before applying the delta so the cursor is visible
-		// again immediately.
+		// The cursor may legitimately live on either the host's main
+		// display OR the captured display (which, in extend mode, is the
+		// virtual display the phone is mirroring). Only warp the cursor
+		// back to the main display if it has wandered off BOTH — that
+		// covers the pathological case where a previous touch left it on
+		// a stale virtual display rect that no longer exists, without
+		// yanking it off the active virtual display every time the user
+		// drags on the Remote trackpad. (Previous behavior warped on the
+		// first move whenever the cursor sat outside the main display,
+		// which made the host cursor pop to the centre of the main Mac
+		// every time the user touched the Remote tab — the "remote moves
+		// too" report.)
 		mx, my, mw, mh := t.controller.MainDisplayBounds()
-		if mw > 0 && mh > 0 {
-			if x < mx || y < my || x >= mx+mw || y >= my+mh {
-				x = mx + mw/2
-				y = my + mh/2
-			}
+		insideMain := mw > 0 && mh > 0 && x >= mx && y >= my && x < mx+mw && y < my+mh
+		insideCaptured := !t.displayBounds.Empty() &&
+			x >= t.displayBounds.Min.X && y >= t.displayBounds.Min.Y &&
+			x < t.displayBounds.Max.X && y < t.displayBounds.Max.Y
+		if !insideMain && !insideCaptured && mw > 0 && mh > 0 {
+			x = mx + mw/2
+			y = my + mh/2
 		}
 		return t.controller.MoveMouse(x+int(dx), y+int(dy))
 	case "click":

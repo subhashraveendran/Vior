@@ -1,0 +1,17 @@
+  /* ── Toast ── */
+  .toast-host {
+    position: fixed; left: 14px; right: 14px; bottom: calc(78px + env(safe-area-inset-bottom, 0));
+    z-index: 60;
+    display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+  }
+  .toast {
+    display: flex; align-items: flex-start; gap: 11px; padding: 13px 14px;
+    background: var(--surface-3); border: 1px solid var(--border-strong);
+    border-radius: var(--r); box-shadow: var(--shadow-2);
+    pointer-events: auto;
+    animation: toastIn .25s var(--ease) both;
+  }
+  @keyframes toastIn { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .toast-title { font-size: 13.5px; font-weight: 600; color: var(--text-1); }
+  .toast-msg { font-size: 12.5px; color: var(--text-2); margin-top: 2px; line-height: 1.4; }
+

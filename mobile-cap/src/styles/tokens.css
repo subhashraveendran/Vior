@@ -1,0 +1,65 @@
+  :root {
+    --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+    --bg: #0b0d10;
+    --surface-0: #0b0d10;
+    --surface-1: #121519;
+    --surface-2: #171b21;
+    --surface-3: #1f262e;
+    --hover: rgba(255,255,255,0.05);
+    --press: rgba(255,255,255,0.09);
+
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.15);
+
+    --text-1: #eef1f5;
+    --text-2: #9aa4b1;
+    --text-3: #626c79;
+
+    --accent: #ff8a4c;
+    --accent-2: #ff7a36;
+    --on-accent: #1a0e06;
+    --accent-weak: rgba(255,138,76,0.14);
+    --accent-line: rgba(255,138,76,0.40);
+
+    --ok: #46d39a;
+    --warn: #f3c14b;
+    --err: #ff6f6f;
+    --idle: #5b6573;
+
+    --r-xs: 5px;
+    --r-sm: 8px;
+    --r: 11px;
+    --r-lg: 15px;
+    --r-pill: 999px;
+
+    --sp: 4px;
+    --shadow-1: 0 1px 2px rgba(0,0,0,0.4);
+    --shadow-2: 0 12px 32px rgba(0,0,0,0.45);
+
+    --ease: cubic-bezier(.2,.7,.3,1);
+    --dur: 1;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; background: var(--bg); color: var(--text-1);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%;
+    overflow: hidden; -webkit-tap-highlight-color: transparent;
+  }
+  button { font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  input { font-family: inherit; }
+  .mono { font-family: var(--font-mono); }
+  .hidden { display: none !important; }
+
+  .label {
+    font-family: var(--font-sans);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    font-size: 11px;
+    color: var(--text-3);
+  }
+

@@ -1,0 +1,48 @@
+  /* ── Style remaps ── */
+  [data-vior-style="instrument"] {
+    --r-xs: 2px; --r-sm: 3px; --r: 4px; --r-lg: 6px;
+    --border: rgba(255,255,255,0.10); --border-strong: rgba(255,255,255,0.18);
+    --surface-1: #0f1318; --surface-2: #141a20; --surface-3: #1b232b;
+  }
+  [data-vior-style="soft"] {
+    --bg: #100d0c; --surface-0: #100d0c;
+    --surface-1: #1a1614; --surface-2: #211b18; --surface-3: #2b231f;
+    --border: rgba(255,255,255,0.07); --border-strong: rgba(255,255,255,0.13);
+    --text-2: #a89e96; --text-3: #6e645c;
+    --r-xs: 8px; --r-sm: 12px; --r: 16px; --r-lg: 22px;
+  }
+  [data-vior-density="compact"] { --sp: 3.4px; }
+  [data-vior-density="comfy"]   { --sp: 4.8px; }
+  [data-vior-motion="off"] *, [data-vior-motion="off"] *::before, [data-vior-motion="off"] *::after {
+    animation: none !important; transition-duration: 0.001ms !important;
+  }
+  [data-vior-motion="subtle"] * { animation-duration: 2s !important; }
+
+  /* ── Radar (loading discovery) ── */
+  .radar-search {
+    padding: 56px 32px; display: flex; flex-direction: column; align-items: center; text-align: center;
+  }
+  .radar { width: 110px; height: 110px; position: relative; margin-bottom: 22px; display: grid; place-items: center; }
+  .radar-ring {
+    position: absolute; width: 110px; height: 110px; border-radius: 50%;
+    border: 1px solid var(--accent-line); opacity: 0; pointer-events: none;
+    animation: vRadar 2.8s var(--ease) infinite;
+  }
+  .radar-ring:nth-child(2) { animation-delay: 0.9s; }
+  .radar-ring:nth-child(3) { animation-delay: 1.8s; }
+  .radar-core {
+    width: 50px; height: 50px; border-radius: var(--r-lg);
+    background: linear-gradient(155deg, var(--surface-2), var(--surface-1));
+    border: 1px solid var(--border-strong);
+    display: grid; place-items: center; color: var(--accent);
+  }
+  @keyframes vRadar { 0% { transform: scale(0.7); opacity: 0.5; } 70% { opacity: 0; } 100% { transform: scale(2.05); opacity: 0; } }
+
+  /* ── reduced motion ── */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }

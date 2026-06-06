@@ -1,0 +1,25 @@
+  /* ── Empty state ── */
+  .empty {
+    padding: 56px 32px;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+  }
+  .empty-icon {
+    width: 60px; height: 60px; border-radius: var(--r-lg);
+    background: var(--surface-2); border: 1px solid var(--border);
+    display: grid; place-items: center; color: var(--text-3); margin-bottom: 18px;
+  }
+  .empty-title { font-size: 17px; font-weight: 600; color: var(--text-1); }
+  .empty-body { font-size: 13.5px; color: var(--text-2); margin-top: 7px; line-height: 1.5; max-width: 270px; }
+
+  /* ── Field ── */
+  .field {
+    display: flex; align-items: center; gap: 8px; padding: 0 14px;
+    min-height: 48px; background: var(--surface-0); border: 1px solid var(--border);
+    border-radius: var(--r); color: var(--text-3);
+  }
+  .field input {
+    flex: 1; min-width: 0; background: transparent; border: none; outline: none;
+    color: var(--text-1); font-size: 15px; font-family: var(--font-mono);
+  }
+  .field input::placeholder { color: var(--text-3); }
+

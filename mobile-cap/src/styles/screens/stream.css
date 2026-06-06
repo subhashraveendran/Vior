@@ -1,0 +1,51 @@
+  /* ── Stream fullscreen ── */
+  .stream-fs {
+    position: fixed; inset: 0; z-index: 50;
+    background: #05070a;
+    opacity: 0; pointer-events: none; transition: opacity .3s var(--ease);
+  }
+  .stream-fs.active { opacity: 1; pointer-events: auto; }
+  #stream-img { width: 100%; height: 100%; object-fit: contain; touch-action: none; background: #000; cursor: pointer; }
+  .stream-loading {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+    background: rgba(5,7,10,0.55);
+  }
+  .stream-loading-spin { width: 30px; height: 30px; border: 2.4px solid var(--surface-3); border-top-color: var(--accent); border-radius: 50%; animation: vSpin .9s linear infinite; }
+  .stream-loading-text { font-size: 14px; color: var(--text-1); font-weight: 600; }
+  .stream-loading-sub { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+  .stream-top {
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: calc(14px + env(safe-area-inset-top, 0)) 14px 28px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.6), transparent);
+    display: flex; align-items: center; gap: 12px;
+    transition: transform .3s var(--ease), opacity .3s var(--ease);
+  }
+  .stream-bot {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 28px 14px calc(16px + env(safe-area-inset-bottom, 0));
+    background: linear-gradient(0deg, rgba(0,0,0,0.6), transparent);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    transition: transform .3s var(--ease), opacity .3s var(--ease);
+  }
+  .stream-overlay.dimmed .stream-top { transform: translateY(-110%); opacity: 0; }
+  .stream-overlay.dimmed .stream-bot { transform: translateY(110%); opacity: 0; }
+  .stream-pillbtn {
+    width: 40px; height: 40px; border-radius: var(--r-sm);
+    background: rgba(255,255,255,0.12); backdrop-filter: blur(8px);
+    border: none; color: #fff; display: grid; place-items: center;
+  }
+  .stream-name { font-size: 14.5px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stream-mode { font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.7); }
+  .stream-live-pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+    border-radius: var(--r-pill); background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(8px); font-size: 11.5px; font-weight: 600; color: #fff;
+  }
+  .stream-stats { display: flex; gap: 14px; font-family: var(--font-mono); font-size: 11.5px; color: rgba(255,255,255,0.85); }
+  .stream-disc {
+    display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 14px;
+    border-radius: var(--r-sm); background: rgba(255,111,111,0.18);
+    border: 1px solid rgba(255,111,111,0.4); color: #ffb0b0;
+    font-weight: 600; font-size: 13px; backdrop-filter: blur(8px);
+  }
+

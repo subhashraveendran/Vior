@@ -1,0 +1,39 @@
+  /* ── Files ── */
+  .files { padding: 20px; height: 100%; overflow-y: auto; scrollbar-width: none; }
+  .files::-webkit-scrollbar { display: none; }
+  .files-actions { display: flex; gap: 11px; }
+  .file-action-btn {
+    flex: 1; min-height: 60px;
+    background: var(--surface-2); color: var(--text-1);
+    border: 1px solid var(--border); border-radius: var(--r);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+    font-size: 13.5px; font-weight: 600;
+    touch-action: manipulation;
+  }
+  .file-action-btn:active { background: var(--surface-3); }
+  .incoming-card {
+    padding: 16px;
+    background: var(--accent-weak); border: 1px solid var(--accent-line);
+    border-radius: var(--r-lg);
+  }
+  .incoming-head { display: flex; align-items: center; gap: 12px; }
+  .incoming-icon { width: 40px; height: 40px; flex: none; border-radius: var(--r-sm); background: var(--surface-1); display: grid; place-items: center; color: var(--accent); }
+  .incoming-name { font-size: 14.5px; font-weight: 600; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .incoming-meta { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-2); margin-top: 2px; }
+  .incoming-buttons { display: flex; gap: 10px; margin-top: 14px; }
+  .transfer-row { padding: 12px; }
+  .transfer-head { display: flex; align-items: center; gap: 12px; }
+  .transfer-icon { width: 38px; height: 38px; flex: none; border-radius: var(--r-sm); background: var(--surface-3); display: grid; place-items: center; }
+  .transfer-name { font-size: 14px; font-weight: 600; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .transfer-meta { display: flex; align-items: center; gap: 7px; margin-top: 3px; }
+  .transfer-status { font-size: 11.5px; font-weight: 600; }
+  .transfer-size { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+  .bar-inner {
+    height: 6px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; position: relative; margin-top: 11px;
+  }
+  .bar-inner > i {
+    position: absolute; inset: 0 auto 0 0; border-radius: inherit;
+    background: linear-gradient(90deg, var(--accent-2), var(--accent));
+    transition: width .3s var(--ease);
+  }
+

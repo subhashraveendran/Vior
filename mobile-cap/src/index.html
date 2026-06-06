@@ -12,7 +12,23 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<!-- Modular CSS: tokens → components → layout → screens → remaps.
+     Order matters — later rules override earlier ones. Capacitor copies
+     the whole src/ tree, so relative paths resolve under android assets. -->
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/components.css">
+<link rel="stylesheet" href="styles/components/toast.css">
+<link rel="stylesheet" href="styles/layout.css">
+<link rel="stylesheet" href="styles/screens/discovery.css">
+<link rel="stylesheet" href="styles/screens/empty.css">
+<link rel="stylesheet" href="styles/screens/connecting.css">
+<link rel="stylesheet" href="styles/screens/connected.css">
+<link rel="stylesheet" href="styles/screens/stream.css">
+<link rel="stylesheet" href="styles/screens/files.css">
+<link rel="stylesheet" href="styles/screens/remote.css">
+<link rel="stylesheet" href="styles/screens/qr.css">
+<link rel="stylesheet" href="styles/screens/settings.css">
+<link rel="stylesheet" href="styles/theme-remaps.css">
 </head>
 <body>
 

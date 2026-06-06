@@ -54,6 +54,11 @@ type Transfer struct {
 	Complete    bool
 	Hash        string
 
+	// lastProgressAt is the Transferred value at which OnFileProgress
+	// was last fired, so HandleChunk can coalesce notifications to
+	// roughly one per progressEmitStep bytes.
+	lastProgressAt int64
+
 	// Receive buffer.
 	file *os.File
 	mu   sync.Mutex
@@ -94,11 +99,23 @@ type Manager struct {
 	OnFileReceived func(t *Transfer)
 	OnFileOffer    func(t *Transfer) // called when remote offers a file
 
+	// OnFileProgress, if set, is invoked mid-stream on the receiving
+	// side at most once per progressEmitStep bytes (or on the final
+	// chunk). Lets the desktop UI render a live progress bar instead
+	// of jumping from 0 → 100 only on file-complete.
+	OnFileProgress func(t *Transfer)
+
 	// OnDownloadDone fires after the mobile reports it finished the GET
 	// (or we hit ServeDownload to completion). Lets the desktop UI mark
 	// the row green.
 	OnDownloadDone func(p *PendingDownload)
 }
+
+// progressEmitStep coalesces per-chunk progress notifications so a fast
+// 200 MB transfer doesn't spam the desktop event bus with ~4000
+// notifications. 256 KiB ≈ ~1% on a 25 MB file, which is enough
+// granularity for a UI bar without dominating the event loop.
+const progressEmitStep = 256 * 1024
 
 // NewManager creates a file transfer manager.
 func NewManager(receiveDir string) *Manager {
@@ -201,8 +218,17 @@ func (m *Manager) sendChunks(t *Transfer) {
 			t.Transferred = offset
 			t.mu.Unlock()
 
-			// Throttle: small delay between chunks to avoid overwhelming WebSocket.
-			time.Sleep(5 * time.Millisecond)
+			// Throttle: 1 ms yield between chunks. The previous 5 ms was
+			// throttling a local-LAN transfer to a ~9.6 MB/s ceiling
+			// (48 KiB chunks × 200 chunks/s), well below what either the
+			// JSON-WS encoder or the receiver can handle. We can't
+			// remove the sleep entirely because the JSON-WS path doesn't
+			// back-pressure naturally — gorilla/websocket buffers
+			// writes in memory — so a hot tight loop on a giant file
+			// would blow up the write buffer. 1 ms (≈ 48 MB/s ceiling)
+			// matches local-LAN saturation while keeping the goroutine
+			// cooperatively yielding to the WS reader.
+			time.Sleep(1 * time.Millisecond)
 		}
 		if err == io.EOF {
 			break
@@ -344,6 +370,33 @@ func (m *Manager) HandleChunk(msg *protocol.FileChunkMessage) {
 
 	t.file.Write(data)
 	t.Transferred += int64(len(data))
+
+	// Coalesced progress callback — fires at most once per
+	// progressEmitStep bytes, plus once at completion (via
+	// HandleComplete). We snapshot Transferred under the lock and
+	// invoke the user callback after releasing it so the callback
+	// can re-enter Manager methods (e.g. ActiveTransfers) without
+	// deadlocking.
+	var firedAt int64
+	var emit bool
+	if m.OnFileProgress != nil {
+		if t.Transferred-t.lastProgressAt >= progressEmitStep ||
+			(t.Size > 0 && t.Transferred >= t.Size) {
+			t.lastProgressAt = t.Transferred
+			firedAt = t.Transferred
+			emit = true
+		}
+	}
+	if emit {
+		// Capture the fields we want to expose; the callback runs after
+		// we return from this method (and release the mutex via defer).
+		go func(id, name, mime, preview, path string, size, transferred int64) {
+			m.OnFileProgress(&Transfer{
+				ID: id, Name: name, MimeType: mime, Preview: preview,
+				Path: path, Size: size, Transferred: transferred,
+			})
+		}(t.ID, t.Name, t.MimeType, t.Preview, t.Path, t.Size, firedAt)
+	}
 }
 
 // HandleComplete processes a file-complete message.

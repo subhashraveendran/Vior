@@ -4,6 +4,7 @@
 package session
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"log"
@@ -103,6 +104,15 @@ func Configure(hello *protocol.HelloMessage) (*Setup, error) {
 		}
 		displayID, err := virtual.CreateVirtualDisplay(info)
 		if err != nil {
+			// Headless / Linux without xf86-video-dummy / Windows
+			// without a virtual display driver: extend mode is
+			// unavailable. Return a clean user-friendly error rather
+			// than crashing the WS session — the desktop frontend
+			// surfaces this to the user as "extend mode unavailable,
+			// use mirror".
+			if errors.Is(err, virtual.ErrUnsupported) {
+				return nil, fmt.Errorf("extend mode unavailable on this host (no virtual display backend); choose mirror mode instead")
+			}
 			return nil, fmt.Errorf("create virtual display: %w", err)
 		}
 		// Wait for the OS to register the new display.

@@ -17,10 +17,10 @@ func Create(width, height uint32, refreshRate float64) (uint32, error) {
 	// Find an unused/disconnected output that can be used as virtual.
 	output, err := findAvailableOutput()
 	if err != nil {
-		return 0, fmt.Errorf("no available output for virtual display: %w\n\n"+
-			"HINT: Virtual displays on Linux require a dummy display driver.\n"+
-			"Run 'vior virtual setup' to generate the xorg.conf.d config,\n"+
-			"then restart your X11 session.", err)
+		// Headless box or no dummy driver — surface ErrUnsupported so
+		// the session layer can fall back to mirror with a clean
+		// message instead of crashing the WS handler.
+		return 0, fmt.Errorf("%w: %v (install xf86-video-dummy and run 'vior virtual setup')", ErrUnsupported, err)
 	}
 
 	modeName := fmt.Sprintf("vior_%dx%d", width, height)

@@ -7,30 +7,45 @@ import { Icons } from '../lib/icons'
 import Glyph from '../lib/Glyph'
 import { accentName } from '../lib/accent'
 import AppearancePanel from './Appearance'
+import type { SettingsScreenProps, AppConfig } from '../types'
 
-export default function SettingsScreen({ config, onChange, accent, setAccent }) {
-  const presets = [
+interface Preset {
+  id: string
+  label: string
+  sub: string
+  q: number
+  f: number
+}
+
+interface Resolution {
+  id: string
+  label: string
+  sub: string
+}
+
+export default function SettingsScreen({ config, onChange, accent, setAccent }: SettingsScreenProps): React.JSX.Element {
+  const presets: Preset[] = [
     { id: 'performance', label: 'Performance', sub: 'Lower latency', q: 60, f: 60 },
     { id: 'balanced', label: 'Balanced', sub: 'Recommended', q: 80, f: 30 },
     { id: 'quality', label: 'Quality', sub: 'Sharper image', q: 92, f: 30 },
   ]
-  const resolutions = [
+  const resolutions: Resolution[] = [
     { id: 'auto', label: 'Auto', sub: 'Match the display' },
     { id: '2560', label: '2560 × 1600', sub: 'Retina' },
     { id: '1920', label: '1920 × 1200', sub: '' },
     { id: '1280', label: '1280 × 800', sub: 'Bandwidth saver' },
   ]
-  const cur = presets.find(p => p.q === config.quality && p.f === config.frameRate)?.id || 'balanced'
-  const [res, setRes] = useState('auto')
-  const [usb, setUsb] = useState(true)
-  const [adb, setAdb] = useState(true)
-  const [menuBar, setMenuBar] = useState(true)
+  const cur: string = presets.find(p => p.q === config.quality && p.f === config.frameRate)?.id || 'balanced'
+  const [res, setRes] = useState<string>('auto')
+  const [usb, setUsb] = useState<boolean>(true)
+  const [adb, setAdb] = useState<boolean>(true)
+  const [menuBar, setMenuBar] = useState<boolean>(true)
   useEffect(() => { GetMenuBarVisible?.().then(setMenuBar).catch(() => {}) }, [])
-  const toggleMenuBar = (v) => { setMenuBar(v); SetMenuBarVisible?.(v) }
-  const [appearance, setAppearance] = useState(false)
-  const style = localStorage.getItem('vior_style') || 'precise'
-  const density = localStorage.getItem('vior_density') || 'regular'
-  const motion = localStorage.getItem('vior_motion') || 'expressive'
+  const toggleMenuBar = (v: boolean): void => { setMenuBar(v); SetMenuBarVisible?.(v) }
+  const [appearance, setAppearance] = useState<boolean>(false)
+  const style: string = localStorage.getItem('vior_style') || 'precise'
+  const density: string = localStorage.getItem('vior_density') || 'regular'
+  const motion: string = localStorage.getItem('vior_motion') || 'expressive'
 
   if (appearance) return <AppearancePanel accent={accent} setAccent={setAccent} onClose={() => setAppearance(false)} />
 
@@ -40,7 +55,7 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }) 
       <div className="seg" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         {presets.map(p => (
           <button key={p.id} className={`seg-btn ${cur === p.id ? 'active' : ''}`}
-            onClick={() => onChange({ ...config, quality: p.q, frameRate: p.f })}>
+            onClick={() => onChange({ ...config, quality: p.q, frameRate: p.f } as AppConfig)}>
             <div className="seg-row"><span>{p.label}</span></div>
             <div className="seg-sub" style={{ marginLeft: 0 }}>{p.sub}</div>
           </button>
@@ -70,7 +85,7 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }) 
       <div className="seg" style={{ gridTemplateColumns: '1fr 1fr' }}>
         {['30', '60'].map(v => (
           <button key={v} className={`seg-btn ${String(config.frameRate) === v ? 'active' : ''}`}
-            onClick={() => onChange({ ...config, frameRate: parseInt(v) })}>
+            onClick={() => onChange({ ...config, frameRate: parseInt(v) } as AppConfig)}>
             <div className="seg-row"><span>{v} fps</span></div>
           </button>
         ))}

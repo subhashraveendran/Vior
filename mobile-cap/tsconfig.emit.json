@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "none",
+    "moduleResolution": "node",
+    "resolveJsonModule": false,
+    "noEmit": false,
+    "outDir": "./src",
+    "rootDir": "./src",
+    "isolatedModules": false,
+    "removeComments": false
+  },
+  "include": ["src/**/*.ts", "src/**/*.d.ts"],
+  "exclude": ["vite.config.ts"]
+}

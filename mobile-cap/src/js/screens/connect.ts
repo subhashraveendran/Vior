@@ -5,31 +5,37 @@ $('connect-btn').addEventListener('click', function () {
   // If we have no pair code on hand AND we've never successfully
   // paired with this server before, prompt for the code instead of
   // firing a guaranteed-to-fail Connect.
-  var key = selectedServer.host + ':' + selectedServer.port;
-  var known = localStorage.getItem('vior_known_' + key) === '1';
-  var pair = ($('manual-pair') && $('manual-pair').value || '').trim();
+  const key = selectedServer.host + ':' + selectedServer.port;
+  const known = localStorage.getItem('vior_known_' + key) === '1';
+  const pair = (($('manual-pair') as HTMLInputElement | null) && ($('manual-pair') as HTMLInputElement).value || '').trim();
   if (!known && !pair) { promptPair(); return; }
   reconnectAttempts = 0; doConnect();
 });
 
-function promptPair() {
-  var m = $('pair-prompt');
-  if (m) { m.classList.remove('hidden'); var inp = $('pair-prompt-input'); if (inp) { inp.value = ''; setTimeout(function () { try { inp.focus(); } catch (_) {} }, 60); } }
+function promptPair(): void {
+  const m = $('pair-prompt');
+  if (m) {
+    m.classList.remove('hidden');
+    const inp = $('pair-prompt-input') as HTMLInputElement | null;
+    if (inp) { inp.value = ''; setTimeout(function () { try { inp.focus(); } catch (_) {} }, 60); }
+  }
 }
-function closePair() { var m = $('pair-prompt'); if (m) m.classList.add('hidden'); }
-document.addEventListener('click', function (e) {
-  if (e.target && e.target.id === 'pair-prompt') closePair();
+function closePair(): void { const m = $('pair-prompt'); if (m) m.classList.add('hidden'); }
+document.addEventListener('click', function (e: MouseEvent) {
+  const t = e.target as HTMLElement | null;
+  if (t && t.id === 'pair-prompt') closePair();
 });
 if ($('pair-prompt-cancel')) $('pair-prompt-cancel').addEventListener('click', closePair);
 if ($('pair-prompt-go')) $('pair-prompt-go').addEventListener('click', function () {
-  var v = ($('pair-prompt-input').value || '').toUpperCase().trim();
+  const v = (($('pair-prompt-input') as HTMLInputElement).value || '').toUpperCase().trim();
   if (!v) return;
-  $('manual-pair').value = v;
+  ($('manual-pair') as HTMLInputElement).value = v;
   closePair();
   reconnectAttempts = 0; doConnect();
 });
-if ($('pair-prompt-input')) $('pair-prompt-input').addEventListener('keydown', function (e) {
-  if (e.key === 'Enter') { e.preventDefault(); $('pair-prompt-go').click(); }
+if ($('pair-prompt-input')) $('pair-prompt-input').addEventListener('keydown', function (e: Event) {
+  const ke = e as KeyboardEvent;
+  if (ke.key === 'Enter') { ke.preventDefault(); ($('pair-prompt-go') as HTMLButtonElement).click(); }
 });
 $('disconnect-btn').addEventListener('click', doDisconnect);
 $('files-connect-btn').addEventListener('click', function () { switchTab('display'); });
@@ -41,8 +47,8 @@ $('conn-cancel').addEventListener('click', function () {
   setConnState('offline');
 });
 
-var connectTimeoutId = null;
-function doConnect() {
+let connectTimeoutId: ReturnType<typeof setTimeout> | null = null;
+function doConnect(): void {
   setConnState('connecting');
   $('connecting-overlay').classList.remove('hidden');
   $('conn-title').textContent = 'Connecting';
@@ -51,7 +57,7 @@ function doConnect() {
   $('conn-spin-ring').style.display = '';
   $('conn-spin-core').classList.remove('failed');
 
-  var host = selectedServer.host, port = selectedServer.port;
+  const host = selectedServer!.host, port = selectedServer!.port;
   ws = new WebSocket('ws://' + host + ':' + port + '/ws');
 
   // Hard 15s ceiling so the overlay can't hang forever when the server is
@@ -67,28 +73,29 @@ function doConnect() {
   }, 15000);
 
   ws.onopen = function () {
-    var dpr = window.devicePixelRatio || 1;
-    var pair = ($('manual-pair') && $('manual-pair').value || '').toUpperCase().trim();
+    const dpr = window.devicePixelRatio || 1;
+    const pair = (($('manual-pair') as HTMLInputElement | null) && ($('manual-pair') as HTMLInputElement).value || '').toUpperCase().trim();
     // Stable per-install device ID — once the server trusts us, we never
     // need to re-enter the pair code from this app install again.
-    var deviceID = localStorage.getItem('vior_device_id');
+    let deviceID = localStorage.getItem('vior_device_id');
     if (!deviceID) {
       deviceID = 'mob-' + ((window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Math.random().toString(36).slice(2) + Date.now().toString(36)));
       try { localStorage.setItem('vior_device_id', deviceID); } catch (_) {}
     }
-    ws.send(JSON.stringify({ type: 'hello', data: {
+    ws!.send(JSON.stringify({ type: 'hello', data: {
       width: Math.round(screen.width * dpr), height: Math.round(screen.height * dpr),
       dpr: dpr, name: 'Vior Mobile', mode: selectedMode, pairCode: pair, deviceId: deviceID
     }}));
   };
 
-  ws.onmessage = function (e) {
-    var msg = JSON.parse(e.data);
+  ws.onmessage = function (e: MessageEvent) {
+    const msg = JSON.parse(e.data as string) as WSMessage;
     if (msg.type === 'ready') {
       if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
-      var res = msg.data.resolution.split('x');
+      const data = msg.data as { resolution: string };
+      const res = data.resolution.split('x');
       displayW = parseInt(res[0]); displayH = parseInt(res[1]);
-      serverRes = msg.data.resolution.replace('x', ' × ');
+      serverRes = data.resolution.replace('x', ' × ');
       localStorage.setItem('vior_last', host + ':' + port);
       // Mark this server as 'known' client-side so the next Connect tap
       // skips the pair-code prompt — the server already trusts us via
@@ -112,7 +119,7 @@ function doConnect() {
     } else if (msg.type === 'error') {
       if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
       $('connecting-overlay').classList.add('hidden');
-      toast('error', 'Connection failed', (msg.data && msg.data.message) || 'Check both devices on same Wi-Fi. Try manual IP.');
+      toast('error', 'Connection failed', ((msg.data as { message?: string } | undefined)?.message) || 'Check both devices on same Wi-Fi. Try manual IP.');
       setConnState('offline');
     } else if (msg.type && msg.type.indexOf('file-') === 0) {
       try { handleFileMessage(msg); } catch (e) { console.error('file msg', e); }
@@ -148,7 +155,7 @@ function doConnect() {
   ws.onerror = function () {};
 }
 
-function doDisconnect() {
+function doDisconnect(): void {
   // User-initiated disconnect: cancel any pending reconnect, close the
   // WS, reset all state. Crucially we ALSO reset reconnectAttempts back
   // to 0 so the next user-initiated connect starts fresh — without this
@@ -169,4 +176,3 @@ function doDisconnect() {
   $('connecting-overlay').classList.add('hidden');
   toast('info', 'Disconnected', 'Session ended.');
 }
-

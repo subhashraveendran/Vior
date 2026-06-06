@@ -3,7 +3,11 @@
 // (idle radar core) without needing a separate SVG.
 import React from 'react'
 
-export default function Glyph({ size = 24 }) {
+export interface GlyphProps {
+  size?: number
+}
+
+export default function Glyph({ size = 24 }: GlyphProps): React.JSX.Element {
   const u = size / 24
   return (
     <span className="glyph" style={{ width: size, height: size }}>

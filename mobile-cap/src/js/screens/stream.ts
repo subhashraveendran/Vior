@@ -5,14 +5,14 @@ $('stream-back').addEventListener('click', hideStream);
 $('stream-disconnect').addEventListener('click', function () { hideStream(); doDisconnect(); });
 // Floating settings FAB inside the stream — opens the Settings sheet
 // on top of the stream without exiting fullscreen.
-var streamFab = $('stream-settings-fab');
+const streamFab = $('stream-settings-fab');
 if (streamFab) {
   streamFab.addEventListener('click', function () {
     $('settings-sheet').classList.remove('hidden');
   });
 }
 
-function openStream() {
+function openStream(): void {
   streamVisible = true;
   $('stream-fs').classList.add('active');
   $('stream-name').textContent = serverName;
@@ -23,7 +23,7 @@ function openStream() {
   startFramePolling();
   startOverlayAutoHide();
 }
-function hideStream() {
+function hideStream(): void {
   streamVisible = false;
   stopFramePolling();
   cleanupBlob();
@@ -32,7 +32,7 @@ function hideStream() {
   if (fpsTimer) { clearInterval(fpsTimer); fpsTimer = null; }
 }
 
-function startFramePolling() {
+function startFramePolling(): void {
   framePolling = true;
   frameCount = 0;
   if (fpsTimer) clearInterval(fpsTimer);
@@ -43,19 +43,19 @@ function startFramePolling() {
   }, 1000);
   pollFrame();
 }
-function stopFramePolling() { framePolling = false; }
-function cleanupBlob() { if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; } }
-function pollFrame() {
+function stopFramePolling(): void { framePolling = false; }
+function cleanupBlob(): void { if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; } }
+function pollFrame(): void {
   if (!framePolling) return;
   fetch(frameBaseUrl + '/snapshot?t=' + Date.now())
     .then(function (r) { if (!r.ok) throw 0; return r.blob(); })
-    .then(function (b) {
+    .then(function (b: Blob) {
       if (!framePolling) return;
       cleanupBlob();
       blobUrl = URL.createObjectURL(b);
       streamImg.src = blobUrl;
       frameCount++;
-      var ld = $('stream-loading');
+      const ld = $('stream-loading');
       if (!ld.classList.contains('hidden')) ld.classList.add('hidden');
       reconnectAttempts = 0;
       requestAnimationFrame(pollFrame);
@@ -64,34 +64,38 @@ function pollFrame() {
 }
 
 // ── Stream overlay auto-hide ──
-function startOverlayAutoHide() {
+function startOverlayAutoHide(): void {
   showOverlay();
   streamImg.removeEventListener('click', toggleOverlay);
   streamImg.addEventListener('click', toggleOverlay);
 }
-function showOverlay() {
+function showOverlay(): void {
   $('stream-fs').classList.remove('dimmed');
   $('stream-top').style.transform = ''; $('stream-top').style.opacity = '';
   $('stream-bot').style.transform = ''; $('stream-bot').style.opacity = '';
-  clearTimeout(overlayTimer);
+  if (overlayTimer) clearTimeout(overlayTimer);
   overlayTimer = setTimeout(function () {
     $('stream-top').style.transform = 'translateY(-110%)'; $('stream-top').style.opacity = '0';
     $('stream-bot').style.transform = 'translateY(110%)'; $('stream-bot').style.opacity = '0';
   }, 2800);
 }
-function toggleOverlay() {
+function toggleOverlay(): void {
   if ($('stream-top').style.opacity === '0') showOverlay();
   else {
-    clearTimeout(overlayTimer);
+    if (overlayTimer) clearTimeout(overlayTimer);
     $('stream-top').style.transform = 'translateY(-110%)'; $('stream-top').style.opacity = '0';
     $('stream-bot').style.transform = 'translateY(110%)'; $('stream-bot').style.opacity = '0';
   }
 }
 
 // ── Touch input on stream ──
-function mapT(t) { var r = streamImg.getBoundingClientRect(); return { x: Math.round((t.clientX - r.left) / r.width * displayW), y: Math.round((t.clientY - r.top) / r.height * displayH) }; }
-function sendInput(action, x, y) { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'input', data: { event: 'touch', action: action, x: x, y: y } })); }
-streamImg.addEventListener('touchstart', function (e) { e.preventDefault(); var p = mapT(e.changedTouches[0]); sendInput('down', p.x, p.y); }, { passive: false });
-streamImg.addEventListener('touchmove', function (e) { e.preventDefault(); var p = mapT(e.changedTouches[0]); sendInput('move', p.x, p.y); }, { passive: false });
-streamImg.addEventListener('touchend', function (e) { e.preventDefault(); var p = mapT(e.changedTouches[0]); sendInput('up', p.x, p.y); }, { passive: false });
-
+function mapT(t: Touch): { x: number; y: number } {
+  const r = streamImg.getBoundingClientRect();
+  return { x: Math.round((t.clientX - r.left) / r.width * displayW), y: Math.round((t.clientY - r.top) / r.height * displayH) };
+}
+function sendInput(action: 'down' | 'move' | 'up', x: number, y: number): void {
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'input', data: { event: 'touch', action: action, x: x, y: y } }));
+}
+streamImg.addEventListener('touchstart', function (e: TouchEvent) { e.preventDefault(); const p = mapT(e.changedTouches[0]); sendInput('down', p.x, p.y); }, { passive: false });
+streamImg.addEventListener('touchmove', function (e: TouchEvent) { e.preventDefault(); const p = mapT(e.changedTouches[0]); sendInput('move', p.x, p.y); }, { passive: false });
+streamImg.addEventListener('touchend', function (e: TouchEvent) { e.preventDefault(); const p = mapT(e.changedTouches[0]); sendInput('up', p.x, p.y); }, { passive: false });

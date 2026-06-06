@@ -1,14 +1,18 @@
 // macOS first-run Screen Recording prompt. Calls CheckPermissions to
 // verify; success flips to a green check-state, then onDone returns
 // to the regular UI.
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { CheckPermissions } from '../lib/api'
 import { Icons } from '../lib/icons'
 
-export default function PermissionsModal({ onDone }) {
-  const [granted, setGranted] = useState(false)
-  const [verifying, setVerifying] = useState(false)
-  const verify = async () => {
+interface Props {
+  onDone: () => void
+}
+
+export default function PermissionsModal({ onDone }: Props) {
+  const [granted, setGranted] = useState<boolean>(false)
+  const [verifying, setVerifying] = useState<boolean>(false)
+  const verify = async (): Promise<void> => {
     setVerifying(true)
     try { await CheckPermissions(); setGranted(true) } catch { /* still denied */ }
     setVerifying(false)

@@ -2,15 +2,22 @@
   "name": "vior-mobile",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "build": "echo 'Web client served from Vior server'",
-    "sync": "cap sync"
+    "build": "tsc -p tsconfig.emit.json",
+    "sync": "npm run build && cap sync",
+    "typecheck": "tsc --noEmit",
+    "dev": "vite",
+    "vite:build": "vite build"
   },
   "dependencies": {
     "@capacitor/core": "^7.0.0",
     "@capacitor/android": "^7.0.0"
   },
   "devDependencies": {
-    "@capacitor/cli": "^7.0.0"
+    "@capacitor/cli": "^7.0.0",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.8",
+    "@types/node": "^20.14.10"
   }
 }

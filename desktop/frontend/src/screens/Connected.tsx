@@ -3,10 +3,29 @@
 import React, { useState } from 'react'
 import { Icons } from '../lib/icons'
 import FilesPane from '../panes/Files'
+import type { ServerStatus, ClientInfo } from '../types'
 
-export default function ConnectedScreen({ status, client, mode, setMode, onDisconnect, onSendFile, errorState, onRetry, onStop }) {
-  const [t, setT] = useState('display')
-  const tabs = [
+type DisplayMode = 'extend' | 'mirror'
+type TabId = 'display' | 'files' | 'mirror'
+
+type IconFactory = (size?: number) => React.ReactElement
+type Tab = { id: TabId; label: string; icon: IconFactory }
+
+type ConnectedScreenProps = {
+  status: ServerStatus | null
+  client: ClientInfo | null
+  mode: DisplayMode
+  setMode: (m: DisplayMode) => void
+  onDisconnect: () => void
+  onSendFile: () => void
+  errorState: boolean
+  onRetry: () => void
+  onStop: () => void
+}
+
+export default function ConnectedScreen({ status, client, mode, setMode, onDisconnect, onSendFile, errorState, onRetry, onStop }: ConnectedScreenProps) {
+  const [t, setT] = useState<TabId>('display')
+  const tabs: Tab[] = [
     { id: 'display', label: 'Display', icon: Icons.display },
     { id: 'files', label: 'Files', icon: Icons.files },
     { id: 'mirror', label: 'Mirror Preview', icon: Icons.monitor2 },
@@ -35,12 +54,12 @@ export default function ConnectedScreen({ status, client, mode, setMode, onDisco
         {t === 'display' && (
           <>
             <div className="stat-grid">
-              {[
+              {([
                 ['Resolution', `${client?.width || '—'}×${client?.height || '—'}`, ''],
                 ['Frame rate', status?.frameRate || 30, ' fps'],
                 ['Uptime', status?.uptime || 0, ' s'],
                 ['Clients', status?.clientCount || 1, ''],
-              ].map(([l, v, u]) => (
+              ] as Array<[string, string | number, string]>).map(([l, v, u]) => (
                 <div key={l} className="card stat-card">
                   <div className="stat-val">{v}<span className="stat-unit">{u}</span></div>
                   <div className="stat-label">{l}</div>

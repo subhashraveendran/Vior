@@ -14,10 +14,13 @@ import (
 	"time"
 )
 
-// Entry is one trusted device record.
+// Entry is one trusted device record. Platform is the friendly
+// platform string the mobile sends in its hello (e.g. "iOS", "Android"
+// — empty when older builds didn't ship it).
 type Entry struct {
 	DeviceID  string    `json:"deviceId"`
 	Name      string    `json:"name"`
+	Platform  string    `json:"platform,omitempty"`
 	FirstSeen time.Time `json:"firstSeen"`
 	LastSeen  time.Time `json:"lastSeen"`
 }
@@ -114,8 +117,16 @@ func (s *Store) IsTrusted(deviceID string) bool {
 }
 
 // Add records or touches a trusted device. Idempotent; updates LastSeen
-// and preserves FirstSeen on re-add.
+// and preserves FirstSeen on re-add. Wraps Touch for legacy callers
+// that only have name (no platform string).
 func (s *Store) Add(deviceID, name string) error {
+	return s.Touch(deviceID, name, "")
+}
+
+// Touch records or refreshes a trusted device with both name and
+// platform metadata. Used on every admission so the Settings UI shows
+// up-to-date "Last seen" / platform / name for each row.
+func (s *Store) Touch(deviceID, name, platform string) error {
 	if deviceID == "" {
 		return nil
 	}
@@ -123,10 +134,13 @@ func (s *Store) Add(deviceID, name string) error {
 	now := time.Now().UTC()
 	e, ok := s.data[deviceID]
 	if !ok {
-		e = Entry{DeviceID: deviceID, Name: name, FirstSeen: now}
+		e = Entry{DeviceID: deviceID, Name: name, Platform: platform, FirstSeen: now}
 	}
 	if name != "" {
 		e.Name = name
+	}
+	if platform != "" {
+		e.Platform = platform
 	}
 	e.LastSeen = now
 	s.data[deviceID] = e
@@ -138,6 +152,14 @@ func (s *Store) Add(deviceID, name string) error {
 func (s *Store) Forget(deviceID string) error {
 	s.mu.Lock()
 	delete(s.data, deviceID)
+	s.mu.Unlock()
+	return s.save()
+}
+
+// Clear removes every device from the trusted list.
+func (s *Store) Clear() error {
+	s.mu.Lock()
+	s.data = map[string]Entry{}
 	s.mu.Unlock()
 	return s.save()
 }

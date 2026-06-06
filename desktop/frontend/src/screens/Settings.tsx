@@ -14,13 +14,37 @@
 // capture pipeline — virtual displays match the phone's panel size),
 // frame-rate toggle (now folded into the quality preset), and the
 // fake Displays / USB-ADB placeholder rows.
-import React, { useEffect, useState } from 'react'
-import { GetMenuBarVisible, SetMenuBarVisible } from '../lib/api'
+import React, { useCallback, useEffect, useState } from 'react'
+import {
+  GetMenuBarVisible, SetMenuBarVisible,
+  ListTrustedDevices, ForgetTrustedDevice, ClearAllTrustedDevices,
+  EventsOn,
+} from '../lib/api'
 import { Icons } from '../lib/icons'
 import Glyph from '../lib/Glyph'
 import { accentName } from '../lib/accent'
 import AppearancePanel from './Appearance'
 import type { SettingsScreenProps, AppConfig } from '../types'
+import type { main } from '../../wailsjs/go/models'
+
+// formatRelative renders an ISO timestamp as "3h ago" / "2 days ago".
+// Falls back to the date for anything older than a week. Pure: zero
+// dependencies, deterministic given (now - then). Used in the Trusted
+// Devices card.
+function formatRelative(iso: string): string {
+  if (!iso) return ''
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return ''
+  const diff = Date.now() - then
+  if (diff < 60_000) return 'just now'
+  const m = Math.floor(diff / 60_000)
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  const d = Math.floor(h / 24)
+  if (d < 7) return `${d}d ago`
+  return new Date(iso).toLocaleDateString()
+}
 
 interface Preset {
   id: string
@@ -51,6 +75,28 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }: 
   const toggleAutoLaunch = (v: boolean): void => { setAutoLaunch(v); localStorage.setItem('vior_autolaunch', v ? '1' : '0') }
   const toggleUsbAccept = (v: boolean): void => { setUsbAccept(v); localStorage.setItem('vior_usb_accept', v ? '1' : '0') }
   const toggleDiscovery = (v: boolean): void => { setDiscovery(v); localStorage.setItem('vior_discovery', v ? '1' : '0') }
+
+  // Trusted Devices list. Polled on mount + whenever a new client
+  // connects (a pair-code success may add a fresh row). Empty array
+  // means "no trusted devices yet" — distinct from the not-yet-loaded
+  // state (null) so we can avoid an empty-state flash on first paint.
+  const [trusted, setTrusted] = useState<main.TrustedDevice[] | null>(null)
+  const refreshTrusted = useCallback((): void => {
+    ListTrustedDevices?.().then(setTrusted).catch(() => setTrusted([]))
+  }, [])
+  useEffect(() => {
+    refreshTrusted()
+    const off = EventsOn?.('client:connected', () => refreshTrusted())
+    return (): void => { if (typeof off === 'function') off() }
+  }, [refreshTrusted])
+  const onForget = (deviceID: string, name: string): void => {
+    if (!window.confirm(`Forget "${name || deviceID}"? They'll need to re-enter the pair code next time.`)) return
+    ForgetTrustedDevice?.(deviceID).then(refreshTrusted).catch(() => refreshTrusted())
+  }
+  const onClearAll = (): void => {
+    if (!window.confirm('Forget every trusted device? All paired phones/tablets will need the pair code again on next connect.')) return
+    ClearAllTrustedDevices?.().then(refreshTrusted).catch(() => refreshTrusted())
+  }
 
   const [appearance, setAppearance] = useState<boolean>(false)
   const style: string = localStorage.getItem('vior_style') || 'precise'
@@ -114,6 +160,42 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }: 
             <span className="toggle-knob" style={{ transform: `translateX(${usbAccept ? 17 : 0}px)` }} />
           </button>
         </div>
+      </div>
+
+      <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>Trusted Devices</div>
+      <div className="card">
+        {trusted && trusted.length === 0 && (
+          <div className="settings-row" style={{ color: 'var(--text-3)', fontSize: 13 }}>
+            No trusted devices yet. Pair from your phone to add one.
+          </div>
+        )}
+        {trusted && trusted.map(t => (
+          <div className="settings-row" key={t.deviceId}>
+            <div className="settings-row-body">
+              <div className="settings-row-title">
+                {t.name || 'Unknown device'}
+                {t.platform && (
+                  <span style={{
+                    marginLeft: 8, padding: '2px 7px', borderRadius: 8,
+                    background: 'var(--accent-weak)', color: 'var(--accent)',
+                    fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5,
+                  }}>{t.platform}</span>
+                )}
+              </div>
+              <div className="settings-row-sub">Last seen {formatRelative(t.lastSeen)}</div>
+            </div>
+            <button className="btn btn-ghost btn-sm" onClick={() => onForget(t.deviceId, t.name)}>Forget</button>
+          </div>
+        ))}
+        {trusted && trusted.length > 0 && (
+          <div className="settings-row" style={{ justifyContent: 'flex-end' }}>
+            <button
+              onClick={onClearAll}
+              style={{ background: 'none', border: 'none', color: '#e05a5a', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+              Clear all trusted devices
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>Appearance</div>

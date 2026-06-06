@@ -10,6 +10,10 @@ export function CheckPermissions() {
   return window['go']['main']['App']['CheckPermissions']();
 }
 
+export function ClearAllTrustedDevices() {
+  return window['go']['main']['App']['ClearAllTrustedDevices']();
+}
+
 export function CreateVirtualDisplay(arg1) {
   return window['go']['main']['App']['CreateVirtualDisplay'](arg1);
 }
@@ -24,6 +28,10 @@ export function DownloadADB() {
 
 export function ExtendDisplay(arg1) {
   return window['go']['main']['App']['ExtendDisplay'](arg1);
+}
+
+export function ForgetTrustedDevice(arg1) {
+  return window['go']['main']['App']['ForgetTrustedDevice'](arg1);
 }
 
 export function GetActiveTransfers() {
@@ -68,6 +76,10 @@ export function IsMirrored(arg1) {
 
 export function ListDisplays() {
   return window['go']['main']['App']['ListDisplays']();
+}
+
+export function ListTrustedDevices() {
+  return window['go']['main']['App']['ListTrustedDevices']();
 }
 
 export function MirrorDisplay(arg1, arg2) {
@@ -144,6 +156,10 @@ export function SendFileToPhone(arg1) {
 
 export function SetMenuBarVisible(arg1) {
   return window['go']['main']['App']['SetMenuBarVisible'](arg1);
+}
+
+export function SetPairCode(arg1) {
+  return window['go']['main']['App']['SetPairCode'](arg1);
 }
 
 export function SetupUSB() {

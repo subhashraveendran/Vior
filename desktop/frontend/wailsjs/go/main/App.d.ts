@@ -8,6 +8,8 @@ export function AcceptIncomingFile(arg1:string):Promise<void>;
 
 export function CheckPermissions():Promise<void>;
 
+export function ClearAllTrustedDevices():Promise<void>;
+
 export function CreateVirtualDisplay(arg1:main.VirtualDisplayConfig):Promise<number>;
 
 export function DestroyVirtualDisplay():Promise<void>;
@@ -15,6 +17,8 @@ export function DestroyVirtualDisplay():Promise<void>;
 export function DownloadADB():Promise<void>;
 
 export function ExtendDisplay(arg1:number):Promise<void>;
+
+export function ForgetTrustedDevice(arg1:string):Promise<void>;
 
 export function GetActiveTransfers():Promise<Array<Record<string, any>>>;
 
@@ -37,6 +41,8 @@ export function HasAccessibility(arg1:boolean):Promise<boolean>;
 export function IsMirrored(arg1:number):Promise<boolean>;
 
 export function ListDisplays():Promise<Array<main.DisplayInfo>>;
+
+export function ListTrustedDevices():Promise<Array<main.TrustedDevice>>;
 
 export function MirrorDisplay(arg1:number,arg2:number):Promise<void>;
 
@@ -75,6 +81,8 @@ export function SendFile(arg1:string):Promise<void>;
 export function SendFileToPhone(arg1:string):Promise<void>;
 
 export function SetMenuBarVisible(arg1:boolean):Promise<void>;
+
+export function SetPairCode(arg1:string):Promise<void>;
 
 export function SetupUSB():Promise<void>;
 

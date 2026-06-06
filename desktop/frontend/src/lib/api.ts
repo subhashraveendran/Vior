@@ -9,6 +9,8 @@ export {
   AcceptIncomingFile, RejectIncomingFile, SendFileToPhone,
   GetMenuBarVisible, SetMenuBarVisible,
   HasAccessibility,
+  ListTrustedDevices, ForgetTrustedDevice, ClearAllTrustedDevices,
+  SetPairCode,
 } from '../../wailsjs/go/main/App'
 
 export { EventsOn, EventsEmit } from '../../wailsjs/runtime/runtime'

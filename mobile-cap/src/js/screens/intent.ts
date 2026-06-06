@@ -33,7 +33,11 @@ function applyIntentToUI(intent: ViorIntent): void {
   const tabFiles = document.querySelector<HTMLElement>('.tab-item[data-tab="files"]');
   const tabRemote = document.querySelector<HTMLElement>('.tab-item[data-tab="remote"]');
   const tabDisplay = document.querySelector<HTMLElement>('.tab-item[data-tab="display"]');
-  const segMode = document.getElementById('seg-mode');
+  // `ops-mode` is the new post-connect wrapper that contains the
+  // Mirror/Extend segmented control inside the connected card. We hide
+  // the whole wrapper (label + seg) for non-display intents so the
+  // user never sees a meaningless control.
+  const opsMode = document.getElementById('ops-mode');
   const viewStreamBtn = document.getElementById('view-stream-btn');
   const statModeLabel = document.getElementById('stat-mode');
 
@@ -41,19 +45,21 @@ function applyIntentToUI(intent: ViorIntent): void {
   if (tabFiles) tabFiles.classList.remove('hidden');
   if (tabRemote) tabRemote.classList.remove('hidden');
   if (tabDisplay) tabDisplay.classList.remove('hidden');
-  if (segMode) segMode.classList.remove('hidden');
+  if (opsMode) opsMode.classList.remove('hidden');
   if (viewStreamBtn) viewStreamBtn.classList.remove('hidden');
 
   if (intent === 'remote') {
     // No display capture → no stream button, no mode selector. Tabs:
-    // keep Display (= connection home) + Files + Remote.
-    if (segMode) segMode.classList.add('hidden');
+    // hide Display (it's just a connection home that's mostly irrelevant
+    // post-connect for remote intent — Files + Remote stay).
+    if (opsMode) opsMode.classList.add('hidden');
     if (viewStreamBtn) viewStreamBtn.classList.add('hidden');
     if (statModeLabel) statModeLabel.textContent = 'Remote';
   } else if (intent === 'files') {
-    // No display, no remote. Tabs: Display (home) + Files only.
+    // No display, no remote. Tabs: Files only (the spec says Display
+    // tab is the connection home for display intent only).
     if (tabRemote) tabRemote.classList.add('hidden');
-    if (segMode) segMode.classList.add('hidden');
+    if (opsMode) opsMode.classList.add('hidden');
     if (viewStreamBtn) viewStreamBtn.classList.add('hidden');
     if (statModeLabel) statModeLabel.textContent = 'Files';
   }
@@ -81,6 +87,11 @@ document.querySelectorAll<HTMLElement>('#intent-overlay .intent-tile').forEach(f
     setIntent(v);
     applyIntentToUI(v);
     hideIntentPicker();
+    // Advance the state machine out of pre-intent → scanning so the
+    // user lands on the radar/search view. main.ts already calls
+    // startDiscovery on boot, but if the intent picker was visible
+    // we need to nudge through it here.
+    if (typeof viorState !== 'undefined') viorState.set({ state: 'scanning' });
     toast('success', 'Got it', v === 'display' ? 'Display mode — pick a server below.' :
       v === 'remote' ? 'Remote-control mode — no screen mirroring.' :
       'File-transfer mode — connect to send files.');

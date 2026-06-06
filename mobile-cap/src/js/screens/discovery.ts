@@ -1,5 +1,9 @@
 'use strict';
 // ── Discovery ──
+//
+// Drives the pre-connect "scanning → found-server" sub-machine. No
+// Mirror/Extend, no Connect button. Tapping a row goes straight to
+// connect (or pair-prompt if the server hasn't been trusted yet).
 let foundServers: Record<string, ServerInfo> = {};
 let discoveryTimeout: ReturnType<typeof setTimeout> | null = null;
 let scanning = false;
@@ -11,7 +15,8 @@ function startDiscovery(): void {
     showView('empty');
     return;
   }
-  $('disc-status').textContent = 'Scanning network…';
+  viorState.set({ state: 'scanning' });
+  $('disc-status').textContent = 'Looking for Vior on your Wi-Fi…';
   $('disc-list').innerHTML =
     '<div class="radar-search">' +
       '<div class="radar">' +
@@ -24,8 +29,6 @@ function startDiscovery(): void {
       '<div class="empty-body">Looking for Vior servers on your network.</div>' +
     '</div>';
   showView('disc');
-  ($('connect-btn') as HTMLButtonElement).disabled = true;
-  $('connect-label').textContent = 'Select a server';
 
   const last = localStorage.getItem('vior_last');
   if (last) { const p = last.split(':'); probeServer(p[0], parseInt(p[1])); }
@@ -47,7 +50,7 @@ function startDiscovery(): void {
   discoveryTimeout = setTimeout(function () {
     scanning = false;
     if (!selectedServer && Object.keys(foundServers).length === 0) showEmpty();
-    else if (selectedServer) $('disc-status').textContent = Object.keys(foundServers).length + ' servers found';
+    else if (selectedServer) $('disc-status').textContent = Object.keys(foundServers).length + ' server' + (Object.keys(foundServers).length > 1 ? 's' : '') + ' found · tap to connect';
   }, 4000);
 }
 
@@ -62,14 +65,20 @@ function probeServer(host: string, port: number): Promise<void> {
       if (foundServers[key]) return;
       foundServers[key] = info;
       if (discoveryTimeout) clearTimeout(discoveryTimeout);
-      $('disc-status').textContent = Object.keys(foundServers).length + ' server' + (Object.keys(foundServers).length > 1 ? 's' : '') + ' found';
+      const n = Object.keys(foundServers).length;
+      $('disc-status').textContent = n + ' server' + (n > 1 ? 's' : '') + ' found · tap to connect';
+      viorState.set({ state: 'found-server' });
       renderServerList();
       if (!selectedServer) {
-        selectServer(host, port, info.name || host, info.platform || '');
+        // Auto-connect path: silent select + immediate doConnect for the
+        // previously-used server. We *don't* visibly highlight rows for
+        // a manual "select" any more — taps go straight to connect (see
+        // server-row click handler below).
         const last = localStorage.getItem('vior_last');
         const auto = localStorage.getItem('vior_autoconnect') !== '0';
         if (auto && last === host + ':' + port && !connected) {
-          setTimeout(function () { if (!connected) doConnect(); }, 400);
+          selectServer(host, port, info.name || host, info.platform || '');
+          setTimeout(function () { if (!connected) initiateConnect(); }, 400);
         }
       }
     })
@@ -99,7 +108,13 @@ function renderServerList(): void {
           ? '<span style="color: var(--accent);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l4.5 4.5L19.5 6.5"/></svg></span>'
           : '<span style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px;"><span class="dot dot-ok" style="width: 6px; height: 6px;"></span></span>') +
       '</span>';
-    row.addEventListener('click', function () { selectServer(host, port, info.name || host, info.platform || ''); });
+    // Tap-to-connect: per the new state machine there is no separate
+    // "Connect" button. Select + connect in one tap; the connect path
+    // routes through the pair-prompt modal if the server isn't known.
+    row.addEventListener('click', function () {
+      selectServer(host, port, info.name || host, info.platform || '');
+      initiateConnect();
+    });
     list.appendChild(row);
   });
 }
@@ -108,8 +123,25 @@ function selectServer(host: string, port: number, name: string, platform: string
   selectedServer = { host: host, port: port, name: name || host };
   serverName = name || host; serverPlatform = platform || '';
   renderServerList();
-  ($('connect-btn') as HTMLButtonElement).disabled = false;
-  $('connect-label').textContent = 'Connect';
+}
+
+// Single entry point for "user wants to connect to selectedServer".
+// Decides whether to go through the pair-prompt modal first or
+// straight to doConnect(). Used by row taps + auto-connect.
+function initiateConnect(): void {
+  if (!selectedServer) return;
+  const key = selectedServer.host + ':' + selectedServer.port;
+  const known = localStorage.getItem('vior_known_' + key) === '1';
+  if (!known) {
+    viorState.set({ state: 'pairing' });
+    // promptPair is defined in connect.ts (loaded later in the same
+    // document). Late-bind to allow files to load in any order.
+    const pp = (globalThis as unknown as { promptPair?: () => void }).promptPair;
+    if (typeof pp === 'function') pp();
+    return;
+  }
+  reconnectAttempts = 0;
+  doConnect();
 }
 
 function showView(name: string): void {
@@ -136,3 +168,21 @@ function getLocalIP(cb: (ip: string | null) => void): void {
 
 $('disc-refresh').addEventListener('click', startDiscovery);
 $('rescan-btn').addEventListener('click', startDiscovery);
+
+// "Connect manually" disclosure on the discovery view → jump to the
+// empty view which already houses the manual IP / QR / pair-code
+// disclosure block. Keeps discovery free of pre-connect clutter.
+const discManualLink = $('disc-manual-link');
+if (discManualLink) {
+  discManualLink.addEventListener('click', function () {
+    showView('empty');
+    const block = $('manual-block');
+    const toggle = $('manual-toggle');
+    if (block) block.classList.remove('hidden');
+    if (toggle) toggle.setAttribute('aria-expanded', 'true');
+  });
+}
+
+// Expose for cross-module use (connect.ts calls into us after a
+// successful pair-prompt submit to re-trigger the connect).
+(globalThis as unknown as { initiateConnect?: () => void }).initiateConnect = initiateConnect;

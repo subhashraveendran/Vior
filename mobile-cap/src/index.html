@@ -53,38 +53,25 @@
 
     <!-- DISPLAY -->
     <div class="pane active" id="pane-display">
-      <!-- Discovery view -->
+      <!-- Discovery view — pre-connect: ONLY the radar + server list.
+           The Mirror/Extend selector and Connect button have moved to
+           the connected card (post-connect ops bar). Tapping a server
+           row connects directly; pre-pair flow routes through the
+           pair-prompt modal. No bottom dock until state === 'connected'. -->
       <div class="disc-wrap" id="disc-view">
         <div class="disc-top">
-          <span class="section-label" id="disc-status">Scanning network…</span>
+          <span class="section-label" id="disc-status">Looking for Vior on your Wi-Fi…</span>
           <button class="disc-refresh" id="disc-refresh">
             <svg id="refresh-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-1.5 5.5"/><path d="M20 5v5h-5"/></svg>
             Refresh
           </button>
         </div>
         <div class="disc-list" id="disc-list"></div>
-        <div class="dock" id="disc-dock">
-          <div class="seg" id="seg-mode" style="grid-template-columns: 1fr 1fr;">
-            <button class="seg-btn active" data-mode="extend">
-              <div class="seg-btn-row">
-                <span class="seg-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg></span>
-                <span>Extend</span>
-              </div>
-              <div class="seg-sub">Second display</div>
-            </button>
-            <button class="seg-btn" data-mode="mirror">
-              <div class="seg-btn-row">
-                <span class="seg-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
-                <span>Mirror</span>
-              </div>
-              <div class="seg-sub">Duplicate screen</div>
-            </button>
-          </div>
-          <button class="btn btn-primary btn-block" id="connect-btn" disabled>
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 14.5l5-5"/><path d="M8 11l-2 2a3.2 3.2 0 0 0 4.5 4.5l2-2"/><path d="M16 13l2-2A3.2 3.2 0 0 0 13.5 6.5l-2 2"/></svg>
-            <span id="connect-label">Select a server</span>
-          </button>
-        </div>
+        <!-- Thin disclosure link — no button bar, no Mirror/Extend pre-connect. -->
+        <button class="disc-manual-link" id="disc-manual-link">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>
+          <span>Connect manually</span>
+        </button>
       </div>
 
       <!-- Empty view -->
@@ -120,9 +107,12 @@
               <li>This phone and the computer are on the <b>same Wi-Fi network</b> (guest networks usually block this).</li>
             </ul>
           </div>
-          <button class="btn btn-primary btn-block" id="rescan-btn" style="margin-top: 14px;">
+          <!-- Single quiet primary action — no orange "Connect" button
+               shouting on the empty view. User chooses something to do
+               first, then a server, then we light up. -->
+          <button class="btn btn-ghost btn-block" id="rescan-btn" style="margin-top: 14px;">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-1.5 5.5"/><path d="M20 5v5h-5"/></svg>
-            Scan again
+            Refresh
           </button>
 
           <!-- Manual setup (collapsed by default). 90% never open it. -->
@@ -217,6 +207,29 @@
               <div class="stat-val" id="stat-status">Live</div>
               <div class="stat-label">Status</div>
             </div>
+          </div>
+        </div>
+        <!-- POST-CONNECT mode selector. Only visible when intent === display
+             (suppressed for remote/files in applyIntentToUI). Changing the
+             mode mid-session re-sends `resize` so the desktop reconfigures
+             the virtual display without a full reconnect. -->
+        <div class="ops-mode" id="ops-mode">
+          <div class="section-label" style="margin-bottom: 8px;">Display mode</div>
+          <div class="seg" id="seg-mode" style="grid-template-columns: 1fr 1fr;">
+            <button class="seg-btn active" data-mode="extend">
+              <div class="seg-btn-row">
+                <span class="seg-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg></span>
+                <span>Extend</span>
+              </div>
+              <div class="seg-sub">Second display</div>
+            </button>
+            <button class="seg-btn" data-mode="mirror">
+              <div class="seg-btn-row">
+                <span class="seg-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+                <span>Mirror</span>
+              </div>
+              <div class="seg-sub">Duplicate screen</div>
+            </button>
           </div>
         </div>
         <button class="btn btn-primary btn-block" id="view-stream-btn" style="min-height: 54px;">
@@ -377,8 +390,12 @@
   </div>
 </div>
 
-<!-- Tab bar OUTSIDE app-shell to escape stacking context -->
-<div class="tab-bar">
+<!-- Tab bar OUTSIDE app-shell to escape stacking context.
+     `.hidden-pre-connect` is toggled by core/state.ts: the bar only
+     becomes visible after a successful connection so a brand-new
+     user isn't asked to pick between Display / Files / Remote
+     before they've connected anything. -->
+<div class="tab-bar hidden-pre-connect" id="tab-bar">
   <button class="tab-item active" data-tab="display">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
     <span class="tab-item-label">Display</span>
@@ -744,6 +761,7 @@
      Order matters — declarations in core.js must run before screens
      reference them. Each screen module attaches its own DOM listeners. -->
 <script src="js/core.js" defer></script>
+<script src="js/core/state.js" defer></script>
 <script src="js/screens/intent.js" defer></script>
 <script src="js/screens/discovery.js" defer></script>
 <script src="js/screens/qr.js" defer></script>

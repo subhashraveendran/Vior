@@ -109,13 +109,44 @@ document.querySelectorAll<HTMLElement>('.tab-item').forEach(function (btn) {
 });
 
 // ── Mode select ──
-document.querySelectorAll<HTMLElement>('#disc-dock .seg-btn').forEach(function (btn) {
+// Post-connect ops bar lives inside the connected card now (#seg-mode),
+// not in the discovery dock (#disc-dock — removed). Restore the persisted
+// preference on boot so the connected card lights up the right segment
+// even before the user touches it.
+{
+  const stored = localStorage.getItem('vior_last_mode');
+  if (stored === 'mirror' || stored === 'extend') selectedMode = stored;
+}
+function reflectModeInUI(mode: Mode): void {
+  document.querySelectorAll<HTMLElement>('#seg-mode .seg-btn').forEach(function (b) {
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+}
+reflectModeInUI(selectedMode);
+document.querySelectorAll<HTMLElement>('#seg-mode .seg-btn').forEach(function (btn) {
   btn.addEventListener('click', function () {
-    selectedMode = (btn.dataset.mode as Mode);
-    selectedMode = selectedMode;
-    document.querySelectorAll<HTMLElement>('#disc-dock .seg-btn').forEach(function (b) {
-      b.classList.toggle('active', b === btn);
-    });
+    const next = (btn.dataset.mode as Mode);
+    if (!next || next === selectedMode) return;
+    selectedMode = next;
+    try { localStorage.setItem('vior_last_mode', next); } catch (_) {}
+    reflectModeInUI(next);
+    // Live mode switch — only meaningful once connected. Re-send the
+    // hello-style dims with the new mode so the desktop reconfigures
+    // its virtual display without a full reconnect.
+    if (connected && ws && ws.readyState === 1) {
+      const dpr = window.devicePixelRatio || 1;
+      try {
+        ws.send(JSON.stringify({ type: 'resize', data: {
+          width: Math.round(screen.width * dpr),
+          height: Math.round(screen.height * dpr),
+          dpr: dpr,
+          mode: next,
+        }}));
+      } catch (_) {}
+      const sm = $('stat-mode');
+      if (sm) sm.textContent = 'Wi-Fi · ' + (next === 'mirror' ? 'Mirror' : 'Extend');
+      toast('info', 'Mode changed', next === 'mirror' ? 'Mirroring screen.' : 'Extended display.');
+    }
   });
 });
 

@@ -30,11 +30,33 @@
   .disc-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 9px; padding-bottom: 12px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .disc-list::-webkit-scrollbar { display: none; }
 
-  /* ── Mode + connect dock ── */
-  .dock {
-    flex: none; padding: 12px 20px 20px; border-top: 1px solid var(--border);
-    display: flex; flex-direction: column; gap: 12px;
+  /* ── Pre-connect manual-entry disclosure link ──
+     Replaces the old `.dock` (which held a Mirror/Extend segment +
+     orange Connect button) on the discovery view. Per state-machine
+     rules, pre-connect users should see at most: the server list and
+     this thin secondary link — never a primary CTA before they've
+     made a choice. */
+  .disc-manual-link {
+    flex: none; background: none; border: none; color: var(--text-3);
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 14px 12px 4px; font-size: 12.5px; font-weight: 500;
+    font-family: inherit; cursor: pointer;
+    text-decoration: underline; text-decoration-color: var(--border-strong);
+    text-underline-offset: 3px;
   }
+  .disc-manual-link:active { color: var(--text-2); }
+
+  /* ── Post-connect ops-mode block ──
+     Mode (Mirror/Extend) only exists inside the connected card. The
+     legacy `#disc-dock` selector is gone; this is its replacement
+     location. Hidden by applyIntentToUI for remote/files intents. */
+  .ops-mode { display: flex; flex-direction: column; }
+  .ops-mode.hidden { display: none; }
+
+  /* ── Hide-pre-connect helper ──
+     Toggled by core/state.ts on the tab bar so users don't see Files /
+     Remote tabs until they've connected. Removed once state === connected. */
+  .hidden-pre-connect { display: none !important; }
 
   /* ── Segmented control ── */
   .seg {
@@ -55,4 +77,8 @@
   .seg-btn.active .seg-icon { color: var(--accent); }
   .seg-icon { color: var(--text-3); display: inline-flex; }
   .seg-sub { font-size: 11.5px; color: var(--text-3); margin-top: 3px; margin-left: 25px; }
+
+  /* Legacy dock block (`.dock`, `#disc-dock`) intentionally has no
+     rule after the state-machine refactor — the element no longer
+     exists in the DOM. */
 

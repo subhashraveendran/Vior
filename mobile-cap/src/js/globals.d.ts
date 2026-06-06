@@ -72,6 +72,30 @@ declare var toastId: number;
 
 declare var jsQR: ((d: Uint8ClampedArray, w: number, h: number, opts?: { inversionAttempts?: string }) => { data: string } | null) | undefined;
 
+// ── Connection state machine (core/state.ts) ──
+type ViorConnState =
+  | 'pre-intent'
+  | 'scanning'
+  | 'found-server'
+  | 'pairing'
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'disconnected';
+
+interface ViorStateData {
+  state: ViorConnState;
+  serverName?: string;
+  transport?: 'wifi' | 'usb';
+}
+
+declare const viorState: {
+  set: (next: Partial<ViorStateData>) => void;
+  get: () => ViorStateData;
+  on: (cb: (s: ViorStateData) => void) => void;
+  chipLabel: (s: ViorStateData) => string;
+};
+
 // ── Cross-file functions defined in screen modules ──
 declare function startDiscovery(): void;
 declare function stopQRScan(): void;
@@ -85,5 +109,8 @@ declare function handleFileMessage(msg: { type: string; data?: unknown }): void;
 declare function handleIncomingFile(msg: { type: 'incoming-file'; data: unknown }): void;
 declare function selectServer(host: string, port: number, name: string, platform: string): void;
 declare function doConnect(): void;
+declare function initiateConnect(): void;
+declare function promptPair(): void;
+declare function showView(name: string): void;
 declare function sendInput(action: string, x: number, y: number): void;
 declare function wsSend(obj: unknown): void;

@@ -104,6 +104,11 @@ a { color: inherit; text-decoration: none; }
 .glyph.big .g-stand  { width: 9px; height: 3px; top: 24px; left: 9px; border-radius: 1.5px; }
 .glyph.big .g-phone  { width: 14.5px; height: 21px; border-radius: 4px; }
 
+/* When .glyph is an <img> (unified Vior icon SVG), let the inline
+   width/height attributes win and skip the 22px / 36px CSS box. */
+img.glyph { width: auto; height: auto; display: inline-block; }
+img.glyph.big { width: auto; height: auto; }
+
 /* ──────────────────────────────────────────────
    Top nav
    ────────────────────────────────────────────── */
@@ -215,10 +220,11 @@ a { color: inherit; text-decoration: none; }
 }
 
 .wordmark {
-  display: inline-flex; align-items: baseline; gap: 14px;
+  display: inline-flex; align-items: center; gap: 16px;
   margin-bottom: 18px;
 }
-.wordmark .glyph { transform: translateY(2px); }
+.wordmark .glyph { transform: none; }
+.wordmark img.glyph { box-shadow: 0 6px 18px rgba(0,0,0,0.35); }
 .wordmark h1 {
   font-size: clamp(56px, 7vw, 84px);
   font-weight: 700;
@@ -372,11 +378,12 @@ a { color: inherit; text-decoration: none; }
   width: 44px; height: 44px;
   display: grid; place-items: center;
   border-radius: var(--r);
-  background: var(--surface-3);
+  background: var(--surface-2);
   border: 1px solid var(--border);
-  font-size: 22px;
+  color: var(--text-1);
   margin-bottom: 22px;
 }
+.feature-icon svg { width: 22px; height: 22px; display: block; }
 .feature h3 {
   font-size: 18px;
   font-weight: 600;

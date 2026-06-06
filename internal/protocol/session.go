@@ -34,6 +34,18 @@ type Session struct {
 	CreatedAt time.Time
 	mu        sync.Mutex
 	closed    bool
+	// disconnectOnce guards SessionHandler.OnClientDisconnect so it
+	// fires exactly once per session even when both the read-loop
+	// defer and an explicit Bye both try to invoke it.
+	disconnectOnce sync.Once
+}
+
+// FireDisconnect runs fn exactly once for the lifetime of this session.
+// The stream package wraps the SessionHandler.OnClientDisconnect call
+// with this so a Bye-then-defer race can't tear the virtual display
+// down twice.
+func (s *Session) FireDisconnect(fn func()) {
+	s.disconnectOnce.Do(fn)
 }
 
 // NewSession creates a session from an upgraded WebSocket connection.
@@ -77,19 +89,19 @@ func (s *Session) ReadLoop(handler MessageHandler) error {
 		_, msg, err := s.Conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
-				log.Printf("ws read error [%s]: %v", s.ID, err)
+				log.Printf("protocol: ws read error [%s]: %v", s.ID, err)
 			}
 			return err
 		}
 
 		env, err := Decode(msg)
 		if err != nil {
-			log.Printf("ws decode error [%s]: %v", s.ID, err)
+			log.Printf("protocol: ws decode error [%s]: %v", s.ID, err)
 			continue
 		}
 
 		if err := s.dispatch(env, handler); err != nil {
-			log.Printf("ws dispatch error [%s] type=%s: %v", s.ID, env.Type, err)
+			log.Printf("protocol: ws dispatch error [%s] type=%s: %v", s.ID, env.Type, err)
 			s.Send(MsgError, &ErrorMessage{Code: "handler_error", Message: err.Error()})
 		}
 	}

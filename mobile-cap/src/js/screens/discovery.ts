@@ -64,6 +64,14 @@ function probeServer(host: string, port: number): Promise<void> {
     .then(function (info: ServerInfo) {
       if (foundServers[key]) return;
       foundServers[key] = info;
+      // Cache the server's stable deviceId per IP so we can later
+      // detect that the same desktop has moved to a different IP
+      // (DHCP renew, Wi-Fi/Ethernet switch). See connect.ts
+      // tryDhcpFallback() for the consumer.
+      const sid = (info as unknown as { deviceId?: string }).deviceId;
+      if (sid) {
+        try { localStorage.setItem('vior_known_device_' + host + ':' + port, sid); } catch (_) { /* blocked */ }
+      }
       if (discoveryTimeout) clearTimeout(discoveryTimeout);
       const n = Object.keys(foundServers).length;
       $('disc-status').textContent = n + ' server' + (n > 1 ? 's' : '') + ' found · tap to connect';

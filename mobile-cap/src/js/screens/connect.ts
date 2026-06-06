@@ -142,10 +142,34 @@ function doConnect(): void {
   // Hard 15s ceiling so the overlay can't hang forever when the server is
   // unreachable, firewalled, or the port is wrong. Cleared in onmessage(ready).
   if (connectTimeoutId) clearTimeout(connectTimeoutId);
-  connectTimeoutId = setTimeout(function () {
+  connectTimeoutId = setTimeout(async function () {
     if (connected) return;
     try { if (ws) ws.close(); } catch (_) {}
     ws = null;
+    // Before giving up, try the DHCP-drift fallback: the desktop may
+    // have moved to a new IP. We re-probe the /24 looking for a host
+    // whose /info advertises the same server deviceId we last paired
+    // with. If found, the fallback re-pins + reconnects transparently.
+    const fb = (window as unknown as { viorDhcpFallback?: (h: string, p: number) => Promise<boolean> }).viorDhcpFallback;
+    if (typeof fb === 'function') {
+      const ok = await fb(host, port);
+      if (ok) return;
+    }
+    // Bump a per-server failure counter; after 3 consecutive timeouts
+    // the cached trust marker for this host:port is stale (server moved,
+    // re-installed, or just gone). Clear it so the next Connect tap
+    // prompts for the pair code instead of silently failing.
+    try {
+      const fkey = 'vior_fail_' + host + ':' + port;
+      const n = (parseInt(localStorage.getItem(fkey) || '0', 10) || 0) + 1;
+      localStorage.setItem(fkey, String(n));
+      if (n >= 3) {
+        localStorage.removeItem('vior_known_' + host + ':' + port);
+        localStorage.removeItem('vior_known_device_' + host + ':' + port);
+        localStorage.removeItem(fkey);
+        toast('warning', 'Pairing cleared', 'Repeated failures — re-enter the pair code next time.');
+      }
+    } catch (_) { /* localStorage blocked */ }
     $('connecting-overlay').classList.add('hidden');
     setConnState('offline');
     toast('error', 'Connection timed out', 'No response in 15s — check the IP, port, and that the desktop server is running.');
@@ -186,7 +210,11 @@ function doConnect(): void {
       // Mark this server as 'known' client-side so the next Connect tap
       // skips the pair-code prompt — the server already trusts us via
       // the deviceID round-trip, this just reflects that in the UI.
-      try { localStorage.setItem('vior_known_' + host + ':' + port, '1'); } catch (_) {}
+      try {
+        localStorage.setItem('vior_known_' + host + ':' + port, '1');
+        // Clear the consecutive-failure counter — we just succeeded.
+        localStorage.removeItem('vior_fail_' + host + ':' + port);
+      } catch (_) {}
       frameBaseUrl = 'http://' + host + ':' + port;
       $('connecting-overlay').classList.add('hidden');
       connected = true;
@@ -252,6 +280,10 @@ function doConnect(): void {
   ws.onclose = function () {
     stopFramePolling();
     if (connected && reconnectAttempts < maxReconnect) {
+      // Transient drop (WiFi blip) — trust survives because we never
+      // remove vior_known_ here; the saved deviceID re-admits us
+      // without a pair-code prompt. Exponential back-off keeps us
+      // under 10s between attempts.
       reconnectAttempts++;
       setConnState('reconnecting');
       viorState.set({ state: 'reconnecting' });
@@ -283,6 +315,71 @@ function doConnect(): void {
 
   ws.onerror = function () {};
 }
+
+// ── DHCP-drift fallback ────────────────────────────────────────────
+// When the previously-known IP doesn't answer, sweep the local /24
+// looking for any host whose /info advertises the same deviceId we
+// last paired with. If found, transparently update the cached IP and
+// reconnect. The user sees a quiet "Server IP updated" toast instead
+// of a Connect-failed dead-end.
+async function tryDhcpFallback(prevHost: string, prevPort: number): Promise<boolean> {
+  const knownDeviceId = localStorage.getItem('vior_known_device_' + prevHost + ':' + prevPort);
+  if (!knownDeviceId) return false;
+
+  const localIP: string | null = await new Promise(function (resolve) {
+    try {
+      const pc = new RTCPeerConnection({ iceServers: [] });
+      pc.createDataChannel(''); pc.createOffer().then((o) => pc.setLocalDescription(o));
+      let done = false;
+      pc.onicecandidate = function (e: RTCPeerConnectionIceEvent) {
+        if (done || !e.candidate) return;
+        const m = e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+        if (m && m[1] !== '0.0.0.0') { done = true; pc.close(); resolve(m[1]); }
+      };
+      setTimeout(function () { if (!done) { done = true; pc.close(); resolve(null); } }, 3000);
+    } catch (_) { resolve(null); }
+  });
+  if (!localIP) return false;
+
+  const base = localIP.split('.').slice(0, 3).join('.');
+  const probes: Promise<{ host: string; info: { deviceId?: string; name?: string; platform?: string } } | null>[] = [];
+  for (let i = 1; i < 255; i++) {
+    const host = base + '.' + i;
+    if (host === prevHost) continue;
+    probes.push((async function () {
+      const ctrl = new AbortController();
+      setTimeout(function () { ctrl.abort(); }, 1200);
+      try {
+        const r = await fetch('http://' + host + ':' + prevPort + '/info', { signal: ctrl.signal });
+        if (!r.ok) return null;
+        const info = await r.json();
+        if ((info.deviceId || '') === knownDeviceId) return { host, info };
+      } catch (_) { /* ignore */ }
+      return null;
+    })());
+  }
+  const found = (await Promise.all(probes)).filter(Boolean) as { host: string; info: { name?: string; platform?: string } }[];
+  if (found.length === 0) return false;
+
+  const next = found[0];
+  // Migrate trust cache to the new IP.
+  try {
+    localStorage.setItem('vior_known_' + next.host + ':' + prevPort, '1');
+    localStorage.setItem('vior_known_device_' + next.host + ':' + prevPort, knownDeviceId);
+    localStorage.setItem('vior_last', next.host + ':' + prevPort);
+    localStorage.removeItem('vior_known_' + prevHost + ':' + prevPort);
+    localStorage.removeItem('vior_known_device_' + prevHost + ':' + prevPort);
+  } catch (_) { /* localStorage blocked */ }
+  selectServer(next.host, prevPort, next.info.name || next.host, next.info.platform || '');
+  toast('info', 'Server IP updated', prevHost + ' → ' + next.host);
+  reconnectAttempts = 0;
+  doConnect();
+  return true;
+}
+
+// Expose the fallback for the discovery/onclose paths that may want
+// to try it without duplicating the whole probe routine.
+(window as unknown as { viorDhcpFallback?: (h: string, p: number) => Promise<boolean> }).viorDhcpFallback = tryDhcpFallback;
 
 function doDisconnect(): void {
   // User-initiated disconnect: cancel any pending reconnect, close the

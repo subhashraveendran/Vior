@@ -4,21 +4,23 @@ import (
 	"image"
 	"sync"
 	"testing"
+	"time"
 )
 
 type fakeCtrl struct {
-	mu      sync.Mutex
-	moves   [][2]int
-	clicks  []MouseButton
-	keys    []string
-	scrolls [][2]int
-	curX    int
-	curY    int
-	posErr  error
-	mainX   int
-	mainY   int
-	mainW   int
-	mainH   int
+	mu       sync.Mutex
+	moves    [][2]int
+	clicks   []MouseButton
+	keys     []string
+	scrolls  [][2]int
+	curX     int
+	curY     int
+	posErr   error
+	mainX    int
+	mainY    int
+	mainW    int
+	mainH    int
+	posCalls int
 }
 
 func (f *fakeCtrl) MoveMouse(x, y int) error {
@@ -49,6 +51,9 @@ func (f *fakeCtrl) Scroll(dx, dy int) error {
 	return nil
 }
 func (f *fakeCtrl) CurrentMousePos() (int, int, error) {
+	f.mu.Lock()
+	f.posCalls++
+	f.mu.Unlock()
 	if f.posErr != nil {
 		return 0, 0, f.posErr
 	}
@@ -141,6 +146,52 @@ func TestHandleMouseClick(t *testing.T) {
 	_ = tm.HandleMouse("rightclick", 0, 0)
 	if len(c.clicks) != 2 || c.clicks[0] != ButtonLeft || c.clicks[1] != ButtonRight {
 		t.Fatalf("click dispatch wrong: %v", c.clicks)
+	}
+}
+
+// TestHandleMouseCoalescesOSQueries verifies that a tight burst of
+// mouse-move events does NOT round-trip through CurrentMousePos every
+// time — the OS query happens once, then the cache is used until idle.
+// Regression test for drag jitter on busy systems where the per-event
+// cgo call into CGEventCreate became a bottleneck.
+func TestHandleMouseCoalescesOSQueries(t *testing.T) {
+	c := &fakeCtrl{curX: 500, curY: 400, mainW: 1920, mainH: 1080}
+	tm := NewTouchMapper(c, image.Rect(0, 0, 1920, 1080))
+
+	// Simulate a 60fps drag of 30 events with no idle gap between them.
+	for i := 0; i < 30; i++ {
+		if err := tm.HandleMouse("move", 1, 0); err != nil {
+			t.Fatalf("move %d: %v", i, err)
+		}
+	}
+	if c.posCalls != 1 {
+		t.Fatalf("CurrentMousePos called %d times, want 1 (coalesced)", c.posCalls)
+	}
+	// Cache must have followed every delta, so the final move ends at
+	// (500 + 30, 400).
+	if got := c.moves[len(c.moves)-1]; got != [2]int{530, 400} {
+		t.Fatalf("final move %v want {530,400}", got)
+	}
+
+	// After a longer idle the cache should expire and we re-query.
+	time.Sleep(cachedPosIdle + 10*time.Millisecond)
+	_ = tm.HandleMouse("move", 1, 0)
+	if c.posCalls != 2 {
+		t.Fatalf("CurrentMousePos called %d times after idle, want 2", c.posCalls)
+	}
+}
+
+func TestInvalidateMousePosCache(t *testing.T) {
+	c := &fakeCtrl{curX: 10, curY: 10, mainW: 1920, mainH: 1080}
+	tm := NewTouchMapper(c, image.Rect(0, 0, 1920, 1080))
+	_ = tm.HandleMouse("move", 0, 0)
+	if c.posCalls != 1 {
+		t.Fatalf("setup: posCalls=%d want 1", c.posCalls)
+	}
+	tm.InvalidateMousePosCache()
+	_ = tm.HandleMouse("move", 0, 0)
+	if c.posCalls != 2 {
+		t.Fatalf("after invalidate: posCalls=%d want 2", c.posCalls)
 	}
 }
 

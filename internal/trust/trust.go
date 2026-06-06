@@ -7,6 +7,7 @@ package trust
 
 import (
 	"encoding/json"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -48,10 +49,19 @@ func New(path string) *Store {
 func (s *Store) load() {
 	b, err := os.ReadFile(s.path)
 	if err != nil {
+		if !os.IsNotExist(err) {
+			log.Printf("trust: read %s failed: %v (starting empty)", s.path, err)
+		}
 		return
 	}
 	var list []Entry
-	if json.Unmarshal(b, &list) != nil {
+	if err := json.Unmarshal(b, &list); err != nil {
+		// File got corrupted (truncated mid-write, manual edit, disk
+		// fault). Don't crash and don't refuse to admit anyone — just
+		// start fresh so the user can re-pair. The corrupt file is
+		// renamed aside so they can recover it if needed.
+		log.Printf("trust: %s is corrupt (%v); quarantining and starting empty", s.path, err)
+		_ = os.Rename(s.path, s.path+".corrupt")
 		return
 	}
 	s.mu.Lock()
@@ -71,9 +81,16 @@ func (s *Store) save() error {
 		list = append(list, e)
 	}
 	s.mu.RUnlock()
-	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
+	dir := filepath.Dir(s.path)
+	// Parent dir gets 0700 — keeps a curious roommate on the same Mac
+	// from reading the trusted device list (file is already 0600, this
+	// just blocks `ls` enumeration of ~/.vior/).
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
+	// Belt and suspenders: if the dir already existed with looser
+	// perms (older Vior versions used 0755), tighten it on every save.
+	_ = os.Chmod(dir, 0o700)
 	tmp := s.path + ".tmp"
 	b, err := json.MarshalIndent(list, "", "  ")
 	if err != nil {

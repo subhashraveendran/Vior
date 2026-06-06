@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -35,6 +36,137 @@ func TrustedDevices() *trust.Store { return trustedDevices }
 // pairCode is a short hex string generated at server start. Printed to the
 // terminal and exposed via /info + embedded in the QR for verification.
 var pairCode = generatePairCode()
+
+// EnablePersistedPair configures the pair-code to be loaded from
+// ~/.vior/pair.txt on every server start (and persisted there the
+// first time). Trusted devices don't notice — they're admitted by
+// deviceID — but pair-only "quick connect" users get a stable code
+// across restarts. Call once before the first WS upgrade.
+func EnablePersistedPair() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Printf("stream: persisted pair disabled (no home dir): %v", err)
+		return
+	}
+	path := filepath.Join(home, ".vior", "pair.txt")
+	if b, err := os.ReadFile(path); err == nil {
+		code := strings.ToUpper(strings.TrimSpace(string(b)))
+		if len(code) == 6 {
+			pairCode = code
+			log.Printf("stream: loaded persisted pair code from %s", path)
+			return
+		}
+		log.Printf("stream: %s contents invalid (%q); regenerating", path, code)
+	}
+	_ = os.MkdirAll(filepath.Dir(path), 0o700)
+	if err := os.WriteFile(path, []byte(pairCode), 0o600); err != nil {
+		log.Printf("stream: failed to persist pair code: %v", err)
+	} else {
+		log.Printf("stream: persisted pair code to %s", path)
+	}
+}
+
+// serverID is a stable per-install ID persisted at ~/.vior/server-id so
+// mobiles can detect when the same desktop reappears at a different IP
+// (DHCP lease renewal, Wi-Fi/Ethernet hand-off). Exposed via /info.
+var serverID = loadOrCreateServerID()
+
+func loadOrCreateServerID() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		// Worst case: ephemeral ID for this run. Mobile can't pin it
+		// across IP changes, but everything else still works.
+		b := make([]byte, 8)
+		_, _ = rand.Read(b)
+		return "srv-" + hex.EncodeToString(b)
+	}
+	dir := filepath.Join(home, ".vior")
+	path := filepath.Join(dir, "server-id")
+	if b, err := os.ReadFile(path); err == nil {
+		id := strings.TrimSpace(string(b))
+		if id != "" {
+			return id
+		}
+	}
+	_ = os.MkdirAll(dir, 0o700)
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		return "srv-fallback"
+	}
+	id := "srv-" + hex.EncodeToString(b)
+	_ = os.WriteFile(path, []byte(id), 0o600)
+	return id
+}
+
+// ServerID returns the stable per-install server identifier.
+func ServerID() string { return serverID }
+
+// pairAttempts tracks failed pair-code submissions per remote IP. A
+// script kiddie on the LAN can otherwise brute-force a 6-char hex pair
+// (16.7M combos, but file transfers are the prize) in hours by spamming
+// hellos. Throttle each IP to maxPairAttempts every pairAttemptWindow.
+const (
+	maxPairAttempts   = 5
+	pairAttemptWindow = time.Minute
+)
+
+type pairAttemptBucket struct {
+	times []time.Time
+}
+
+var (
+	pairAttemptsMu sync.Mutex
+	pairAttempts   = map[string]*pairAttemptBucket{}
+)
+
+// recordPairAttempt registers a failed attempt from ip. Returns true if
+// the IP is now over the limit and should be refused.
+func recordPairAttempt(ip string) bool {
+	if ip == "" {
+		return false
+	}
+	now := time.Now()
+	cutoff := now.Add(-pairAttemptWindow)
+	pairAttemptsMu.Lock()
+	defer pairAttemptsMu.Unlock()
+	b := pairAttempts[ip]
+	if b == nil {
+		b = &pairAttemptBucket{}
+		pairAttempts[ip] = b
+	}
+	// Drop expired entries.
+	pruned := b.times[:0]
+	for _, t := range b.times {
+		if t.After(cutoff) {
+			pruned = append(pruned, t)
+		}
+	}
+	pruned = append(pruned, now)
+	b.times = pruned
+	return len(b.times) > maxPairAttempts
+}
+
+// clearPairAttempts drops the bucket for ip — called after a successful
+// admission so an honest device that mistyped once doesn't carry the
+// counter into a permanent ban.
+func clearPairAttempts(ip string) {
+	if ip == "" {
+		return
+	}
+	pairAttemptsMu.Lock()
+	delete(pairAttempts, ip)
+	pairAttemptsMu.Unlock()
+}
+
+// remoteIP extracts the bare IP (no port) from a RemoteAddr like
+// "192.168.1.50:54321" or an IPv6 "[::1]:54321".
+func remoteIP(remoteAddr string) string {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		return remoteAddr
+	}
+	return host
+}
 
 func generatePairCode() string {
 	b := make([]byte, 3)
@@ -168,7 +300,7 @@ func (s *MJPEGServer) Start() error {
 
 	go func() {
 		if err := s.server.Serve(ln); err != nil && err != http.ErrServerClosed {
-			log.Printf("server error: %v", err)
+			log.Printf("stream: server error: %v", err)
 		}
 	}()
 
@@ -301,7 +433,7 @@ func (s *MJPEGServer) removeClient(ch chan []byte) {
 const boundary = "vior-frame-boundary"
 
 func (s *MJPEGServer) handleStream(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Client connected: %s", r.RemoteAddr)
+	log.Printf("stream: MJPEG client connected: %s", r.RemoteAddr)
 
 	ch, err := s.addClient()
 	if err != nil {
@@ -348,7 +480,7 @@ func (s *MJPEGServer) handleStream(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 
 		case <-ctx.Done():
-			log.Printf("Client disconnected: %s", r.RemoteAddr)
+			log.Printf("stream: MJPEG client disconnected: %s", r.RemoteAddr)
 			return
 		}
 	}
@@ -371,7 +503,10 @@ func (s *MJPEGServer) handleDownload(w http.ResponseWriter, r *http.Request) {
 func (s *MJPEGServer) handleInfo(w http.ResponseWriter, r *http.Request) {
 	name := friendlyDeviceName()
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, `{"name":"%s","version":"%s","platform":"%s","pairCode":"%s"}`, name, "0.1.0", friendlyPlatform(), pairCode)
+	// deviceId is the stable server-install ID. Mobiles save it and
+	// use it to re-find the server at a new IP after DHCP drift.
+	fmt.Fprintf(w, `{"name":"%s","version":"%s","platform":"%s","pairCode":"%s","deviceId":"%s"}`,
+		name, "0.1.0", friendlyPlatform(), pairCode, serverID)
 }
 
 func friendlyDeviceName() string {
@@ -422,12 +557,12 @@ func (s *MJPEGServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {
 func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("ws upgrade error: %v", err)
+		log.Printf("stream: ws upgrade error: %v", err)
 		return
 	}
 
 	session := protocol.NewSession(conn)
-	log.Printf("WebSocket client connected: %s [%s]", r.RemoteAddr, session.ID)
+	log.Printf("stream: ws client connected: %s [%s]", r.RemoteAddr, session.ID)
 
 	// Only one client at a time.
 	s.wsConnMu.Lock()
@@ -449,15 +584,22 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			s.wsConn = nil
 		}
 		s.wsConnMu.Unlock()
-		s.handler.OnClientDisconnect(session)
+		// sync.Once on the session guarantees OnClientDisconnect runs
+		// exactly once even when an in-loop Bye and the post-loop
+		// defer both arrive — without this guard, the App handler
+		// would tear the virtual display down twice and race the
+		// macOS CGVirtualDisplay teardown.
+		session.FireDisconnect(func() {
+			s.handler.OnClientDisconnect(session)
+		})
 		session.Close()
-		log.Printf("WebSocket client disconnected: %s [%s]", r.RemoteAddr, session.ID)
+		log.Printf("stream: WebSocket client disconnected: %s [%s]", r.RemoteAddr, session.ID)
 	}()
 
 	// Wait for hello message.
 	hello, err := session.WaitForHello()
 	if err != nil {
-		log.Printf("ws hello error [%s]: %v", session.ID, err)
+		log.Printf("stream: ws hello error [%s]: %v", session.ID, err)
 		session.Send(protocol.MsgError, &protocol.ErrorMessage{
 			Code:    "hello_failed",
 			Message: err.Error(),
@@ -465,37 +607,52 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Client hello: %s %dx%d @%.1fx [%s]", hello.Name, hello.Width, hello.Height, hello.DPR, session.ID)
+	log.Printf("stream: client hello: %s %dx%d @%.1fx [%s]", hello.Name, hello.Width, hello.Height, hello.DPR, session.ID)
 
 	// Admission policy:
 	//   1. Already-trusted deviceID (paired before on this server)  → admit
 	//   2. Correct pair code present                                → admit + add to trust store
 	//   3. Otherwise                                                → reject
 	// This way the user only enters the code once per physical device.
+	ip := remoteIP(r.RemoteAddr)
 	switch {
 	case trustedDevices.IsTrusted(hello.DeviceID):
-		log.Printf("ws admitted trusted device [%s] id=%s", session.ID, hello.DeviceID)
+		log.Printf("stream: admitted trusted device [%s] id=%s", session.ID, hello.DeviceID)
 		_ = trustedDevices.Add(hello.DeviceID, hello.Name) // touch LastSeen
+		clearPairAttempts(ip)
 	case strings.EqualFold(strings.TrimSpace(hello.PairCode), pairCode):
 		if hello.DeviceID != "" {
 			if err := trustedDevices.Add(hello.DeviceID, hello.Name); err != nil {
-				log.Printf("trust store add failed [%s]: %v", session.ID, err)
+				log.Printf("trust: store add failed [%s]: %v", session.ID, err)
 			} else {
-				log.Printf("ws paired new device [%s] id=%s name=%q", session.ID, hello.DeviceID, hello.Name)
+				log.Printf("trust: paired new device [%s] id=%s name=%q", session.ID, hello.DeviceID, hello.Name)
 			}
 		}
+		clearPairAttempts(ip)
 	default:
-		log.Printf("ws pair mismatch [%s]: got %q want %q (deviceID=%q untrusted)", session.ID, hello.PairCode, pairCode, hello.DeviceID)
-		session.Send(protocol.MsgError, &protocol.ErrorMessage{
-			Code:    "pair_mismatch",
-			Message: "Pair code missing or incorrect. Check the code shown on the desktop.",
-		})
+		// Brute-force throttle: 5 wrong codes / minute / IP → 429 +
+		// close. Without this a script on the LAN could enumerate the
+		// 16M-combo hex pair code in roughly a day.
+		over := recordPairAttempt(ip)
+		log.Printf("stream: pair mismatch [%s] from %s: got %q want %q (deviceID=%q untrusted) over=%v",
+			session.ID, ip, hello.PairCode, pairCode, hello.DeviceID, over)
+		if over {
+			session.Send(protocol.MsgError, &protocol.ErrorMessage{
+				Code:    "rate_limited",
+				Message: "Too many failed pair attempts. Wait a minute and try again.",
+			})
+		} else {
+			session.Send(protocol.MsgError, &protocol.ErrorMessage{
+				Code:    "pair_mismatch",
+				Message: "Pair code missing or incorrect. Check the code shown on the desktop.",
+			})
+		}
 		return
 	}
 
 	// Notify handler — this triggers virtual display creation.
 	if err := s.handler.OnClientConnect(session, hello); err != nil {
-		log.Printf("ws connect handler error [%s]: %v", session.ID, err)
+		log.Printf("stream: connect handler error [%s]: %v", session.ID, err)
 		session.Send(protocol.MsgError, &protocol.ErrorMessage{
 			Code:    "setup_failed",
 			Message: err.Error(),
@@ -526,8 +683,13 @@ func (a *wsMessageAdapter) OnResize(session *protocol.Session, msg *protocol.Res
 }
 
 func (a *wsMessageAdapter) OnBye(session *protocol.Session) error {
-	a.handler.OnClientDisconnect(session)
-	return nil
+	// Do NOT call OnClientDisconnect here. ReadLoop will return as
+	// soon as the underlying conn closes (either because we close it
+	// below or because the client hung up after Bye), and
+	// handleWebSocket's defer is the canonical disconnect path. Calling
+	// it here would invoke virtual.Destroy + capture.Stop twice, which
+	// races and leaves a ghost virtual display on macOS.
+	return session.Close()
 }
 
 func (a *wsMessageAdapter) OnFileOffer(session *protocol.Session, msg *protocol.FileOfferMessage) error {

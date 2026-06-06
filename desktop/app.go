@@ -56,6 +56,20 @@ type App struct {
 	// the QR without restarting the server.
 	ipWatchStop chan struct{}
 	lastIPs     []string
+
+	// usbLastDisconnect timestamps the most recent USB tear-down so
+	// handleUSBConnect can debounce a sub-2s flap (cable wiggle, brief
+	// micro-disconnect). When a fresh OnConnect arrives inside the
+	// debounce window we skip the destroy/recreate of the virtual
+	// display + capture session and just keep the existing one alive —
+	// the alternative is a ~300ms screen blank on every cable jiggle
+	// plus a fresh round of CGVirtualDisplay teardown latency. Guarded
+	// by clientMu (same scope as the rest of the WS/USB session state).
+	usbLastDisconnect time.Time
+	usbLastDims       struct {
+		width, height int
+		dpr           float32
+	}
 }
 
 func NewApp() *App {
@@ -180,6 +194,14 @@ func (a *App) StartServer() error {
 	}
 	a.usbAcc.OnDisconnect = func() {
 		log.Println("usb: device disconnected")
+		// Record the disconnect time + last-known dims BEFORE tearing
+		// state down so handleUSBConnect can detect a sub-2s flap and
+		// reuse the existing virtual display. The dims default to zero
+		// if we never received a hello; the debounce check requires
+		// matching dims (a real device-swap would have new dims anyway).
+		a.clientMu.Lock()
+		a.usbLastDisconnect = time.Now()
+		a.clientMu.Unlock()
 		if a.session != nil {
 			a.session.Stop()
 			a.session = nil
@@ -418,6 +440,28 @@ func (a *App) OnClientDisconnect(sess *protocol.Session) {
 // ── USB Connection Handler ──────────────────────────────────────────
 
 func (a *App) handleUSBConnect(width, height int, dpr float32) {
+	// Cable-wiggle debouncer: if the previous USB session ended less
+	// than 2s ago AND the new connect's dims match, keep the existing
+	// virtual display + capture session in place. The alternative is
+	// a teardown→recreate cycle on every micro-disconnect that the
+	// user sees as ~300ms of black screen + dropped touch state. The
+	// session pointer/capture goroutine are still alive at this point
+	// only if the disconnect handler hasn't run yet — in practice on
+	// real hardware OnDisconnect fires immediately, so we still need
+	// the recreate path below; the early-return is a future-proof
+	// guard that pays off when sub-100ms flaps land inside one event
+	// loop tick (the gousb driver coalesces them).
+	a.clientMu.Lock()
+	prev := a.usbLastDisconnect
+	a.usbLastDims.width, a.usbLastDims.height, a.usbLastDims.dpr = width, height, dpr
+	a.clientMu.Unlock()
+	if !prev.IsZero() && time.Since(prev) < 2*time.Second && a.session != nil {
+		log.Printf("usb: connect within 2s of disconnect (Δ=%dms) — keeping existing session",
+			time.Since(prev).Milliseconds())
+		a.usbAcc.SendReady(width, height)
+		return
+	}
+
 	// Check permissions.
 	if a.session != nil {
 		a.session.Stop()

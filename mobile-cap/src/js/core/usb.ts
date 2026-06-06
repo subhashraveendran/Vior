@@ -22,6 +22,10 @@ window.onUsbFrame = function (b64: string): void {
 
 // ── Cable attached + AOA handshake done ───────────────────────────
 window.onUsbConnected = function (): void {
+  // If a teardown was queued from a sub-1.5s flap, cancel it — we're
+  // back on the same cable and want to keep all the connected-card
+  // state without a visible flash.
+  cancelPendingUsbTeardown();
   // Policy when both transports are alive: USB wins for video (low
   // latency, no Wi-Fi dependency). Close any active WS so we don't
   // have two competing video sources writing to the same <img>, two
@@ -78,6 +82,21 @@ window.onUsbConnected = function (): void {
   toast('success', 'USB connected', 'Streaming over cable. No Wi-Fi needed.');
 };
 
+// usbTeardownTimer debounces a flap: a real cable yank vs. a 100-1500ms
+// micro-disconnect (kernel re-enumeration on Android, USB hub
+// re-negotiation, cable jiggle). We schedule the teardown 1.5s out; if
+// onUsbConnected fires inside that window we cancel and keep the UI
+// state intact. Without this the connected card flashed away and back
+// every time the user shifted the tablet on the desk.
+let usbTeardownTimer: ReturnType<typeof setTimeout> | null = null;
+function cancelPendingUsbTeardown(): void {
+  if (usbTeardownTimer) {
+    clearTimeout(usbTeardownTimer);
+    usbTeardownTimer = null;
+    console.log('usb: cancelled pending teardown (reconnect within 1.5s)');
+  }
+}
+
 // ── Cable yanked / desktop quit ───────────────────────────────────
 window.onUsbDisconnected = function (): void {
   // Only act if USB was the active transport. A Wi-Fi session shouldn't
@@ -88,6 +107,19 @@ window.onUsbDisconnected = function (): void {
     console.log('usb: onUsbDisconnected ignored (transport=' + transportMode + ')');
     return;
   }
+  // Debounce: schedule the teardown 1.5s out. If the cable re-enumerates
+  // inside that window, onUsbConnected cancels this and the user never
+  // sees the offline flash. Real disconnects sit waiting for ~1.5s before
+  // surfacing — acceptable trade-off (the cable's already unplugged; the
+  // app showing "USB" for an extra heartbeat costs nothing).
+  if (usbTeardownTimer) clearTimeout(usbTeardownTimer);
+  usbTeardownTimer = setTimeout(function () {
+    usbTeardownTimer = null;
+    doUsbTeardown();
+  }, 1500);
+};
+
+function doUsbTeardown(): void {
   console.log('usb: cable disconnected, tearing down USB transport');
   transportMode = 'wifi';
   connected = false;
@@ -116,7 +148,7 @@ window.onUsbDisconnected = function (): void {
   toast('warning', 'USB disconnected', 'Cable unplugged — re-plug or use Wi-Fi.');
   // Resume Wi-Fi discovery so the user has something to tap on.
   setTimeout(function () { try { startDiscovery(); } catch (_) {} }, 300);
-};
+}
 
 // ── Resolution handshake from the desktop ─────────────────────────
 window.onUsbReady = function (w: number, h: number): void {

@@ -27,7 +27,9 @@ document.addEventListener('click', function (e: MouseEvent) {
 });
 if ($('pair-prompt-cancel')) $('pair-prompt-cancel').addEventListener('click', closePair);
 if ($('pair-prompt-go')) $('pair-prompt-go').addEventListener('click', function () {
-  const v = (($('pair-prompt-input') as HTMLInputElement).value || '').toUpperCase().trim();
+  // Live formatter inserts "ABC-123" — strip the dash before sending.
+  const v = (($('pair-prompt-input') as HTMLInputElement).value || '')
+    .toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
   if (!v) return;
   ($('manual-pair') as HTMLInputElement).value = v;
   closePair();
@@ -150,9 +152,16 @@ function doConnect(): void {
       deviceID = 'mob-' + ((window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Math.random().toString(36).slice(2) + Date.now().toString(36)));
       try { localStorage.setItem('vior_device_id', deviceID); } catch (_) {}
     }
+    // Intent decides whether the server even creates a virtual display.
+    // Remote-only / Files-only intents must NOT trigger capture — the
+    // user picked them precisely because they don't want a second screen.
+    const intentFn = (window as unknown as { viorIntent?: () => 'display' | 'remote' | 'files' }).viorIntent;
+    const intent = (typeof intentFn === 'function' ? intentFn() : 'display');
+    const skipDisplay = intent === 'remote' || intent === 'files';
     ws!.send(JSON.stringify({ type: 'hello', data: {
       width: Math.round(screen.width * dpr), height: Math.round(screen.height * dpr),
-      dpr: dpr, name: 'Vior Mobile', mode: selectedMode, pairCode: pair, deviceId: deviceID
+      dpr: dpr, name: 'Vior Mobile', mode: selectedMode, pairCode: pair, deviceId: deviceID,
+      intent: intent, skipDisplay: skipDisplay
     }}));
   };
 
@@ -176,15 +185,28 @@ function doConnect(): void {
       showView('connected');
       $('scard-name').textContent = serverName;
       $('scard-meta').textContent = serverPlatform || host;
-      // Mode pill shows transport + display mode: "Wi-Fi · Extend"
-      $('stat-mode').textContent = 'Wi-Fi · ' + (selectedMode === 'mirror' ? 'Mirror' : 'Extend');
+      // Mode pill: shows transport + intent or display mode.
+      const intentFn2 = (window as unknown as { viorIntent?: () => 'display' | 'remote' | 'files' }).viorIntent;
+      const intentNow = (typeof intentFn2 === 'function' ? intentFn2() : 'display');
+      let modeLabel: string;
+      if (intentNow === 'remote') modeLabel = 'Wi-Fi · Remote';
+      else if (intentNow === 'files') modeLabel = 'Wi-Fi · Files';
+      else modeLabel = 'Wi-Fi · ' + (selectedMode === 'mirror' ? 'Mirror' : 'Extend');
+      $('stat-mode').textContent = modeLabel;
       $('stat-res').textContent = serverRes;
-      $('stat-status').textContent = 'Live';
+      $('stat-status').textContent = intentNow === 'files' ? 'Ready' : 'Live';
       $('files-offline').classList.add('hidden');
       $('files-active').classList.remove('hidden');
       $('remote-offline').classList.add('hidden');
       $('remote-active').classList.remove('hidden');
-      toast('success', 'Connected', (selectedMode === 'mirror' ? 'Mirroring' : 'Extended display') + ' on ' + serverName + '.');
+      // Files intent → land on Files tab. Remote intent → land on Remote tab.
+      // Display intent stays put (user already wants to see the connected card).
+      if (intentNow === 'files') switchTab('files');
+      else if (intentNow === 'remote') switchTab('remote');
+      const successMsg = intentNow === 'remote' ? 'Remote control ready'
+        : intentNow === 'files' ? 'Ready for file transfer'
+        : (selectedMode === 'mirror' ? 'Mirroring' : 'Extended display');
+      toast('success', 'Connected', successMsg + ' on ' + serverName + '.');
     } else if (msg.type === 'error') {
       if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
       $('connecting-overlay').classList.add('hidden');
@@ -310,3 +332,56 @@ if (usbHelpBtn) usbHelpBtn.addEventListener('click', function () {
   toast('info', 'USB checklist',
     'Use a data cable. Allow "Vior USB access" prompt. Restart Vior desktop if needed.');
 });
+
+// ── Manual-setup disclosure (Wi-Fi screen) ─────────────────────────
+// 90% of users connect via auto-discovery + tap. Hide the IP / QR /
+// pair-only block behind a chevron so the empty view stays calm.
+const manualToggle = $('manual-toggle');
+if (manualToggle) {
+  manualToggle.addEventListener('click', function () {
+    const block = $('manual-block');
+    if (!block) return;
+    const open = !block.classList.contains('hidden');
+    block.classList.toggle('hidden', open);
+    manualToggle.setAttribute('aria-expanded', open ? 'false' : 'true');
+  });
+}
+
+// ── Pair-prompt input: live ABC-123 formatting ─────────────────────
+// We accept up to 7 chars (6 + the dash). On every keystroke we strip
+// non-alphanumeric and re-insert the dash so the user sees the same
+// "ABC-123" shape as the desktop's pair-code display.
+const pairInput = $('pair-prompt-input') as HTMLInputElement | null;
+if (pairInput) {
+  pairInput.addEventListener('input', function () {
+    const raw = (pairInput.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    const formatted = raw.length > 3 ? raw.slice(0, 3) + '-' + raw.slice(3) : raw;
+    if (pairInput.value !== formatted) pairInput.value = formatted;
+  });
+}
+// Strip the dash before sending to manual-pair / WS.
+const pairGo = $('pair-prompt-go');
+if (pairGo) {
+  // Wrap the existing onclick chain: existing handler reads .value and
+  // upper-cases it — by the time it runs we want only A-Z0-9. Replace
+  // .value just before the existing click fires by overriding it here.
+  // We can't reorder listeners cleanly, so we normalize in the handler
+  // above; the existing one already uppercases + trims.
+}
+
+// ── USB transition helpers ─────────────────────────────────────────
+// Tiny shim so usb.ts can flip the orb between "waiting" and
+// "connected" states without coupling to DOM details.
+(window as unknown as { setUsbStage?: (s: 'waiting' | 'connected') => void }).setUsbStage = function (s: 'waiting' | 'connected'): void {
+  const stage = $('usb-stage');
+  const title = $('usb-title');
+  const body = $('usb-body');
+  if (stage) stage.setAttribute('data-state', s);
+  if (s === 'connected') {
+    if (title) title.textContent = 'Cable detected!';
+    if (body) body.textContent = 'Setting up…';
+  } else {
+    if (title) title.textContent = 'Waiting for cable…';
+    if (body) body.textContent = 'Plug your tablet into the desktop. We start automatically — no IP, no pair code.';
+  }
+};

@@ -1,0 +1,101 @@
+/* requires: tokens.css (--bg, --text-*, --accent, --surface-*, --r*, --font-*) */
+/* ── Intent picker (first-run + Settings → Change intent) ── */
+.intent-overlay {
+  position: fixed; inset: 0; z-index: 70;
+  background: var(--bg);
+  display: flex; align-items: stretch; justify-content: center;
+  padding: max(48px, env(safe-area-inset-top, 0)) 22px max(28px, env(safe-area-inset-bottom, 0));
+  overflow-y: auto; scrollbar-width: none;
+}
+.intent-overlay::-webkit-scrollbar { display: none; }
+.intent-overlay.hidden { display: none; }
+
+.intent-wrap {
+  width: 100%; max-width: 460px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.intent-head { margin-bottom: 8px; text-align: center; padding: 0 6px; }
+.intent-title {
+  font-size: 24px; font-weight: 700; color: var(--text-1);
+  letter-spacing: -0.01em;
+}
+.intent-sub {
+  margin-top: 8px; font-size: 14px; color: var(--text-2); line-height: 1.5;
+}
+
+.intent-tile {
+  display: flex; align-items: center; gap: 16px;
+  padding: 22px 20px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  color: var(--text-1);
+  text-align: left; cursor: pointer;
+  transition: transform .12s ease, border-color .12s ease, background .12s ease;
+}
+.intent-tile:active { transform: scale(0.985); }
+.intent-tile:hover { border-color: var(--accent-line); background: var(--surface-2); }
+.intent-tile-icon {
+  flex: none; width: 56px; height: 56px; border-radius: var(--r);
+  background: var(--accent-weak); color: var(--accent);
+  display: grid; place-items: center;
+}
+.intent-tile-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.intent-tile-title { font-size: 17px; font-weight: 600; color: var(--text-1); }
+.intent-tile-sub { font-size: 13px; color: var(--text-2); line-height: 1.45; }
+.intent-tile-chev { color: var(--text-3); flex: none; }
+
+/* ── USB stage (animated waiting/connected transitions) ── */
+.usb-stage {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 38px 24px 24px; text-align: center;
+}
+.usb-orb {
+  position: relative; width: 110px; height: 110px;
+  display: grid; place-items: center; margin-bottom: 18px;
+}
+.usb-orb-pulse {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 1.5px solid var(--accent-line);
+  opacity: 0; transform: scale(0.6);
+  animation: usb-pulse 2.2s ease-out infinite;
+}
+@keyframes usb-pulse {
+  0% { opacity: 0; transform: scale(0.55); }
+  35% { opacity: .55; }
+  100% { opacity: 0; transform: scale(1.15); }
+}
+.usb-orb-core {
+  position: relative; width: 72px; height: 72px;
+  border-radius: 50%;
+  background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--accent);
+  display: grid; place-items: center;
+  transition: background .25s ease, color .25s ease, transform .3s ease;
+}
+.usb-stage[data-state="connected"] .usb-orb-core {
+  background: var(--accent); color: var(--on-accent); transform: scale(1.06);
+}
+.usb-stage[data-state="connected"] .usb-orb-pulse { animation-duration: 1.1s; }
+.usb-title { font-size: 18px; font-weight: 600; color: var(--text-1); }
+.usb-sub { margin-top: 8px; font-size: 13.5px; color: var(--text-2); max-width: 300px; line-height: 1.5; }
+
+/* ── Disclosure toggle ("Manual setup") ── */
+.disclosure-toggle {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px;
+  background: transparent; border: 1px dashed var(--border);
+  border-radius: var(--r); color: var(--text-2);
+  cursor: pointer; font-size: 13.5px; font-weight: 500;
+  transition: background .12s ease, color .12s ease, border-color .12s ease;
+}
+.disclosure-toggle:hover { background: var(--surface-1); color: var(--text-1); }
+.disclosure-toggle .disclosure-chev {
+  display: inline-flex; transition: transform .18s ease;
+  color: var(--text-3);
+}
+.disclosure-toggle[aria-expanded="true"] .disclosure-chev { transform: rotate(90deg); }
+.disclosure-sub {
+  margin-left: auto; font-size: 11px; color: var(--text-3);
+  font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em;
+}

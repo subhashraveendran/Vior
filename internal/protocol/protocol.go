@@ -37,6 +37,16 @@ type HelloMessage struct {
 	Mode     string  `json:"mode"` // "extend" or "mirror"
 	PairCode string  `json:"pairCode,omitempty"`
 	DeviceID string  `json:"deviceId,omitempty"`
+	// Intent declares why the client connected: "display" (default —
+	// virtual display + stream), "remote" (touchpad/keyboard only, no
+	// virtual display, input maps to the main display), or "files"
+	// (file transfer only, no capture, no input).
+	Intent string `json:"intent,omitempty"`
+	// SkipDisplay forces the server to skip virtual-display creation and
+	// capture even when Mode says otherwise. Set by clients that only
+	// need the WS channel (Remote-only / Files-only). Derived from
+	// Intent server-side when this field is unset.
+	SkipDisplay bool `json:"skipDisplay,omitempty"`
 }
 
 // ReadyMessage is sent by the server after virtual display creation succeeds.

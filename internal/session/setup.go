@@ -29,12 +29,47 @@ type Setup struct {
 //
 // Mirror mode: captures the main display directly, no virtual display created.
 // Extend mode: creates a new virtual display matching the client's resolution.
+// SkipDisplay (or Intent "remote"/"files"): no virtual display, no capture —
+//
+//	returns a Setup with Mode="none" and DisplayBounds pointing at the main
+//	display so the touch mapper (Remote intent) still has a valid target.
 //
 // Caller is responsible for stopping the previous capture session before calling.
 func Configure(hello *protocol.HelloMessage) (*Setup, error) {
+	// Resolve skip from explicit flag OR derive from intent. Keeps
+	// older clients (no intent field) working as before.
+	skip := hello.SkipDisplay || hello.Intent == "remote" || hello.Intent == "files"
+
 	mode := hello.Mode
 	if mode == "" {
 		mode = "extend"
+	}
+
+	// No-display path: no permission check required for capture, no
+	// virtual display, no capture session. Return a Setup whose bounds
+	// match the main display so input injection still has a target.
+	if skip {
+		// Tear down any previous virtual display before returning.
+		virtual.Destroy()
+
+		displays, err := capture.ListDisplays()
+		if err != nil {
+			return nil, fmt.Errorf("list displays: %w", err)
+		}
+		mainIdx := 0
+		for i, d := range displays {
+			if d.IsMain {
+				mainIdx = i
+				break
+			}
+		}
+		return &Setup{
+			Mode:          "none",
+			DisplayIndex:  mainIdx,
+			DisplayBounds: displays[mainIdx].Bounds,
+			Width:         displays[mainIdx].Width,
+			Height:        displays[mainIdx].Height,
+		}, nil
 	}
 
 	if err := capture.CheckScreenRecordingPermission(); err != nil {

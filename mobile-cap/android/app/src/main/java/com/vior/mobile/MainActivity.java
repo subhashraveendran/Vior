@@ -41,6 +41,13 @@ public class MainActivity extends BridgeActivity {
     private static final byte FRAME_HELLO = 0x03;
     private static final byte FRAME_READY = 0x04;
     private static final byte FRAME_HELLO_ACK = 0x05;
+    // FRAME_PING / FRAME_PONG are single-byte liveness frames. The
+    // desktop drives a 5s keepalive so a frozen WebView / wedged Java
+    // VM is detected within ~10s instead of needing a cable yank to
+    // surface. We just echo: any read on FRAME_PING immediately writes
+    // back a FRAME_PONG. Mirrors internal/usb/protocol.go.
+    private static final byte FRAME_PING = 0x07;
+    private static final byte FRAME_PONG = 0x08;
     // Mobile waits up to this long for the desktop's hello-ack before
     // showing the "Vior desktop not responding?" recovery screen.
     private static final long HELLO_ACK_TIMEOUT_MS = 3000;
@@ -90,10 +97,25 @@ public class MainActivity extends BridgeActivity {
 
             @Override
             public void onData(byte[] data, int length) {
-                // Every well-formed frame is at least 1 byte (type) plus
-                // at least 4 bytes of payload. Drop noise.
-                if (length < 5) return;
+                // Drop empty reads outright.
+                if (length < 1) return;
                 byte frameType = data[0];
+
+                // Single-byte control frames are special-cased BEFORE
+                // the >=5-byte gate below — a heartbeat ping has no
+                // payload and would otherwise be silently dropped.
+                if (frameType == FRAME_PING) {
+                    if (usbPlugin != null) {
+                        try { usbPlugin.send(new byte[] { FRAME_PONG }); }
+                        catch (Exception e) { Log.w(TAG, "usb: pong write failed: " + e.getMessage()); }
+                    }
+                    return;
+                }
+
+                // All remaining frame types carry at least 4 bytes of
+                // payload past the type byte. Drop short / malformed
+                // reads to avoid OOB indexing below.
+                if (length < 5) return;
 
                 if (frameType == FRAME_VIDEO) {
                     int jpegLen = ((data[1] & 0xFF) << 24) | ((data[2] & 0xFF) << 16) |
@@ -269,6 +291,16 @@ public class MainActivity extends BridgeActivity {
         if (!usbConnected || usbPlugin == null) return;
         if (!helloAckReceived) return; // unverified peer — drop
         try {
+            // Clamp to [0, screen-extent] so a stray edge swipe or a
+            // JS-side bug that fed us negative / oversized coords can't
+            // drive the cursor to int32-max on the desktop. The screen
+            // dims come from DisplayMetrics — same source the hello
+            // frame uses — so the bounds stay in sync with what the
+            // desktop's TouchMapper actually expects.
+            int sw = getResources().getDisplayMetrics().widthPixels;
+            int sh = getResources().getDisplayMetrics().heightPixels;
+            if (x < 0) x = 0; else if (x > sw) x = sw;
+            if (y < 0) y = 0; else if (y > sh) y = sh;
             // FrameTouch: [0x02][action 1B][x 4B][y 4B]
             byte[] touch = new byte[10];
             touch[0] = FRAME_TOUCH;

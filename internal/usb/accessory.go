@@ -23,11 +23,30 @@ type Accessory struct {
 	mu      sync.Mutex
 	stopCh  chan struct{}
 
+	// Heartbeat. lastPong is updated every time the phone replies to
+	// our FramePing. The pinger goroutine writes FramePing every
+	// pingInterval; if more than pingDeadDuration elapse without a
+	// pong, we assume the phone has wedged (frozen WebView, OOM, etc.)
+	// and tear down the cable even though the bulk endpoint is still
+	// "open" at the OS layer. Without this a stuck phone leaves the
+	// desktop showing "USB connected" indefinitely.
+	lastPong   time.Time
+	lastPongMu sync.Mutex
+
 	// Callbacks.
 	OnConnect    func(width, height int, dpr float32)
 	OnTouch      func(action byte, x, y float32)
 	OnDisconnect func()
 }
+
+// Heartbeat tuning. 5s interval gives a 10s outer bound on detecting
+// a wedged phone — fast enough that the user gets a meaningful
+// "cable connected but phone unresponsive" signal without spamming
+// the bulk endpoint when everything is fine.
+const (
+	pingInterval     = 5 * time.Second
+	pingDeadDuration = 10 * time.Second
+)
 
 // NewAccessory creates an AOA accessory manager.
 func NewAccessory() *Accessory {
@@ -121,8 +140,53 @@ func (a *Accessory) scanLoop() {
 		log.Println("usb: Android device connected in accessory mode")
 		a.dev = dev
 
+		// Seed the pong clock to "now" so the heartbeat doesn't
+		// immediately trip on the first iteration (before the phone
+		// has a chance to reply).
+		a.lastPongMu.Lock()
+		a.lastPong = time.Now()
+		a.lastPongMu.Unlock()
+		go a.heartbeatLoop()
+
 		// Wait for hello from phone.
 		a.readInput()
+	}
+}
+
+// heartbeatLoop pings the phone every pingInterval and forces a
+// disconnect if no pong arrives within pingDeadDuration. Exits when
+// the cable goes away (outEP cleared by cleanup) or the accessory is
+// stopped.
+func (a *Accessory) heartbeatLoop() {
+	ticker := time.NewTicker(pingInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-a.stopCh:
+			return
+		case <-ticker.C:
+			// Endpoint cleared → cable went away or accessory was
+			// torn down. handleDisconnect already fired or will fire
+			// — exit cleanly.
+			if a.outEP == nil {
+				return
+			}
+			a.lastPongMu.Lock()
+			elapsed := time.Since(a.lastPong)
+			a.lastPongMu.Unlock()
+			if elapsed > pingDeadDuration {
+				log.Printf("usb: heartbeat dead (%.1fs since last pong) — forcing disconnect", elapsed.Seconds())
+				a.handleDisconnect()
+				return
+			}
+			if _, err := a.outEP.Write(EncodePing()); err != nil {
+				// A write failure usually means the kernel already
+				// noticed the cable yank; readInput will see EOF
+				// momentarily. Log and let that path handle teardown.
+				log.Printf("usb: heartbeat write failed: %v", err)
+				return
+			}
+		}
 	}
 }
 
@@ -325,8 +389,11 @@ func (a *Accessory) readInput() {
 			_, _ = a.outEP.Write(EncodePong())
 
 		case FramePong:
-			// Accepted but no-op — heartbeat is one-directional today
-			// (desktop pings phone). Reserved for future symmetric use.
+			// Phone is alive. Refresh the watchdog so the heartbeat
+			// loop doesn't trip on the next interval.
+			a.lastPongMu.Lock()
+			a.lastPong = time.Now()
+			a.lastPongMu.Unlock()
 
 		case FrameBye:
 			a.handleDisconnect()

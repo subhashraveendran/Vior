@@ -802,6 +802,18 @@ func (a *App) ensureFileMgr() {
 			"mimeType": t.MimeType, "preview": t.Preview,
 		})
 	}
+	a.fileMgr.OnFileProgress = func(t *filetransfer.Transfer) {
+		// Live progress for an in-flight WS-chunked receive. Coalesced
+		// inside the manager (~once per 256 KiB) so we don't drown the
+		// Wails event bus. The Files pane subscribes to this to drive
+		// its progress bar mid-transfer instead of jumping 0 → 100 only
+		// on file:received.
+		runtime.EventsEmit(a.ctx, "file:progress", map[string]any{
+			"id": t.ID, "name": t.Name, "size": t.Size,
+			"transferred": t.Transferred, "mimeType": t.MimeType,
+			"preview": t.Preview,
+		})
+	}
 	a.fileMgr.OnFileOffer = func(t *filetransfer.Transfer) {
 		// Skip the user prompt for already-paired devices — the trust
 		// status is set at WS-connect time. Without this, even trusted

@@ -79,7 +79,12 @@ func TestHandleMouseMoveAccumulates(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := [][2]int{{510, 395}, {513, 397}}
+	// With the sub-linear acceleration in HandleMouse:
+	//   Move 1: mag=hypot(10,-5)=11.18, accel=11.18/8=1.397
+	//     dx=int(10*1.397)=13, dy=int(-5*1.397)=-6 → (513, 394).
+	//   Move 2: mag=hypot(3.7,2.2)=4.30, accel<1 → clamped to 1
+	//     dx=int(3.7)=3, dy=int(2.2)=2 → (516, 396).
+	want := [][2]int{{513, 394}, {516, 396}}
 	if len(c.moves) != 2 {
 		t.Fatalf("got %d moves want 2: %v", len(c.moves), c.moves)
 	}
@@ -110,9 +115,10 @@ func TestHandleMouseMoveStaysOnCapturedDisplay(t *testing.T) {
 	if len(c.moves) != 1 {
 		t.Fatalf("expected one move, got %v", c.moves)
 	}
-	// Cursor was inside the captured display → no warp; just dx applied.
-	if c.moves[0] != [2]int{2510, 300} {
-		t.Fatalf("expected in-place delta, got %v", c.moves[0])
+	// Cursor was inside the captured display → no warp; just dx*accel.
+	// mag=10, accel=10/8=1.25, dx=int(10*1.25)=12 → (2512, 300).
+	if c.moves[0] != [2]int{2512, 300} {
+		t.Fatalf("expected in-place delta with accel, got %v", c.moves[0])
 	}
 }
 
@@ -133,9 +139,38 @@ func TestHandleMouseMoveWarpsBackFromStaleDisplay(t *testing.T) {
 	if len(c.moves) != 1 {
 		t.Fatalf("expected one move, got %v", c.moves)
 	}
-	// Warp to main centre (960, 540) then apply dx=10, dy=0.
-	if c.moves[0] != [2]int{970, 540} {
-		t.Fatalf("expected warp-to-main + delta, got %v", c.moves[0])
+	// Warp to main centre (960, 540) then apply dx=10*accel(1.25)=12.
+	if c.moves[0] != [2]int{972, 540} {
+		t.Fatalf("expected warp-to-main + accel delta, got %v", c.moves[0])
+	}
+}
+
+// Small touch deltas (under the 8-pixel threshold) must pass through
+// at gain 1 so fine-grained selection / button-targeting still works.
+// Without the clamp, sub-1 accel values would shrink small moves to
+// zero pixels and the user could never hit a precise target.
+func TestHandleMouseSmallDeltaNoBoost(t *testing.T) {
+	c := &fakeCtrl{curX: 500, curY: 400, mainW: 1920, mainH: 1080}
+	tm := NewTouchMapper(c, image.Rect(0, 0, 1920, 1080))
+	if err := tm.HandleMouse("move", 4, 0); err != nil {
+		t.Fatal(err)
+	}
+	if c.moves[0] != [2]int{504, 400} {
+		t.Fatalf("small delta got %v want {504,400} (no boost)", c.moves[0])
+	}
+}
+
+// Large fling-sized deltas should get the sqrt-shaped boost so the
+// user can cross a 4K virtual display in one swipe.
+func TestHandleMouseLargeDeltaIsBoosted(t *testing.T) {
+	c := &fakeCtrl{curX: 500, curY: 400, mainW: 4000, mainH: 1500}
+	tm := NewTouchMapper(c, image.Rect(0, 0, 4000, 1500))
+	if err := tm.HandleMouse("move", 64, 0); err != nil {
+		t.Fatal(err)
+	}
+	// mag=64, accel=64/8=8, so dx becomes 64*8=512.
+	if c.moves[0] != [2]int{1012, 400} {
+		t.Fatalf("large fling got %v want {1012,400} (boosted 8×)", c.moves[0])
 	}
 }
 

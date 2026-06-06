@@ -1,11 +1,14 @@
 package filetransfer
 
 import (
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/subhashraveendran/vior/internal/protocol"
 )
@@ -153,6 +156,62 @@ func TestHandleChunkOverrunStopsWriting(t *testing.T) {
 			t2.file = nil
 		}
 		t2.mu.Unlock()
+	})
+}
+
+// TestHandleChunkFiresProgress: a receive that crosses the
+// progressEmitStep boundary must trigger OnFileProgress at least once
+// before file-complete. Guards against the "bar only fills at the end"
+// UX regression on the desktop side.
+func TestHandleChunkFiresProgress(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows file-lock quirk in t.TempDir cleanup; logic is platform-agnostic")
+	}
+	dir := t.TempDir()
+	m := NewManager(dir)
+	m.Send = func(protocol.MessageType, any) error { return nil }
+	var calls int32
+	m.OnFileProgress = func(*Transfer) { atomic.AddInt32(&calls, 1) }
+
+	// Offer a file larger than progressEmitStep so a single chunk
+	// payload triggers the boundary.
+	total := int64(progressEmitStep + ChunkSize)
+	m.HandleOffer(&protocol.FileOfferMessage{ID: "p", Name: "big.bin", Size: total})
+	if err := m.AcceptFile("p"); err != nil {
+		t.Fatalf("AcceptFile: %v", err)
+	}
+
+	// Stream raw bytes in ChunkSize segments.
+	payload := make([]byte, ChunkSize)
+	for off := int64(0); off < total; off += int64(len(payload)) {
+		end := int64(len(payload))
+		if off+end > total {
+			end = total - off
+		}
+		m.HandleChunk(&protocol.FileChunkMessage{
+			ID:     "p",
+			Offset: off,
+			Data:   base64.StdEncoding.EncodeToString(payload[:end]),
+		})
+	}
+	// OnFileProgress fires in a goroutine — give it a beat.
+	time.Sleep(50 * time.Millisecond)
+	if atomic.LoadInt32(&calls) == 0 {
+		t.Errorf("expected at least one OnFileProgress call, got 0")
+	}
+
+	// Release any remaining file handle.
+	t.Cleanup(func() {
+		got := m.GetTransfer("p")
+		if got == nil {
+			return
+		}
+		got.mu.Lock()
+		if got.file != nil {
+			got.file.Close()
+			got.file = nil
+		}
+		got.mu.Unlock()
 	})
 }
 

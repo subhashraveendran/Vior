@@ -1,3 +1,4 @@
+'use strict';
 // ── Settings sheet ──
 $('settings-btn').addEventListener('click', function () { $('settings-sheet').classList.remove('hidden'); });
 $('settings-close').addEventListener('click', function () { $('settings-sheet').classList.add('hidden'); });

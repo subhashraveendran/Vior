@@ -1,3 +1,4 @@
+/* requires: tokens.css (--bg, --text-*, --accent, --surface-*, --r*, --font-*) */
   /* ── Sheet ── */
   .sheet-backdrop {
     position: fixed; inset: 0; z-index: 55; background: var(--bg);

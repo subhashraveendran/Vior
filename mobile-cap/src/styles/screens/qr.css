@@ -1,3 +1,4 @@
+/* requires: tokens.css (--bg, --text-*, --accent, --surface-*, --r*, --font-*) */
   /* ── QR scan modal ── */
   .qr-modal {
     position: fixed; inset: 0; z-index: 90; background: #000;

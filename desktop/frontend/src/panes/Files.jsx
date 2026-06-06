@@ -2,7 +2,7 @@
 // 'file:received' Wails event to append incoming files. Kept as its
 // own pane so the Connected screen stays focused on display + mode.
 import React, { useState, useEffect } from 'react'
-import { EventsOn } from '../../wailsjs/runtime/runtime'
+import { EventsOn } from '../lib/api'
 import { Icons } from '../lib/icons'
 
 export default function FilesPane({ onSendFile, client }) {

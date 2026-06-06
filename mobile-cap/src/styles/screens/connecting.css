@@ -1,3 +1,4 @@
+/* requires: tokens.css (--bg, --text-*, --accent, --surface-*, --r*, --font-*) */
   /* ── Connecting overlay ── */
   .connecting {
     position: absolute; inset: 0; z-index: 40;

@@ -1,3 +1,4 @@
+/* requires: tokens.css (--bg, --text-*, --accent, --surface-*, --r*, --font-*) */
   /* ── Status dot ── */
   .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
   .dot-ok { background: var(--ok); box-shadow: 0 0 0 4px rgba(70,211,154,0.16); }

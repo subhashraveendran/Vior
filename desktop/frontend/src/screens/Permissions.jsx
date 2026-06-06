@@ -2,7 +2,7 @@
 // verify; success flips to a green check-state, then onDone returns
 // to the regular UI.
 import React, { useState } from 'react'
-import { CheckPermissions } from '../../wailsjs/go/main/App'
+import { CheckPermissions } from '../lib/api'
 import { Icons } from '../lib/icons'
 
 export default function PermissionsModal({ onDone }) {

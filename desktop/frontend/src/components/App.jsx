@@ -4,13 +4,13 @@
 // intentionally minimal — wiring + state, no UI markup beyond the
 // chrome (titlebar + sidebar + toast host).
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { EventsOn } from '../../wailsjs/runtime/runtime'
 import {
+  EventsOn,
   StartServer, StopServer, GetServerStatus,
   GetConnectedClients, GetConfig, UpdateConfig,
   GetVersion, PickAndSendFile,
   HasAccessibility,
-} from '../../wailsjs/go/main/App'
+} from '../lib/api'
 
 import { Icons }       from '../lib/icons'
 import Glyph           from '../lib/Glyph'
@@ -27,7 +27,6 @@ export default function App() {
   const [serverStatus, setServerStatus] = useState(null)
   const [client, setClient] = useState(null)
   const [config, setConfig] = useState({ port: 0, quality: 80, frameRate: 30 })
-  const [, setVersion] = useState('')
   const [nav, setNav] = useState('server')
   const [mode, setMode] = useState('extend')
   const [errorState, setErrorState] = useState(false)
@@ -36,6 +35,9 @@ export default function App() {
   const [toasts, setToasts] = useState([])
   const [accent, setAccent] = useState(localStorage.getItem('vior_accent') || '#ff8a4c')
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- accent applies
+  // once at boot; subsequent changes flow through Appearance → applyAccent
+  // directly, so re-running this effect on every accent change would double-write.
   useEffect(() => { applyAccent(accent) }, [])
   const idRef = useRef(100)
 
@@ -48,7 +50,10 @@ export default function App() {
   // bootstrap
   useEffect(() => {
     (async () => {
-      try { setVersion(await GetVersion()) } catch {}
+      // GetVersion currently unused in the UI but called so the bound
+      // method is exercised on launch (catches a broken Wails binding
+      // before the user clicks anything).
+      try { await GetVersion() } catch {}
       try { const c = await GetConfig(); setConfig({ port: c.port, quality: c.quality, frameRate: c.frameRate }) } catch {}
       try {
         const s = await GetServerStatus()

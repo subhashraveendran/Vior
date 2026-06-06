@@ -1,3 +1,4 @@
+/* requires: tokens.css (--bg, --text-*, --accent, --surface-*, --r*, --font-*) */
   /* ── Server card (connected) ── */
   .scard-wrap { padding: 20px 20px 28px; display: flex; flex-direction: column; gap: 16px; flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .scard-wrap::-webkit-scrollbar { display: none; }

@@ -1,3 +1,4 @@
+/* requires: tokens.css (--bg, --text-*, --accent, --surface-*, --r*, --font-*) */
   /* ── Remote ── */
   .remote { height: 100%; display: flex; flex-direction: column; position: relative; overflow-y: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .remote::-webkit-scrollbar { display: none; }

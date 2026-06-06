@@ -1,3 +1,4 @@
+'use strict';
 // ── Remote trackpad ──
 var trackpad = $('trackpad'), trackpadHint = $('trackpad-hint');
 var tpLastX = 0, tpLastY = 0, tpFingers = 0, tpMoved = false, tpStartT = 0;

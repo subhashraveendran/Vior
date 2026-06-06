@@ -1,3 +1,4 @@
+'use strict';
 // ── Connect / disconnect ──
 $('connect-btn').addEventListener('click', function () {
   if (!selectedServer) return;

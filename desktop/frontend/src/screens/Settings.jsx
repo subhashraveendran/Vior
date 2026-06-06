@@ -2,7 +2,7 @@
 // menu bar toggle), displays (stub), USB/ADB (stub), about, and the
 // gateway into Appearance.
 import React, { useState, useEffect } from 'react'
-import { GetMenuBarVisible, SetMenuBarVisible } from '../../wailsjs/go/main/App'
+import { GetMenuBarVisible, SetMenuBarVisible } from '../lib/api'
 import { Icons } from '../lib/icons'
 import Glyph from '../lib/Glyph'
 import { accentName } from '../lib/accent'

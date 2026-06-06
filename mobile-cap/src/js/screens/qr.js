@@ -1,3 +1,4 @@
+'use strict';
 // ── QR scanner (native BarcodeDetector with jsQR fallback) ──
 var qrStream = null, qrRunning = false, qrDetector = null, qrCanvas = null, qrCtx = null;
 function parseScanResult(raw) {

@@ -1,3 +1,4 @@
+'use strict';
 // ── USB callbacks (Java bridge) ──
 window.onUsbFrame = function (b64) {
   if (!streamVisible) { openStream(); }

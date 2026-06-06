@@ -1,3 +1,4 @@
+'use strict';
 // ── Stream fullscreen ──
 $('view-stream-btn').addEventListener('click', openStream);
 $('stream-back').addEventListener('click', hideStream);

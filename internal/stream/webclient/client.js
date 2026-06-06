@@ -172,6 +172,41 @@
         }, 3000);
     }
 
+    // --- Stream settings sheet (gear FAB) ---
+    var settingsFab   = document.getElementById('settings-fab');
+    var settingsSheet = document.getElementById('settings-sheet');
+    var wsDisc        = document.getElementById('ws-disconnect-btn');
+    var wsFull        = document.getElementById('ws-fullscreen-btn');
+    var wsForget      = document.getElementById('ws-forget-btn');
+    var wsClose       = document.getElementById('ws-close-sheet');
+    function openSheet()  { if (settingsSheet) settingsSheet.classList.remove('hidden'); }
+    function closeSheet() { if (settingsSheet) settingsSheet.classList.add('hidden'); }
+    if (settingsFab)   settingsFab.addEventListener('click', openSheet);
+    if (wsClose)       wsClose.addEventListener('click', closeSheet);
+    if (settingsSheet) settingsSheet.addEventListener('click', function (e) { if (e.target === settingsSheet) closeSheet(); });
+    if (wsDisc) wsDisc.addEventListener('click', function () {
+        closeSheet();
+        try { if (ws) ws.close(); } catch (_) {}
+        ws = null;
+        streamImg.src = '';
+        showView(disconnectedEl);
+    });
+    if (wsFull) wsFull.addEventListener('click', function () {
+        closeSheet();
+        if (document.fullscreenElement) document.exitFullscreen();
+        else document.documentElement.requestFullscreen().catch(function () {});
+    });
+    if (wsForget) wsForget.addEventListener('click', function () {
+        try {
+            localStorage.removeItem('vior_pair');
+            localStorage.removeItem('vior_device_id');
+        } catch (_) {}
+        closeSheet();
+        try { if (ws) ws.close(); } catch (_) {}
+        ws = null;
+        location.reload();
+    });
+
     // --- Retry / Connect button ---
     retryBtn.addEventListener('click', function () {
         if (pairInput && pairInput.value) {

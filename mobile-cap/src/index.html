@@ -977,6 +977,14 @@
       Disconnect
     </button>
   </div>
+  <!-- Floating semi-transparent settings dot — always visible in stream -->
+  <button id="stream-settings-fab" aria-label="Settings"
+          style="position: fixed; right: 18px; bottom: calc(88px + env(safe-area-inset-bottom, 0)); width: 48px; height: 48px; border-radius: 50%; border: 1px solid rgba(255,255,255,.18); background: rgba(20,23,28,.55); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); color: #fff; display: flex; align-items: center; justify-content: center; z-index: 10001; box-shadow: 0 8px 24px rgba(0,0,0,.45); transition: transform .15s ease, opacity .15s ease;">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.55V21a2 2 0 0 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06A2 2 0 1 1 4.14 16.92l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1.03H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.65 8.85a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1.03-1.55V3a2 2 0 0 1 4 0v.09c0 .68.4 1.3 1.03 1.55a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9c.26.62.87 1.03 1.55 1.03H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1.03z"/>
+    </svg>
+  </button>
 </div>
 
 <!-- QR scan modal -->
@@ -1644,9 +1652,15 @@
   }
 
   function doDisconnect() {
-    reconnectAttempts = maxReconnect;
+    // User-initiated disconnect: cancel any pending reconnect, close the
+    // WS, reset all state. Crucially we ALSO reset reconnectAttempts back
+    // to 0 so the next user-initiated connect starts fresh — without this
+    // the second tap of Connect refused to retry on transient failure
+    // because the counter was still pinned at maxReconnect.
+    reconnectAttempts = 0;
+    if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
     connected = false;
-    if (ws) { ws.close(); ws = null; }
+    if (ws) { try { ws.close(); } catch (_) {} ws = null; }
     hideStream();
     showView('disc');
     setConnState('offline');
@@ -1655,6 +1669,7 @@
     $('files-active').classList.add('hidden');
     $('remote-offline').classList.remove('hidden');
     $('remote-active').classList.add('hidden');
+    $('connecting-overlay').classList.add('hidden');
     toast('info', 'Disconnected', 'Session ended.');
   }
 
@@ -1662,6 +1677,14 @@
   $('view-stream-btn').addEventListener('click', openStream);
   $('stream-back').addEventListener('click', hideStream);
   $('stream-disconnect').addEventListener('click', function () { hideStream(); doDisconnect(); });
+  // Floating settings FAB inside the stream — opens the Settings sheet
+  // on top of the stream without exiting fullscreen.
+  var streamFab = $('stream-settings-fab');
+  if (streamFab) {
+    streamFab.addEventListener('click', function () {
+      $('settings-sheet').classList.remove('hidden');
+    });
+  }
 
   function openStream() {
     streamVisible = true;

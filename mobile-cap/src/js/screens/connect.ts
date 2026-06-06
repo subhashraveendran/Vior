@@ -1,18 +1,13 @@
 'use strict';
 // ── Connect / disconnect ──
-$('connect-btn').addEventListener('click', function () {
-  if (!selectedServer) return;
-  // If we have no pair code on hand AND we've never successfully
-  // paired with this server before, prompt for the code instead of
-  // firing a guaranteed-to-fail Connect.
-  const key = selectedServer.host + ':' + selectedServer.port;
-  const known = localStorage.getItem('vior_known_' + key) === '1';
-  const pair = (($('manual-pair') as HTMLInputElement | null) && ($('manual-pair') as HTMLInputElement).value || '').trim();
-  if (!known && !pair) { promptPair(); return; }
-  reconnectAttempts = 0; doConnect();
-});
+//
+// Note: the legacy `#connect-btn` (orange "Select a server" / "Connect"
+// button at the bottom of the discovery view) is GONE. Server rows are
+// now tap-to-connect; the discovery module's `initiateConnect()` routes
+// straight here (with a pair-prompt detour for never-paired servers).
 
 function promptPair(): void {
+  viorState.set({ state: 'pairing' });
   const m = $('pair-prompt');
   if (m) {
     m.classList.remove('hidden');
@@ -20,7 +15,19 @@ function promptPair(): void {
     if (inp) { inp.value = ''; setTimeout(function () { try { inp.focus(); } catch (_) {} }, 60); }
   }
 }
-function closePair(): void { const m = $('pair-prompt'); if (m) m.classList.add('hidden'); }
+// Expose to globalThis so discovery.ts can call into us without
+// import order races.
+(globalThis as unknown as { promptPair?: () => void }).promptPair = promptPair;
+function closePair(): void {
+  const m = $('pair-prompt'); if (m) m.classList.add('hidden');
+  // If the user cancels pairing without connecting, drop back to the
+  // most useful pre-connect state (servers visible → found-server,
+  // else scanning).
+  const cur = viorState.get().state;
+  if (cur === 'pairing') {
+    viorState.set({ state: selectedServer ? 'found-server' : 'scanning' });
+  }
+}
 document.addEventListener('click', function (e: MouseEvent) {
   const t = e.target as HTMLElement | null;
   if (t && t.id === 'pair-prompt') closePair();
@@ -115,11 +122,13 @@ $('conn-cancel').addEventListener('click', function () {
   if (ws) { ws.close(); ws = null; }
   $('connecting-overlay').classList.add('hidden');
   setConnState('offline');
+  viorState.set({ state: selectedServer ? 'found-server' : 'scanning' });
 });
 
 let connectTimeoutId: ReturnType<typeof setTimeout> | null = null;
 function doConnect(): void {
   setConnState('connecting');
+  viorState.set({ state: 'connecting', transport: 'wifi' });
   $('connecting-overlay').classList.remove('hidden');
   $('conn-title').textContent = 'Connecting';
   $('conn-sub').innerHTML = 'Establishing ' + selectedMode + ' session with<br><b>' + esc(serverName) + '</b>';
@@ -182,6 +191,9 @@ function doConnect(): void {
       $('connecting-overlay').classList.add('hidden');
       connected = true;
       setConnState('online');
+      // Tell the state machine: tab bar lights up, ops mode selector
+      // appears in the connected card, header chip flips to "Connected · …".
+      viorState.set({ state: 'connected', serverName: serverName, transport: 'wifi' });
       showView('connected');
       $('scard-name').textContent = serverName;
       $('scard-meta').textContent = serverPlatform || host;
@@ -227,6 +239,7 @@ function doConnect(): void {
         toast('error', 'Connection failed', errMsg);
       }
       setConnState('offline');
+      viorState.set({ state: selectedServer ? 'found-server' : 'scanning' });
     } else if (msg.type && msg.type.indexOf('file-') === 0) {
       try { handleFileMessage(msg); } catch (e) { console.error('file msg', e); }
     } else if (msg.type === 'incoming-file') {
@@ -241,6 +254,7 @@ function doConnect(): void {
     if (connected && reconnectAttempts < maxReconnect) {
       reconnectAttempts++;
       setConnState('reconnecting');
+      viorState.set({ state: 'reconnecting' });
       $('recon-banner').classList.remove('hidden');
       $('recon-sub').textContent = 'attempt ' + reconnectAttempts + ' of ' + maxReconnect + ' · backing off';
       $('stat-status').textContent = 'Reconnecting';
@@ -249,6 +263,9 @@ function doConnect(): void {
       connected = false;
       setConnState('offline');
       hideStream();
+      // Brief disconnected toast + auto-route back to scanning so the
+      // user can re-pick a server without hunting through tabs.
+      viorState.set({ state: 'disconnected' });
       showView('disc');
       $('recon-banner').classList.add('hidden');
       $('files-offline').classList.remove('hidden');
@@ -259,6 +276,8 @@ function doConnect(): void {
       $('connecting-overlay').classList.add('hidden');
       $('conn-spin-ring').style.display = 'none';
       $('conn-spin-core').classList.add('failed');
+      // Resume discovery so the bar fills up with servers again.
+      setTimeout(function () { startDiscovery(); }, 300);
     }
   };
 
@@ -278,6 +297,9 @@ function doDisconnect(): void {
   hideStream();
   showView('disc');
   setConnState('offline');
+  // Tab bar collapses again, ops mode disappears — handled by the
+  // state-machine subscriber in main / state.
+  viorState.set({ state: 'disconnected' });
   $('recon-banner').classList.add('hidden');
   $('files-offline').classList.remove('hidden');
   $('files-active').classList.add('hidden');
@@ -285,6 +307,7 @@ function doDisconnect(): void {
   $('remote-active').classList.add('hidden');
   $('connecting-overlay').classList.add('hidden');
   toast('info', 'Disconnected', 'Session ended.');
+  setTimeout(function () { startDiscovery(); }, 300);
 }
 
 // Pair-only entry from the Empty view — opens the pair-prompt modal

@@ -38,6 +38,11 @@ window.onUsbConnected = function (): void {
   selectedMode = 'extend';
 
   setConnState('online');
+  // USB cable is its own auth boundary — no scan/pair/connecting
+  // states. Jump straight to connected.
+  if (typeof viorState !== 'undefined') {
+    viorState.set({ state: 'connected', serverName: serverName, transport: 'usb' });
+  }
 
   // Connected card: show "Desktop via USB" with a USB pill.
   const cardName = $('scard-name');
@@ -74,6 +79,10 @@ window.onUsbDisconnected = function (): void {
 
   if (streamVisible) hideStream();
   setConnState('offline');
+  // Cable yanked → back to scanning so the user has a useful pre-connect
+  // surface (matches the spec: USB disconnect returns to last Wi-Fi
+  // state or scanning).
+  if (typeof viorState !== 'undefined') viorState.set({ state: 'disconnected' });
 
   // Reset orb back to its breathing "waiting" state.
   const setStage = (window as unknown as { setUsbStage?: (s: 'waiting' | 'connected') => void }).setUsbStage;
@@ -90,6 +99,8 @@ window.onUsbDisconnected = function (): void {
   $('remote-active')?.classList.add('hidden');
 
   toast('warning', 'USB disconnected', 'Cable unplugged — re-plug or use Wi-Fi.');
+  // Resume Wi-Fi discovery so the user has something to tap on.
+  setTimeout(function () { try { startDiscovery(); } catch (_) {} }, 300);
 };
 
 // ── Resolution handshake from the desktop ─────────────────────────

@@ -27,6 +27,10 @@ window.onUsbConnected = function (): void {
   // Remember USB preference so a later disconnect returns the user
   // to the USB entry surface (not Wi-Fi).
   try { localStorage.setItem('vior_entry_mode', 'usb'); } catch (_) {}
+
+  // Flip the orb to "Cable detected!" before the connected card swaps in.
+  const setStage = (window as unknown as { setUsbStage?: (s: 'waiting' | 'connected') => void }).setUsbStage;
+  if (typeof setStage === 'function') setStage('connected');
   // Populate the same fields a Wi-Fi connect would, so the Connected
   // card + stream overlay render correctly.
   serverName = 'Desktop via USB';
@@ -70,6 +74,10 @@ window.onUsbDisconnected = function (): void {
 
   if (streamVisible) hideStream();
   setConnState('offline');
+
+  // Reset orb back to its breathing "waiting" state.
+  const setStage = (window as unknown as { setUsbStage?: (s: 'waiting' | 'connected') => void }).setUsbStage;
+  if (typeof setStage === 'function') setStage('waiting');
 
   // Flip back to discovery view; reset card + tabs.
   const showFn = (window as unknown as { showView?: (n: string) => void }).showView;

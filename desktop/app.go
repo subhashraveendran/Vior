@@ -244,6 +244,28 @@ func (a *App) OnClientConnect(sess *protocol.Session, hello *protocol.HelloMessa
 		return err
 	}
 
+	// Mode="none" → no virtual display, no capture. Used by Remote-only
+	// and Files-only intents. Input still works (mapped against the main
+	// display's bounds); the MJPEG stream simply has no frame source.
+	if setup.Mode == "none" {
+		a.touchMapper = input.NewTouchMapper(input.DefaultController, setup.DisplayBounds)
+		sess.Send(protocol.MsgReady, &protocol.ReadyMessage{
+			StreamURL:  "",
+			Resolution: fmt.Sprintf("%dx%d", setup.Width, setup.Height),
+			SessionID:  sess.ID,
+		})
+		runtime.EventsEmit(a.ctx, "client:connected", ClientInfo{
+			SessionID:      sess.ID,
+			Name:           hello.Name,
+			Width:          hello.Width,
+			Height:         hello.Height,
+			DPR:            hello.DPR,
+			ConnectedAt:    time.Now().Format(time.RFC3339),
+			ConnectionType: "wifi",
+		})
+		return nil
+	}
+
 	a.session = capture.NewSession(setup.DisplayIndex, a.cfg.Quality, a.cfg.FrameRate)
 	if err := a.session.Start(); err != nil {
 		return fmt.Errorf("capture failed: %w", err)

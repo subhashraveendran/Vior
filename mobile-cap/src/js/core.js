@@ -1,3 +1,4 @@
+// MIGRATED → see core.ts (this .js stays as the runtime source until Vite bundling lands)
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 

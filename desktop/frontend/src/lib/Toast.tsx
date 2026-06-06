@@ -4,7 +4,11 @@
 import React from 'react'
 import { Icons } from './icons'
 
-export default function ToastHost({ toasts, onClose }) {
+export type ToastTone = 'success' | 'warning' | 'error' | 'info'
+export type Toast = { id: number; tone: ToastTone; title: string; msg?: string | null }
+type ToastHostProps = { toasts: Toast[]; onClose: (id: number) => void }
+
+export default function ToastHost({ toasts, onClose }: ToastHostProps): React.JSX.Element {
   return (
     <div className="toast-host">
       {toasts.map(t => (

@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "echo 'Web client served from Vior server'",
-    "sync": "cap sync",
+    "build": "tsc -p tsconfig.emit.json",
+    "sync": "npm run build && cap sync",
     "typecheck": "tsc --noEmit",
     "dev": "vite",
     "vite:build": "vite build"

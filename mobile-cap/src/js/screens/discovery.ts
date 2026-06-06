@@ -105,7 +105,7 @@ function renderServerList(): void {
 }
 
 function selectServer(host: string, port: number, name: string, platform: string): void {
-  selectedServer = { host: host, port: port };
+  selectedServer = { host: host, port: port, name: name || host };
   serverName = name || host; serverPlatform = platform || '';
   renderServerList();
   ($('connect-btn') as HTMLButtonElement).disabled = false;

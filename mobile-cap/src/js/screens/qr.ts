@@ -163,7 +163,7 @@ function tickQRJsQR(): void {
     if (qrCanvas!.width !== dw || qrCanvas!.height !== dh) { qrCanvas!.width = dw; qrCanvas!.height = dh; }
     qrCtx!.drawImage(v, 0, 0, dw, dh);
     const img = qrCtx!.getImageData(0, 0, dw, dh);
-    const code = jsQR(img.data, dw, dh, { inversionAttempts: 'attemptBoth' });
+    const code = jsQR ? jsQR(img.data, dw, dh, { inversionAttempts: 'attemptBoth' }) : null;
     if (code && code.data) { onScanHit(code.data); return; }
   }
   requestAnimationFrame(tickQRJsQR);

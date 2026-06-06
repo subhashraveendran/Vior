@@ -34,3 +34,7 @@ mobile-cap/android/local.properties
 mobile-cap/android/app/release/
 mobile-cap/www/
 .claude/
+
+# Mobile TS emit — built by `npm run build` from mobile-cap/src/js/*.ts
+mobile-cap/src/js/*.js
+mobile-cap/src/js/**/*.js

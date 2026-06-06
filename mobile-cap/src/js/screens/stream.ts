@@ -73,7 +73,7 @@ function showOverlay(): void {
   $('stream-fs').classList.remove('dimmed');
   $('stream-top').style.transform = ''; $('stream-top').style.opacity = '';
   $('stream-bot').style.transform = ''; $('stream-bot').style.opacity = '';
-  clearTimeout(overlayTimer);
+  if (overlayTimer) clearTimeout(overlayTimer);
   overlayTimer = setTimeout(function () {
     $('stream-top').style.transform = 'translateY(-110%)'; $('stream-top').style.opacity = '0';
     $('stream-bot').style.transform = 'translateY(110%)'; $('stream-bot').style.opacity = '0';
@@ -82,7 +82,7 @@ function showOverlay(): void {
 function toggleOverlay(): void {
   if ($('stream-top').style.opacity === '0') showOverlay();
   else {
-    clearTimeout(overlayTimer);
+    if (overlayTimer) clearTimeout(overlayTimer);
     $('stream-top').style.transform = 'translateY(-110%)'; $('stream-top').style.opacity = '0';
     $('stream-bot').style.transform = 'translateY(110%)'; $('stream-bot').style.opacity = '0';
   }

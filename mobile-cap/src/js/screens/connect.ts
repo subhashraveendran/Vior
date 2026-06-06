@@ -92,9 +92,10 @@ function doConnect(): void {
     const msg = JSON.parse(e.data as string) as WSMessage;
     if (msg.type === 'ready') {
       if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
-      const res = msg.data.resolution.split('x');
+      const data = msg.data as { resolution: string };
+      const res = data.resolution.split('x');
       displayW = parseInt(res[0]); displayH = parseInt(res[1]);
-      serverRes = msg.data.resolution.replace('x', ' × ');
+      serverRes = data.resolution.replace('x', ' × ');
       localStorage.setItem('vior_last', host + ':' + port);
       // Mark this server as 'known' client-side so the next Connect tap
       // skips the pair-code prompt — the server already trusts us via
@@ -118,7 +119,7 @@ function doConnect(): void {
     } else if (msg.type === 'error') {
       if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
       $('connecting-overlay').classList.add('hidden');
-      toast('error', 'Connection failed', (msg.data && msg.data.message) || 'Check both devices on same Wi-Fi. Try manual IP.');
+      toast('error', 'Connection failed', ((msg.data as { message?: string } | undefined)?.message) || 'Check both devices on same Wi-Fi. Try manual IP.');
       setConnState('offline');
     } else if (msg.type && msg.type.indexOf('file-') === 0) {
       try { handleFileMessage(msg); } catch (e) { console.error('file msg', e); }

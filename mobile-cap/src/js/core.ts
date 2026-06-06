@@ -4,62 +4,39 @@
 // During the TS migration this file still publishes its symbols on
 // `globalThis` so the not-yet-converted screen modules keep working.
 // The `declare global` block lives in ./types.ts.
-import type { ConnectionState, Mode, ServerInfo, TabName, ToastTone } from './types';
 
-const $: (id: string) => HTMLElement | null = function (id) {
-  return document.getElementById(id);
-};
-globalThis.$ = $;
+// Non-null cast: every $ call site assumes the ID exists in index.html.
+// If it doesn't, the runtime error surfaces the typo immediately.
+var $ = <T extends HTMLElement = HTMLElement>(id: string): T =>
+  document.getElementById(id) as T;
 
 // ── State ──
-let ws: WebSocket | null = null;
-let displayW = 0, displayH = 0;
-let selectedServer: ServerInfo | null = null;
-let selectedMode: Mode = 'extend';
-let serverName = '', serverPlatform = '', serverRes = '—';
-const streamImg = $('stream-img') as HTMLImageElement | null;
-let framePolling = false, frameBaseUrl = '';
-let blobUrl: string | null = null;
-let overlayTimer: ReturnType<typeof setTimeout> | null = null;
-let reconnectAttempts = 0;
-const maxReconnect = 5;
-let connected = false;
-let currentTab: TabName = 'display';
-let streamVisible = false, fps = 0, frameCount = 0;
-let fpsTimer: ReturnType<typeof setInterval> | null = null;
+var ws: WebSocket | null = null;
+var displayW = 0, displayH = 0;
+var selectedServer: ServerInfo | null = null;
+var selectedMode: Mode = 'extend';
+var serverName = '', serverPlatform = '', serverRes = '—';
+var streamImg = $<HTMLImageElement>('stream-img');
+var framePolling = false, frameBaseUrl = '';
+var blobUrl: string | null = null;
+var overlayTimer: ReturnType<typeof setTimeout> | null = null;
+var reconnectAttempts = 0;
+var maxReconnect = 5;
+var connected = false;
+var currentTab: TabName = 'display';
+var streamVisible = false, fps = 0, frameCount = 0;
+var fpsTimer: ReturnType<typeof setInterval> | null = null;
 
 // Publish to globalThis so legacy .js modules can mutate / read the
 // same values. Once every screen is converted to ESM imports we can
 // drop this block in one go.
-globalThis.ws = ws;
-globalThis.displayW = displayW;
-globalThis.displayH = displayH;
-globalThis.selectedServer = selectedServer;
-globalThis.selectedMode = selectedMode;
-globalThis.serverName = serverName;
-globalThis.serverPlatform = serverPlatform;
-globalThis.serverRes = serverRes;
-globalThis.streamImg = streamImg;
-globalThis.framePolling = framePolling;
-globalThis.frameBaseUrl = frameBaseUrl;
-globalThis.blobUrl = blobUrl;
-globalThis.overlayTimer = overlayTimer;
-globalThis.reconnectAttempts = reconnectAttempts;
-globalThis.maxReconnect = maxReconnect;
-globalThis.connected = connected;
-globalThis.currentTab = currentTab;
-globalThis.streamVisible = streamVisible;
-globalThis.fps = fps;
-globalThis.frameCount = frameCount;
-globalThis.fpsTimer = fpsTimer;
 
 // ── Toasts ──
-let toastId = 0;
-globalThis.toastId = toastId;
+var toastId = 0;
 
-function toast(tone: ToastTone, title: string, msg?: string): void {
+function toast(tone: ToastTone, title: string, msg?: string | null): void {
   const id = ++toastId;
-  globalThis.toastId = toastId;
+  toastId = toastId;
   const host = $('toast-host');
   if (!host) return;
   const el = document.createElement('div');
@@ -86,8 +63,6 @@ function esc(s: unknown): string {
   return d.innerHTML;
 }
 
-globalThis.toast = toast;
-globalThis.esc = esc;
 
 // ── Connection chip ──
 function setConnState(state: ConnectionState): void {
@@ -101,16 +76,15 @@ function setConnState(state: ConnectionState): void {
   else if (state === 'error') { dot.classList.add('dot-err'); label.textContent = 'Disconnected'; }
   else { dot.classList.add('dot-idle'); label.textContent = 'Not connected'; }
 }
-globalThis.setConnState = setConnState;
 
 // ── Tab switch ──
 function switchTab(name: TabName): void {
   currentTab = name;
-  globalThis.currentTab = currentTab;
+  currentTab = currentTab;
   // Always release camera when navigating away — leaving the scanner
   // hot in the background is what causes the next acquire to fail with
   // NotReadableError. `stopQRScan` is defined later and is idempotent.
-  if (typeof globalThis.stopQRScan === 'function') globalThis.stopQRScan();
+  if (typeof stopQRScan === 'function') stopQRScan();
   const items = document.querySelectorAll<HTMLElement>('.tab-item');
   for (let i = 0; i < items.length; i++) {
     items[i].classList.toggle('active', items[i].dataset.tab === name);
@@ -120,7 +94,6 @@ function switchTab(name: TabName): void {
     panes[j].classList.toggle('active', panes[j].id === 'pane-' + name);
   }
 }
-globalThis.switchTab = switchTab;
 
 document.querySelectorAll<HTMLElement>('.tab-item').forEach(function (btn) {
   let fired = false;
@@ -139,11 +112,10 @@ document.querySelectorAll<HTMLElement>('.tab-item').forEach(function (btn) {
 document.querySelectorAll<HTMLElement>('#disc-dock .seg-btn').forEach(function (btn) {
   btn.addEventListener('click', function () {
     selectedMode = (btn.dataset.mode as Mode);
-    globalThis.selectedMode = selectedMode;
+    selectedMode = selectedMode;
     document.querySelectorAll<HTMLElement>('#disc-dock .seg-btn').forEach(function (b) {
       b.classList.toggle('active', b === btn);
     });
   });
 });
 
-export {};

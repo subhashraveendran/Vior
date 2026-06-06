@@ -210,6 +210,9 @@ jobs:
       - name: Install dependencies
         run: cd mobile-cap && npm install
 
+      - name: Compile TypeScript → JS (emits src/js/*.js consumed by Capacitor)
+        run: cd mobile-cap && npm run build
+
       - name: Setup Android platform
         run: |
           cd mobile-cap

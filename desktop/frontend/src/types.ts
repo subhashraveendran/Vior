@@ -7,7 +7,11 @@
 import type { main } from '../wailsjs/go/models'
 
 // ─── Wails domain re-exports ────────────────────────────────────────
-export type ServerStatus = main.ServerStatus
+// ServerStatus is augmented with a UI-side `frameRate` that the
+// Connected screen reads. The Go side returns 0 today; Connected
+// falls back to 30 via `?? 30`. Promote to a real Go field on the
+// next protocol bump.
+export type ServerStatus = main.ServerStatus & { frameRate?: number }
 export type ClientInfo = main.ClientInfo
 export type AppConfig = main.AppConfig
 export type DisplayInfo = main.DisplayInfo

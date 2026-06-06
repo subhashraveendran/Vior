@@ -2,7 +2,6 @@
 // top-level code. Wrapped in try/catch so a single missing global (e.g.
 // a screen module failing to load on a flaky CDN) surfaces in logcat
 // instead of leaving the user with a stuck splash screen.
-import type {} from './types';
 
 try {
   globalThis.setConnState('offline');
@@ -22,4 +21,3 @@ try {
   }
 }
 
-export {};

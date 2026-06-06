@@ -104,10 +104,11 @@ a { color: inherit; text-decoration: none; }
 .glyph.big .g-stand  { width: 9px; height: 3px; top: 24px; left: 9px; border-radius: 1.5px; }
 .glyph.big .g-phone  { width: 14.5px; height: 21px; border-radius: 4px; }
 
-/* When .glyph is an <img> (unified Vior icon SVG), let the inline
-   width/height attributes win and skip the 22px / 36px CSS box. */
-img.glyph { width: auto; height: auto; display: inline-block; }
-img.glyph.big { width: auto; height: auto; }
+/* When .glyph is an <img> of the unified icon SVG we need explicit
+   sizing — `width: auto` made the SVG render at its intrinsic 1024 px
+   and blow up the hero. Match the inline HTML width attribute. */
+img.glyph     { width: 22px; height: 22px; display: inline-block; flex: none; }
+img.glyph.big { width: 56px; height: 56px; }
 
 /* ──────────────────────────────────────────────
    Top nav
@@ -305,6 +306,10 @@ img.glyph.big { width: auto; height: auto; }
   display: grid; place-items: center;
   box-shadow: 0 14px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06);
 }
+/* Lock the inner icon size — without this the inline SVG fell back to
+   its intrinsic 1024×1024 and blew the radar (and the whole hero)
+   out across the viewport. */
+.radar-core img { width: 60%; height: 60%; object-fit: contain; }
 
 /* tick marks on outer ring */
 .radar-tick {

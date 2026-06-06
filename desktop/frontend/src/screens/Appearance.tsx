@@ -5,11 +5,18 @@ import React, { useState, useEffect } from 'react'
 import { Icons } from '../lib/icons'
 import Glyph from '../lib/Glyph'
 import { ACCENTS, applyAccent } from '../lib/accent'
+import type { AppearancePanelProps } from '../types'
 
-export default function AppearancePanel({ accent, setAccent, onClose }) {
-  const [style, setStyle] = useState(localStorage.getItem('vior_style') || 'precise')
-  const [density, setDensity] = useState(localStorage.getItem('vior_density') || 'regular')
-  const [motion, setMotion] = useState(localStorage.getItem('vior_motion') || 'expressive')
+interface SegProps {
+  value: string
+  onChange: (v: string) => void
+  opts: string[]
+}
+
+export default function AppearancePanel({ accent, setAccent, onClose }: AppearancePanelProps): React.JSX.Element {
+  const [style, setStyle] = useState<string>(localStorage.getItem('vior_style') || 'precise')
+  const [density, setDensity] = useState<string>(localStorage.getItem('vior_density') || 'regular')
+  const [motion, setMotion] = useState<string>(localStorage.getItem('vior_motion') || 'expressive')
   useEffect(() => {
     document.documentElement.setAttribute('data-vior-style', style); localStorage.setItem('vior_style', style)
   }, [style])
@@ -19,7 +26,7 @@ export default function AppearancePanel({ accent, setAccent, onClose }) {
   useEffect(() => {
     document.documentElement.setAttribute('data-vior-motion', motion); localStorage.setItem('vior_motion', motion)
   }, [motion])
-  const Seg = ({ value, onChange, opts }) => (
+  const Seg = ({ value, onChange, opts }: SegProps): React.JSX.Element => (
     <div className="seg" style={{ gridTemplateColumns: `repeat(${opts.length},1fr)` }}>
       {opts.map(o => (
         <button key={o} className={`seg-btn ${value === o ? 'active' : ''}`} onClick={() => onChange(o)}>

@@ -31,8 +31,76 @@ if ($('pair-prompt-go')) $('pair-prompt-go').addEventListener('click', function 
   if (!v) return;
   ($('manual-pair') as HTMLInputElement).value = v;
   closePair();
-  reconnectAttempts = 0; doConnect();
+  // Two paths:
+  //   1. User already selected a discovered server → just connect with this pair.
+  //   2. No server selected yet → fan-out probe the /24 subnet, find any host
+  //      whose /info advertises this pairCode, then connect to that one.
+  if (selectedServer) {
+    reconnectAttempts = 0; doConnect();
+  } else {
+    pairOnlyConnect(v);
+  }
 });
+
+// Pair-only flow: user typed a 6-char code, didn't pick a server.
+// Probe every IP in the local /24 in parallel, ask each one's /info,
+// match the pairCode field, connect to the first hit.
+async function pairOnlyConnect(pair: string): Promise<void> {
+  setConnState('connecting');
+  ($('connecting-overlay') as HTMLElement).classList.remove('hidden');
+  ($('conn-title') as HTMLElement).textContent = 'Finding Vior server';
+  ($('conn-sub') as HTMLElement).innerHTML = 'Scanning Wi-Fi for pair code <b>' + esc(pair) + '</b>…';
+
+  // Use the same getLocalIP helper discovery.ts uses. Inline-call here.
+  const localIP: string | null = await new Promise(function (resolve) {
+    try {
+      const pc = new RTCPeerConnection({ iceServers: [] });
+      pc.createDataChannel(''); pc.createOffer().then((o) => pc.setLocalDescription(o));
+      let done = false;
+      pc.onicecandidate = function (e: RTCPeerConnectionIceEvent) {
+        if (done || !e.candidate) return;
+        const m = e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+        if (m && m[1] !== '0.0.0.0') { done = true; pc.close(); resolve(m[1]); }
+      };
+      setTimeout(function () { if (!done) { done = true; pc.close(); resolve(null); } }, 3000);
+    } catch (_) { resolve(null); }
+  });
+  if (!localIP) {
+    ($('connecting-overlay') as HTMLElement).classList.add('hidden');
+    toast('error', 'Network unavailable', 'Could not detect your Wi-Fi IP.');
+    setConnState('offline');
+    return;
+  }
+  const base = localIP.split('.').slice(0, 3).join('.');
+  const probes: Promise<{ host: string; port: number; info: { pairCode?: string; name?: string; platform?: string } } | null>[] = [];
+  for (let i = 1; i < 255; i++) {
+    const host = base + '.' + i;
+    probes.push((async function () {
+      const ctrl = new AbortController();
+      setTimeout(function () { ctrl.abort(); }, 1500);
+      try {
+        const r = await fetch('http://' + host + ':8080/info', { signal: ctrl.signal });
+        if (!r.ok) return null;
+        const info = await r.json();
+        if ((info.pairCode || '').toUpperCase() === pair.toUpperCase()) {
+          return { host, port: 8080, info };
+        }
+      } catch (_) { /* timeout or refused */ }
+      return null;
+    })());
+  }
+  const found = (await Promise.all(probes)).filter(Boolean) as { host: string; port: number; info: { name?: string; platform?: string } }[];
+  if (found.length === 0) {
+    ($('connecting-overlay') as HTMLElement).classList.add('hidden');
+    toast('error', 'Not found', 'No Vior server on this Wi-Fi has that pair code.');
+    setConnState('offline');
+    return;
+  }
+  const first = found[0];
+  selectServer(first.host, first.port, first.info.name || first.host, first.info.platform || '');
+  reconnectAttempts = 0;
+  doConnect();
+}
 if ($('pair-prompt-input')) $('pair-prompt-input').addEventListener('keydown', function (e: Event) {
   const ke = e as KeyboardEvent;
   if (ke.key === 'Enter') { ke.preventDefault(); ($('pair-prompt-go') as HTMLButtonElement).click(); }
@@ -108,7 +176,8 @@ function doConnect(): void {
       showView('connected');
       $('scard-name').textContent = serverName;
       $('scard-meta').textContent = serverPlatform || host;
-      $('stat-mode').textContent = selectedMode === 'mirror' ? 'Mirror' : 'Extend';
+      // Mode pill shows transport + display mode: "Wi-Fi · Extend"
+      $('stat-mode').textContent = 'Wi-Fi · ' + (selectedMode === 'mirror' ? 'Mirror' : 'Extend');
       $('stat-res').textContent = serverRes;
       $('stat-status').textContent = 'Live';
       $('files-offline').classList.add('hidden');
@@ -191,3 +260,10 @@ function doDisconnect(): void {
   $('connecting-overlay').classList.add('hidden');
   toast('info', 'Disconnected', 'Session ended.');
 }
+
+// Pair-only entry from the Empty view — opens the pair-prompt modal
+// without requiring a server selection. promptPair() handles focus +
+// reveal; pair-prompt-go falls through to pairOnlyConnect() when no
+// server is selected (see handler above).
+const pairOnlyBtn = $('pair-only-btn');
+if (pairOnlyBtn) pairOnlyBtn.addEventListener('click', function () { promptPair(); });

@@ -21,7 +21,16 @@ int vior_vd_create_hidpi(unsigned int logicalWidth,
                          unsigned int *outDisplayID);
 
 // vior_vd_destroy tears down the currently managed virtual display.
-void vior_vd_destroy(void);
+// The CGVirtualDisplay private API has no formal -invalidate method,
+// so teardown = applying an empty settings + releasing the strong ref
+// (requires ARC; the cgo CFLAGS enables -fobjc-arc). vior_vd_destroy
+// returns the displayID that was torn down (0 if none was active) so
+// the Go caller can poll capture.ListDisplays for the ghost.
+unsigned int vior_vd_destroy(void);
+
+// vior_vd_current_id returns the displayID of the most recently
+// created virtual display, or 0 if none is currently held.
+unsigned int vior_vd_current_id(void);
 
 #ifdef __cplusplus
 }

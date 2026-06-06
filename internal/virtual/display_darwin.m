@@ -36,6 +36,7 @@
 @end
 
 static CGVirtualDisplay *_viorDisplay = nil;
+static unsigned int _viorDisplayID = 0;
 static unsigned int _nextSerial = 100;
 
 int vior_vd_create(unsigned int width, unsigned int height, double refreshRate, unsigned int *outDisplayID) {
@@ -69,14 +70,48 @@ int vior_vd_create(unsigned int width, unsigned int height, double refreshRate, 
         }
 
         _viorDisplay = display;
-        *outDisplayID = display.displayID;
+        _viorDisplayID = display.displayID;
+        *outDisplayID = _viorDisplayID;
         return 0;
     }
 }
 
-void vior_vd_destroy(void) {
-    _viorDisplay = nil;
-    _nextSerial = 100;
+unsigned int vior_vd_destroy(void) {
+    unsigned int gone = _viorDisplayID;
+    @autoreleasepool {
+        if (_viorDisplay != nil) {
+            // Tell the system to drop all active modes BEFORE we
+            // release the strong ref. Without this pass macOS often
+            // keeps the display alive in CGGetActiveDisplayList for
+            // several seconds after dealloc — the "ghost display"
+            // users see when they re-pair quickly.
+            CGVirtualDisplaySettings *empty = [[CGVirtualDisplaySettings alloc] init];
+            empty.modes = @[];
+            @try {
+                [_viorDisplay applySettings:empty];
+            } @catch (NSException *e) {
+                // Some macOS versions raise on empty modes — fine, we
+                // still release below and let the dealloc path do it.
+            }
+        }
+        // ARC: assigning nil to the strong ref releases. The dispatch_after
+        // gives the main runloop a tick to drain the CGDisplay reconfig
+        // callbacks before the Go caller polls for the ghost.
+        _viorDisplay = nil;
+        _viorDisplayID = 0;
+        _nextSerial = 100;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.05 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            // No-op: scheduling something on the main queue forces the
+            // queue to wake up and process any pending display-removed
+            // callbacks the system queued during release.
+        });
+    }
+    return gone;
+}
+
+unsigned int vior_vd_current_id(void) {
+    return _viorDisplayID;
 }
 
 int vior_vd_create_hidpi(unsigned int logicalWidth,

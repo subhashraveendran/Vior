@@ -18,6 +18,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import {
   GetMenuBarVisible, SetMenuBarVisible,
   ListTrustedDevices, ForgetTrustedDevice, ClearAllTrustedDevices,
+  GetServerStatus, SetPairCode,
   EventsOn,
 } from '../lib/api'
 import { Icons } from '../lib/icons'
@@ -98,6 +99,46 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }: 
     ClearAllTrustedDevices?.().then(refreshTrusted).catch(() => refreshTrusted())
   }
 
+  // Pair-code editor. Reads current code from the server on mount + after
+  // every save; user types a 4-8 digit override and clicks Save, or
+  // clicks Reset to fall back to the hardware-derived default by deleting
+  // the override file (SetPairCode("") on the server side).
+  const [pairCode, setPairCode] = useState<string>('')
+  const [pairInput, setPairInput] = useState<string>('')
+  const [pairSaving, setPairSaving] = useState<boolean>(false)
+  const [pairMsg, setPairMsg] = useState<string>('')
+  const refreshPair = useCallback((): void => {
+    GetServerStatus?.().then(s => {
+      const code = (s as { pairCode?: string }).pairCode || ''
+      setPairCode(code)
+      setPairInput(code)
+    }).catch(() => {})
+  }, [])
+  useEffect(() => { refreshPair() }, [refreshPair])
+  const onSavePair = async (): Promise<void> => {
+    const v = pairInput.replace(/\D/g, '').slice(0, 8)
+    if (v.length < 4) { setPairMsg('Pair code must be 4–8 digits.'); return }
+    setPairSaving(true); setPairMsg('')
+    try {
+      await SetPairCode?.(v)
+      setPairMsg('Saved. New code is active immediately.')
+      refreshPair()
+    } catch (e) {
+      setPairMsg('Save failed: ' + String(e))
+    } finally { setPairSaving(false) }
+  }
+  const onResetPair = async (): Promise<void> => {
+    if (!window.confirm('Reset to the hardware-derived default? Devices that remember the current code will need the new one.')) return
+    setPairSaving(true); setPairMsg('')
+    try {
+      await SetPairCode?.('')
+      setPairMsg('Reset. Default pair code restored.')
+      refreshPair()
+    } catch (e) {
+      setPairMsg('Reset failed: ' + String(e))
+    } finally { setPairSaving(false) }
+  }
+
   const [appearance, setAppearance] = useState<boolean>(false)
   const style: string = localStorage.getItem('vior_style') || 'precise'
   const density: string = localStorage.getItem('vior_density') || 'regular'
@@ -159,6 +200,52 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }: 
           <button className={`toggle ${usbAccept ? 'toggle-on' : 'toggle-off'}`} onClick={() => toggleUsbAccept(!usbAccept)}>
             <span className="toggle-knob" style={{ transform: `translateX(${usbAccept ? 17 : 0}px)` }} />
           </button>
+        </div>
+      </div>
+
+      <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>Pair code</div>
+      <div className="card">
+        <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+          <div className="settings-row-body">
+            <div className="settings-row-title">Your pair code</div>
+            <div className="settings-row-sub">
+              4–8 digit code phones type to connect. Defaults to a stable value derived from this Mac's hardware ID — survives reinstall + file delete. Override here to set your own memorable code.
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={8}
+              value={pairInput}
+              onChange={e => { setPairInput(e.target.value.replace(/\D/g, '').slice(0, 8)); setPairMsg('') }}
+              placeholder={pairCode || '0000'}
+              style={{
+                fontFamily: 'var(--font-mono)', fontSize: 22, letterSpacing: '0.25em',
+                padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)',
+                background: 'var(--surface-1)', color: 'var(--text-1)', width: 160, textAlign: 'center',
+              }}
+            />
+            <button
+              className="btn btn-primary btn-sm"
+              disabled={pairSaving || pairInput.length < 4 || pairInput === pairCode}
+              onClick={onSavePair}>
+              {pairSaving ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              disabled={pairSaving}
+              onClick={onResetPair}
+              title="Restore the hardware-derived default">
+              Reset
+            </button>
+          </div>
+          {pairMsg && (
+            <div style={{ fontSize: 12, color: pairMsg.startsWith('Saved') || pairMsg.startsWith('Reset') ? 'var(--accent)' : '#e05a5a' }}>
+              {pairMsg}
+            </div>
+          )}
         </div>
       </div>
 

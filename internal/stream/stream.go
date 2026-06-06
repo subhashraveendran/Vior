@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -35,6 +36,41 @@ func TrustedDevices() *trust.Store { return trustedDevices }
 // pairCode is a short hex string generated at server start. Printed to the
 // terminal and exposed via /info + embedded in the QR for verification.
 var pairCode = generatePairCode()
+
+// serverID is a stable per-install ID persisted at ~/.vior/server-id so
+// mobiles can detect when the same desktop reappears at a different IP
+// (DHCP lease renewal, Wi-Fi/Ethernet hand-off). Exposed via /info.
+var serverID = loadOrCreateServerID()
+
+func loadOrCreateServerID() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		// Worst case: ephemeral ID for this run. Mobile can't pin it
+		// across IP changes, but everything else still works.
+		b := make([]byte, 8)
+		_, _ = rand.Read(b)
+		return "srv-" + hex.EncodeToString(b)
+	}
+	dir := filepath.Join(home, ".vior")
+	path := filepath.Join(dir, "server-id")
+	if b, err := os.ReadFile(path); err == nil {
+		id := strings.TrimSpace(string(b))
+		if id != "" {
+			return id
+		}
+	}
+	_ = os.MkdirAll(dir, 0o700)
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		return "srv-fallback"
+	}
+	id := "srv-" + hex.EncodeToString(b)
+	_ = os.WriteFile(path, []byte(id), 0o600)
+	return id
+}
+
+// ServerID returns the stable per-install server identifier.
+func ServerID() string { return serverID }
 
 // pairAttempts tracks failed pair-code submissions per remote IP. A
 // script kiddie on the LAN can otherwise brute-force a 6-char hex pair
@@ -438,7 +474,10 @@ func (s *MJPEGServer) handleDownload(w http.ResponseWriter, r *http.Request) {
 func (s *MJPEGServer) handleInfo(w http.ResponseWriter, r *http.Request) {
 	name := friendlyDeviceName()
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, `{"name":"%s","version":"%s","platform":"%s","pairCode":"%s"}`, name, "0.1.0", friendlyPlatform(), pairCode)
+	// deviceId is the stable server-install ID. Mobiles save it and
+	// use it to re-find the server at a new IP after DHCP drift.
+	fmt.Fprintf(w, `{"name":"%s","version":"%s","platform":"%s","pairCode":"%s","deviceId":"%s"}`,
+		name, "0.1.0", friendlyPlatform(), pairCode, serverID)
 }
 
 func friendlyDeviceName() string {

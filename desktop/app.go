@@ -49,6 +49,13 @@ type App struct {
 	// was admitted via the trust store (already paired before). File
 	// transfers from that session auto-accept — no second prompt.
 	currentClientTrusted bool
+
+	// ipWatchStop tears down the goroutine that polls discovery.LocalIPs
+	// and emits server:ip-changed when the host's IP drifts (DHCP lease
+	// renewal, Wi-Fi → Ethernet handoff). Lets the desktop UI refresh
+	// the QR without restarting the server.
+	ipWatchStop chan struct{}
+	lastIPs     []string
 }
 
 func NewApp() *App {
@@ -69,6 +76,10 @@ func (a *App) beforeClose(ctx context.Context) bool {
 }
 
 func (a *App) stopEverything() {
+	if a.ipWatchStop != nil {
+		close(a.ipWatchStop)
+		a.ipWatchStop = nil
+	}
 	if a.usbAcc != nil {
 		a.usbAcc.Stop()
 		a.usbAcc = nil
@@ -124,15 +135,20 @@ func (a *App) StartServer() error {
 	}
 
 	a.startedAt = time.Now()
-	log.Printf("Server started on port %d, waiting for client...", a.cfg.Port)
+	log.Printf("session: server started on port %d, waiting for client...", a.cfg.Port)
 
 	// Start discovery broadcaster.
 	if a.cfg.AutoDiscovery {
 		a.broadcaster = discovery.NewBroadcaster(a.cfg.Port, a.cfg.DiscoveryPort)
 		if err := a.broadcaster.Start(); err != nil {
-			log.Printf("discovery broadcast failed: %v", err)
+			log.Printf("discovery: broadcast failed: %v", err)
 		}
 	}
+
+	// Watch for IP drift (DHCP renew, Wi-Fi handoff). When detected,
+	// emit a Wails event so the desktop UI refreshes the QR + URLs and
+	// the user doesn't end up showing the phone a stale IP.
+	a.startIPWatcher()
 
 	// Start USB Accessory Mode scanning.
 	a.usbAcc = usb.NewAccessory()
@@ -969,4 +985,63 @@ func (a *App) HasAccessibility(prompt bool) bool {
 
 func (a *App) GetVersion() string {
 	return config.Version
+}
+
+// ── IP-drift watcher ─────────────────────────────────────────────────
+
+// startIPWatcher polls discovery.LocalIPs every 10s and emits a Wails
+// event when the set of non-loopback IPv4 addresses changes. Lets the
+// QR refresh transparently when DHCP renews the lease or the user
+// switches from Wi-Fi to Ethernet without having to restart the server.
+func (a *App) startIPWatcher() {
+	if a.ipWatchStop != nil {
+		return
+	}
+	stop := make(chan struct{})
+	a.ipWatchStop = stop
+	a.lastIPs = discovery.LocalIPs()
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stop:
+				return
+			case <-ticker.C:
+				now := discovery.LocalIPs()
+				if !sameIPSet(now, a.lastIPs) {
+					log.Printf("discovery: local IPs changed: %v → %v", a.lastIPs, now)
+					a.lastIPs = now
+					if a.ctx != nil {
+						runtime.EventsEmit(a.ctx, "server:ip-changed", now)
+					}
+					// Bounce the discovery broadcaster so it re-resolves
+					// broadcast addresses on the new interface set.
+					if a.broadcaster != nil && a.cfg.AutoDiscovery {
+						a.broadcaster.Stop()
+						a.broadcaster = discovery.NewBroadcaster(a.cfg.Port, a.cfg.DiscoveryPort)
+						if err := a.broadcaster.Start(); err != nil {
+							log.Printf("discovery: rebroadcast after IP change failed: %v", err)
+						}
+					}
+				}
+			}
+		}
+	}()
+}
+
+func sameIPSet(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	m := make(map[string]struct{}, len(a))
+	for _, v := range a {
+		m[v] = struct{}{}
+	}
+	for _, v := range b {
+		if _, ok := m[v]; !ok {
+			return false
+		}
+	}
+	return true
 }

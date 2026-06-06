@@ -118,6 +118,13 @@ onState(function (s) {
   const manualLink = document.getElementById('disc-manual-link');
   if (manualLink) manualLink.classList.toggle('hidden-pre-connect', isConnected);
 
+  // Persistent transport toggle is visible pre-connect (so the user
+  // can swap Wi-Fi ⇄ USB while still entering credentials) and hidden
+  // post-connect (transport is locked at that point). We flip a body
+  // class so the CSS rule (.post-connect .hidden-post-connect) takes
+  // effect — keeps the styling decoupled from the JS.
+  document.body.classList.toggle('post-connect', isConnected);
+
   // Header chip text. Dot tone is managed by setConnState (kept for
   // backwards compat with reconnect banner colour rules).
   const label = document.getElementById('conn-label');

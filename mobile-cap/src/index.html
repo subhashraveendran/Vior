@@ -29,6 +29,7 @@
 <link rel="stylesheet" href="styles/screens/qr.css">
 <link rel="stylesheet" href="styles/screens/settings.css">
 <link rel="stylesheet" href="styles/screens/intent.css">
+<link rel="stylesheet" href="styles/screens/cascade.css">
 <link rel="stylesheet" href="styles/theme-remaps.css">
 </head>
 <body>
@@ -46,6 +47,23 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.2M12 18.8V21M21 12h-2.2M5.2 12H3M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6M18.4 18.4l-1.6-1.6M7.2 7.2L5.6 5.6"/></svg>
       </button>
     </div>
+  </div>
+
+  <!-- Persistent transport toggle ─ always visible pre-connect so the
+       user can switch Wi-Fi ⇄ USB mid-flow without backing out. Hidden
+       once connected (transport is decided at that point and shouldn't
+       be casually swapped from a global header). Auto-detected cable
+       state surfaces a "Cable detected" hint on the Wi-Fi pill. -->
+  <div class="transport-toggle hidden-post-connect" id="transport-toggle" role="tablist" aria-label="Transport">
+    <button class="transport-btn active" id="transport-wifi" data-transport="wifi" role="tab" aria-selected="true">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5C5 5.8 8.4 4.4 12 4.4s7 1.4 10 4.1"/><path d="M5 11.6c2-1.8 4.4-2.8 7-2.8s5 1 7 2.8"/><path d="M8.3 14.8c1.1-1 2.4-1.5 3.7-1.5s2.6.5 3.7 1.5"/><circle cx="12" cy="18.3" r="1.1" fill="currentColor" stroke="none"/></svg>
+      <span>Wi-Fi</span>
+      <span class="transport-badge hidden" id="transport-wifi-badge">Cable detected</span>
+    </button>
+    <button class="transport-btn" id="transport-usb" data-transport="usb" role="tab" aria-selected="false">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v14"/><path d="M8 6l4-4 4 4"/><circle cx="12" cy="20" r="2"/></svg>
+      <span>USB</span>
+    </button>
   </div>
 
   <!-- Content -->
@@ -74,83 +92,127 @@
         </button>
       </div>
 
-      <!-- Empty view -->
+      <!-- Empty view ─ progressive cascade (Step A scan → B QR → C pair → D IP).
+           Each step is its own block: only ONE is visible at a time. The
+           cascade controller in connect.ts owns the transitions; the
+           transport toggle in the header is what switches Wi-Fi vs USB. -->
       <div class="disc-wrap hidden" id="empty-view">
-        <!-- Transport toggle: Wi-Fi vs USB cable. Switches the entry surface below. -->
-        <div class="seg" id="entry-mode-seg" style="grid-template-columns: 1fr 1fr; margin-bottom: 14px;">
-          <button class="seg-btn active" data-entry="wifi">
-            <div class="seg-btn-row">
-              <span class="seg-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5C5 5.8 8.4 4.4 12 4.4s7 1.4 10 4.1"/><path d="M5 11.6c2-1.8 4.4-2.8 7-2.8s5 1 7 2.8"/><path d="M8.3 14.8c1.1-1 2.4-1.5 3.7-1.5s2.6.5 3.7 1.5"/><circle cx="12" cy="18.3" r="1.1" fill="currentColor" stroke="none"/></svg></span>
-              <span>Wi-Fi</span>
-            </div>
-            <div class="seg-sub">Pair over network</div>
-          </button>
-          <button class="seg-btn" data-entry="usb">
-            <div class="seg-btn-row">
-              <span class="seg-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v14"/><path d="M8 6l4-4 4 4"/><circle cx="12" cy="20" r="2"/><path d="M9 11h2v3H9z"/><path d="M13 9h2v5h-2z"/></svg></span>
-              <span>USB cable</span>
-            </div>
-            <div class="seg-sub">Plug &amp; go</div>
-          </button>
-        </div>
-
         <!-- Wi-Fi entry surface -->
         <div id="entry-wifi">
-          <div class="empty">
-            <span class="empty-icon">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5C5 5.8 8.4 4.4 12 4.4s7 1.4 10 4.1"/><path d="M5 11.6c2-1.8 4.4-2.8 7-2.8s5 1 7 2.8"/><path d="M8.3 14.8c1.1-1 2.4-1.5 3.7-1.5s2.6.5 3.7 1.5"/><circle cx="12" cy="18.3" r="1.1" fill="currentColor" stroke="none"/></svg>
-            </span>
-            <div class="empty-title">No servers found</div>
-            <div class="empty-body">Two things to check:</div>
-            <ul class="empty-list" style="text-align: left; margin: 10px auto 2px; padding: 0 4px 0 18px; max-width: 320px; font-size: 13px; color: var(--text-2); line-height: 1.6;">
-              <li>Vior desktop is running and you tapped <b>Start Server</b>.</li>
-              <li>This phone and the computer are on the <b>same Wi-Fi network</b> (guest networks usually block this).</li>
-            </ul>
+          <!-- Step A — scanning (auto, no user action) -->
+          <div class="cascade-step" id="cascade-a" data-step="a">
+            <div class="empty">
+              <span class="empty-icon">
+                <div class="radar" style="width:56px;height:56px;">
+                  <span class="radar-ring"></span><span class="radar-ring"></span><span class="radar-ring"></span>
+                  <div class="radar-core">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5C5 5.8 8.4 4.4 12 4.4s7 1.4 10 4.1"/><path d="M5 11.6c2-1.8 4.4-2.8 7-2.8s5 1 7 2.8"/><path d="M8.3 14.8c1.1-1 2.4-1.5 3.7-1.5s2.6.5 3.7 1.5"/><circle cx="12" cy="18.3" r="1.1" fill="currentColor" stroke="none"/></svg>
+                  </div>
+                </div>
+              </span>
+              <div class="empty-title">Looking for Vior…</div>
+              <div class="empty-body">Scanning your Wi-Fi for nearby Vior desktops.</div>
+            </div>
           </div>
-          <!-- Single quiet primary action — no orange "Connect" button
-               shouting on the empty view. User chooses something to do
-               first, then a server, then we light up. -->
-          <button class="btn btn-ghost btn-block" id="rescan-btn" style="margin-top: 14px;">
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-1.5 5.5"/><path d="M20 5v5h-5"/></svg>
-            Refresh
-          </button>
 
-          <!-- Manual setup (collapsed by default). 90% never open it. -->
-          <button class="disclosure-toggle" id="manual-toggle" aria-expanded="false" style="margin-top: 16px;">
-            <span class="disclosure-chev">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-            </span>
-            <span>Manual setup</span>
-            <span class="disclosure-sub">IP · QR · pair code</span>
-          </button>
-          <div id="manual-block" class="hidden" style="margin-top: 12px;">
-            <button class="btn btn-ghost btn-block" id="scan-qr-btn" style="margin-bottom: 10px;">
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2M20 14v6M14 20h2"/></svg>
+          <!-- Step B — no servers, prominent Scan QR -->
+          <div class="cascade-step hidden" id="cascade-b" data-step="b">
+            <div class="empty">
+              <span class="empty-icon">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2M20 14v6M14 20h2"/></svg>
+              </span>
+              <div class="empty-title">No servers found nearby</div>
+              <div class="empty-body">Scan the QR code shown on the desktop's Waiting screen — easiest path.</div>
+            </div>
+            <button class="btn btn-primary btn-block cascade-primary" id="cascade-b-scan">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2M20 14v6M14 20h2"/></svg>
               Scan QR Code
             </button>
-            <button class="btn btn-ghost btn-block" id="pair-only-btn" style="margin-bottom: 10px;">
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>
-              Connect with pair code only
-            </button>
-            <div class="section-label">Connect via IP address</div>
-            <div class="field">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 14.5l5-5"/><path d="M8 11l-2 2a3.2 3.2 0 0 0 4.5 4.5l2-2"/><path d="M16 13l2-2A3.2 3.2 0 0 0 13.5 6.5l-2 2"/></svg>
-              <input id="manual-ip" type="text" placeholder="192.168.1.24:8080" inputmode="url" autocomplete="off" spellcheck="false">
+            <div class="cascade-row">
+              <button class="cascade-refresh" id="cascade-b-refresh">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-1.5 5.5"/><path d="M20 5v5h-5"/></svg>
+                Refresh
+              </button>
+              <button class="cascade-escape" id="cascade-b-next">Don't have QR? Type pair code <span aria-hidden="true">→</span></button>
             </div>
-            <div class="hint" style="margin: 6px 2px 0; font-size: 11.5px; color: var(--text-3);">Port optional (defaults to 8080).</div>
-            <div class="field" style="margin-top: 12px;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>
-              <input id="manual-pair" type="text" placeholder="Pair code (shown on desktop)" inputmode="text" maxlength="6" autocomplete="off" autocapitalize="characters" style="text-transform: uppercase; letter-spacing: 0.18em;">
+          </div>
+
+          <!-- Step C — pair-code entry -->
+          <div class="cascade-step hidden" id="cascade-c" data-step="c">
+            <div class="empty">
+              <span class="empty-icon">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>
+              </span>
+              <div class="empty-title">Enter pair code</div>
+              <div class="empty-body">6-character code shown on the desktop's Waiting screen.</div>
             </div>
-            <div class="hint" style="margin: 6px 2px 0; font-size: 11.5px; color: var(--text-3);">6-character code on the desktop's “Waiting” screen.</div>
-            <button class="btn btn-primary btn-block" id="manual-go" disabled style="margin-top: 14px;">
+            <input id="cascade-c-input" type="text" maxlength="7" autocomplete="off" autocapitalize="characters" spellcheck="false"
+                   placeholder="ABC-123" inputmode="text"
+                   style="width: 100%; padding: 18px 16px; margin-top: 6px; border-radius: var(--r); border: 1px solid var(--border); background: var(--surface-1); color: var(--text-1); font-family: var(--font-mono); font-size: 24px; letter-spacing: 0.28em; text-align: center; text-transform: uppercase; box-sizing: border-box;">
+            <button class="btn btn-primary btn-block cascade-primary" id="cascade-c-go" style="margin-top: 14px;" disabled>
               <span>Connect</span>
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
             </button>
+            <div class="cascade-row">
+              <button class="cascade-refresh" id="cascade-c-refresh">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-1.5 5.5"/><path d="M20 5v5h-5"/></svg>
+                Refresh
+              </button>
+              <button class="cascade-escape" id="cascade-c-next">Discovery failing? Enter IP <span aria-hidden="true">→</span></button>
+            </div>
           </div>
+
+          <!-- Step D — IP entry (last resort) -->
+          <div class="cascade-step hidden" id="cascade-d" data-step="d">
+            <div class="empty">
+              <span class="empty-icon">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 14.5l5-5"/><path d="M8 11l-2 2a3.2 3.2 0 0 0 4.5 4.5l2-2"/><path d="M16 13l2-2A3.2 3.2 0 0 0 13.5 6.5l-2 2"/></svg>
+              </span>
+              <div class="empty-title">Enter server address</div>
+              <div class="empty-body">IP and (optionally) port. We also accept pasted URLs or vior:// links.</div>
+            </div>
+            <input id="cascade-d-input" type="text" inputmode="url" autocomplete="off" spellcheck="false"
+                   placeholder="192.168.1.24:8080"
+                   style="width: 100%; padding: 16px 16px; margin-top: 6px; border-radius: var(--r); border: 1px solid var(--border); background: var(--surface-1); color: var(--text-1); font-family: var(--font-mono); font-size: 16px; letter-spacing: 0.04em; box-sizing: border-box;">
+            <button class="btn btn-primary btn-block cascade-primary" id="cascade-d-go" style="margin-top: 14px;" disabled>
+              <span>Connect</span>
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </button>
+            <div class="cascade-row">
+              <button class="cascade-refresh" id="cascade-d-refresh">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-1.5 5.5"/><path d="M20 5v5h-5"/></svg>
+                Refresh
+              </button>
+              <button class="cascade-escape" id="cascade-d-back"><span aria-hidden="true">←</span> Back to pair code</button>
+            </div>
+          </div>
+
+          <!-- Wi-Fi corner link — same on every cascade step, always
+               opens system Wi-Fi settings for the user. -->
+          <button class="cascade-wifi-link" id="cascade-wifi-link" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5C5 5.8 8.4 4.4 12 4.4s7 1.4 10 4.1"/><path d="M5 11.6c2-1.8 4.4-2.8 7-2.8s5 1 7 2.8"/><path d="M8.3 14.8c1.1-1 2.4-1.5 3.7-1.5s2.6.5 3.7 1.5"/><circle cx="12" cy="18.3" r="1.1" fill="currentColor" stroke="none"/></svg>
+            Open Wi-Fi settings
+          </button>
+
+          <!-- Legacy IDs retained as hidden no-op shims so existing JS
+               that reads/writes #manual-pair / #manual-ip / #manual-go
+               (e.g. pair-prompt handlers, QR scanner) keeps working
+               without an additional refactor. -->
+          <input id="manual-pair" type="hidden">
+          <input id="manual-ip" type="hidden">
+          <button id="manual-go" class="hidden"></button>
+          <button id="pair-only-btn" class="hidden"></button>
+          <button id="scan-qr-btn" class="hidden"></button>
+          <button id="rescan-btn" class="hidden"></button>
+          <button id="manual-toggle" class="hidden"></button>
+          <div id="manual-block" class="hidden"></div>
         </div>
 
-        <!-- USB entry surface — cable is the auth boundary, no IP / no pair code. -->
+        <!-- USB entry surface — cable is the auth boundary, no IP / no pair code.
+             States (data-state): waiting | verifying | connected | failed.
+             "verifying" appears between cable up and the Vior magic+version
+             handshake completing; "failed" appears if the desktop side
+             isn't actually running Vior (no ack within 3s). -->
         <div id="entry-usb" class="hidden">
           <div class="usb-stage" id="usb-stage" data-state="waiting">
             <div class="usb-orb">
@@ -163,11 +225,16 @@
             <div class="usb-title" id="usb-title">Waiting for cable…</div>
             <div class="usb-sub" id="usb-body">Plug your tablet into the desktop. We start automatically — no IP, no pair code.</div>
           </div>
-          <ul class="empty-list" style="text-align: left; margin: 16px auto 2px; padding: 0 4px 0 18px; max-width: 320px; font-size: 13px; color: var(--text-2); line-height: 1.6;">
+          <ul class="empty-list" id="usb-checklist" style="text-align: left; margin: 16px auto 2px; padding: 0 4px 0 18px; max-width: 320px; font-size: 13px; color: var(--text-2); line-height: 1.6;">
             <li>Use a <b>data-capable</b> cable (charge-only cables won't work).</li>
             <li>Vior desktop must be running with <b>USB accessory</b> enabled.</li>
             <li>Tap <b>Allow</b> on the “Vior wants USB access” prompt.</li>
           </ul>
+          <!-- Recovery action — only visible when handshake times out. -->
+          <button class="btn btn-primary btn-block hidden" id="usb-retry-btn" style="margin-top: 14px;">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-1.5 5.5"/><path d="M20 5v5h-5"/></svg>
+            Try again
+          </button>
           <button class="btn btn-ghost btn-block" id="usb-help-btn" style="margin-top: 10px;">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 .9-1 1.7"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/></svg>
             USB not detected? Open troubleshooting

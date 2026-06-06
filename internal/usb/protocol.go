@@ -9,14 +9,14 @@ import "encoding/binary"
 
 // Frame types sent over USB.
 const (
-	FrameVideo  byte = 0x01 // JPEG frame: [type][4-byte len][jpeg data]
-	FrameTouch  byte = 0x02 // Touch event: [type][action 1B][x 4B][y 4B]
-	FrameHello  byte = 0x03 // Hello: [type][width 4B][height 4B][dpr 4B]
-	FrameReady  byte = 0x04 // Ready: [type][width 4B][height 4B]
-	FrameStatus byte = 0x05 // Status: [type][fps 4B][uptime 4B]
-	FrameBye    byte = 0x06 // Disconnect: [type]
-	FramePing   byte = 0x07 // Liveness probe: [type]
-	FramePong   byte = 0x08 // Liveness reply: [type]
+	FrameVideo    byte = 0x01 // JPEG frame: [type][4-byte len][jpeg data]
+	FrameTouch    byte = 0x02 // Touch event: [type][action 1B][x 4B][y 4B]
+	FrameHello    byte = 0x03 // Hello: [type][magic 4B][ver 1B][w 4B][h 4B][dpr 4B]
+	FrameReady    byte = 0x04 // Ready: [type][width 4B][height 4B]
+	FrameHelloAck byte = 0x05 // HelloAck: [type][magic 4B][ver 1B]
+	FrameBye      byte = 0x06 // Disconnect: [type]
+	FramePing     byte = 0x07 // Liveness probe: [type]
+	FramePong     byte = 0x08 // Liveness reply: [type]
 )
 
 // MaxFrameSize bounds any single video / touch / control frame.
@@ -27,6 +27,12 @@ const MaxFrameSize = 8 * 1024 * 1024
 // ProtocolVersion is sent inside Hello so peers can negotiate.
 // Bump when the wire format changes incompatibly.
 const ProtocolVersion = 1
+
+// HelloMagic is the 4-byte tag prepended to Hello / HelloAck payloads
+// so each side can verify the peer is actually a Vior client/server
+// before treating subsequent bytes as touch / video frames. An AOA
+// cable can otherwise hand us any random accessory's stream.
+var HelloMagic = [4]byte{'V', 'I', 'O', 'R'}
 
 // Touch actions.
 const (
@@ -113,24 +119,61 @@ func DecodeTouchEvent(data []byte) (action byte, x, y float32) {
 	return data[0], float32(binary.BigEndian.Uint32(data[1:5])), float32(binary.BigEndian.Uint32(data[5:9]))
 }
 
-// EncodeHello creates hello frame with screen dimensions.
+// EncodeHello creates a hello frame with magic + version + screen
+// dimensions. Total wire size = 18 bytes (1 type + 4 magic + 1 ver +
+// 4 w + 4 h + 4 dpr*100). Magic + version let the peer verify it's
+// talking to another Vior process before processing any payload.
 func EncodeHello(width, height int, dpr float32) []byte {
-	buf := make([]byte, 13)
+	buf := make([]byte, 18)
 	buf[0] = FrameHello
-	binary.BigEndian.PutUint32(buf[1:5], uint32(width))
-	binary.BigEndian.PutUint32(buf[5:9], uint32(height))
-	binary.BigEndian.PutUint32(buf[9:13], uint32(dpr*100))
+	copy(buf[1:5], HelloMagic[:])
+	buf[5] = byte(ProtocolVersion)
+	binary.BigEndian.PutUint32(buf[6:10], uint32(width))
+	binary.BigEndian.PutUint32(buf[10:14], uint32(height))
+	binary.BigEndian.PutUint32(buf[14:18], uint32(dpr*100))
 	return buf
 }
 
-// DecodeHello parses hello data.
-func DecodeHello(data []byte) (width, height int, dpr float32) {
-	if len(data) < 12 {
-		return 0, 0, 0
+// DecodeHello parses hello data (the bytes AFTER the 0x03 type byte).
+// Returns ok=false if magic doesn't match or the buffer is short, so
+// the caller can log + disconnect without touching the dims.
+func DecodeHello(data []byte) (width, height int, dpr float32, version byte, ok bool) {
+	if len(data) < 17 {
+		return 0, 0, 0, 0, false
 	}
-	return int(binary.BigEndian.Uint32(data[0:4])),
-		int(binary.BigEndian.Uint32(data[4:8])),
-		float32(binary.BigEndian.Uint32(data[8:12])) / 100
+	if data[0] != HelloMagic[0] || data[1] != HelloMagic[1] ||
+		data[2] != HelloMagic[2] || data[3] != HelloMagic[3] {
+		return 0, 0, 0, 0, false
+	}
+	return int(binary.BigEndian.Uint32(data[5:9])),
+		int(binary.BigEndian.Uint32(data[9:13])),
+		float32(binary.BigEndian.Uint32(data[13:17])) / 100,
+		data[4],
+		true
+}
+
+// EncodeHelloAck builds the desktop → phone ack so the phone can flip
+// `transportMode='usb'` only after the desktop has verified our hello.
+// Wire size = 6 bytes: [0x05][magic 4B][ver 1B].
+func EncodeHelloAck() []byte {
+	buf := make([]byte, 6)
+	buf[0] = FrameHelloAck
+	copy(buf[1:5], HelloMagic[:])
+	buf[5] = byte(ProtocolVersion)
+	return buf
+}
+
+// DecodeHelloAck validates the ack payload (bytes after 0x05). Same
+// shape as Hello but with no dims. Returns ok=false on magic mismatch.
+func DecodeHelloAck(data []byte) (version byte, ok bool) {
+	if len(data) < 5 {
+		return 0, false
+	}
+	if data[0] != HelloMagic[0] || data[1] != HelloMagic[1] ||
+		data[2] != HelloMagic[2] || data[3] != HelloMagic[3] {
+		return 0, false
+	}
+	return data[4], true
 }
 
 // EncodeReady creates ready frame.

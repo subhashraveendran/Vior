@@ -3,7 +3,14 @@ import React from 'react'
 import { Icons } from '../lib/icons'
 import Glyph from '../lib/Glyph'
 
-export default function IdleScreen({ onStart, showUpdate, onUpdate, onDismiss }) {
+interface IdleScreenProps {
+  onStart: () => void
+  showUpdate?: boolean
+  onUpdate: () => void
+  onDismiss: () => void
+}
+
+export default function IdleScreen({ onStart, showUpdate, onUpdate, onDismiss }: IdleScreenProps) {
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       {showUpdate && (

@@ -4,7 +4,26 @@ import React from 'react'
 import { Icons } from '../lib/icons'
 import QR from '../lib/QR'
 
-export default function WaitingScreen({ status, onStop, onCopy }) {
+// NOTE: Local placeholder — D1 hasn't published types.ts yet. Integration
+// step should hoist this into ../types and replace with:
+//   import type { ServerStatus } from '../types'
+interface ServerStatus {
+  url?: string
+  urls?: string[]
+  port?: number
+  pairCode?: string
+  frameRate?: number
+  uptime?: number
+  clientCount?: number
+}
+
+interface WaitingScreenProps {
+  status: ServerStatus | null
+  onStop: () => void
+  onCopy: () => void
+}
+
+export default function WaitingScreen({ status, onStop, onCopy }: WaitingScreenProps) {
   const url = status?.url || ''
   const seed = status?.url || 'vior'
   return (
@@ -40,7 +59,7 @@ export default function WaitingScreen({ status, onStop, onCopy }) {
               <div className="label" style={{ marginBottom: 6 }}>Pair code</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span className="mono" style={{ fontSize: 22, fontWeight: 600, letterSpacing: '0.18em', color: 'var(--accent)' }}>{status.pairCode}</span>
-                <button className="btn btn-ghost btn-sm" onClick={() => navigator.clipboard?.writeText(status.pairCode)} title="Copy pair code">{Icons.copy(14)}Copy</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => navigator.clipboard?.writeText(status.pairCode!)} title="Copy pair code">{Icons.copy(14)}Copy</button>
               </div>
               <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 6 }}>Enter this on your phone to authorize the connection.</div>
             </div>

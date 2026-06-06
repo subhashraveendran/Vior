@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
@@ -712,17 +713,43 @@ func (a *App) ensureFileMgr() {
 		})
 	}
 	a.fileMgr.OnFileOffer = func(t *filetransfer.Transfer) {
+		// Skip the user prompt for already-paired devices — the trust
+		// status is set at WS-connect time. Without this, even trusted
+		// devices fire the accept modal (the trusted auto-accept then
+		// races against the user's click).
+		a.clientMu.Lock()
+		trusted := a.currentClientTrusted
+		a.clientMu.Unlock()
+		if trusted {
+			return
+		}
 		runtime.EventsEmit(a.ctx, "file:offer", map[string]any{
 			"id": t.ID, "name": t.Name, "size": t.Size,
 			"mimeType": t.MimeType, "preview": t.Preview,
 		})
 	}
+	a.fileMgr.OnDownloadDone = func(p *filetransfer.PendingDownload) {
+		runtime.EventsEmit(a.ctx, "download:done", map[string]any{
+			"id": p.ID, "name": p.Name, "size": p.Size,
+		})
+	}
 }
 
-// PickAndSendFile opens a native file picker and sends the selected file.
+// PickAndSendFile opens a native file picker and offers the selected
+// file to the connected phone over the HTTP-download path. The mobile
+// receives an "incoming-file" WS push and (after accept) fetches the
+// body via GET /download/{id}. Falls back to the legacy WS-chunked
+// path when no phone is connected to keep the existing SendFile RPC
+// from regressing.
 func (a *App) PickAndSendFile() error {
+	a.clientMu.Lock()
+	connected := a.client != nil
+	a.clientMu.Unlock()
+	if !connected {
+		return fmt.Errorf("no client connected")
+	}
 	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "Select file to send",
+		Title: "Send file to phone",
 	})
 	if err != nil {
 		return err
@@ -730,10 +757,38 @@ func (a *App) PickAndSendFile() error {
 	if path == "" {
 		return nil // cancelled
 	}
-	return a.SendFile(path)
+	return a.SendFileToPhone(path)
 }
 
-// SendFile initiates a file transfer to the connected phone.
+// SendFileToPhone is the HTTP-download (bidirectional) entry point.
+// Registers the file, pushes IncomingFile to the connected mobile.
+func (a *App) SendFileToPhone(path string) error {
+	a.ensureFileMgr()
+	a.clientMu.Lock()
+	c := a.client
+	a.clientMu.Unlock()
+	if c == nil {
+		return fmt.Errorf("no client connected")
+	}
+	p, err := a.fileMgr.OfferDownload(path)
+	if err != nil {
+		return err
+	}
+	url := fmt.Sprintf("/download/%s", p.ID)
+	if err := c.Send(protocol.MsgIncomingFile, &protocol.IncomingFileMessage{
+		ID: p.ID, Name: p.Name, Size: p.Size, MimeType: p.MimeType, URL: url,
+	}); err != nil {
+		a.fileMgr.CancelDownload(p.ID)
+		return err
+	}
+	runtime.EventsEmit(a.ctx, "download:offered", map[string]any{
+		"id": p.ID, "name": p.Name, "size": p.Size, "mimeType": p.MimeType,
+	})
+	return nil
+}
+
+// SendFile keeps the legacy WS-chunked desktop→mobile path alive for
+// existing callers / tests. New UI should call SendFileToPhone.
 func (a *App) SendFile(path string) error {
 	a.ensureFileMgr()
 	_, err := a.fileMgr.OfferFile(path)
@@ -816,6 +871,53 @@ func (a *App) OnClientFileComplete(session *protocol.Session, msg *protocol.File
 		a.fileMgr.HandleComplete(msg)
 	}
 	return nil
+}
+
+// ── Bidirectional HTTP-download WS handlers ─────────────────────────
+
+func (a *App) OnClientDownloadAccept(session *protocol.Session, msg *protocol.DownloadAcceptMessage) error {
+	if a.fileMgr != nil {
+		a.fileMgr.MarkDownloadAccepted(msg.ID)
+	}
+	if a.ctx != nil {
+		runtime.EventsEmit(a.ctx, "download:accepted", msg.ID)
+	}
+	return nil
+}
+
+func (a *App) OnClientDownloadReject(session *protocol.Session, msg *protocol.DownloadRejectMessage) error {
+	if a.fileMgr != nil {
+		a.fileMgr.CancelDownload(msg.ID)
+	}
+	if a.ctx != nil {
+		runtime.EventsEmit(a.ctx, "download:rejected", map[string]any{
+			"id": msg.ID, "reason": msg.Reason,
+		})
+	}
+	return nil
+}
+
+func (a *App) OnClientDownloadComplete(session *protocol.Session, msg *protocol.DownloadCompleteMessage) error {
+	if a.fileMgr == nil {
+		return nil
+	}
+	p := a.fileMgr.CompleteDownload(msg.ID)
+	if p != nil && a.ctx != nil {
+		runtime.EventsEmit(a.ctx, "download:done", map[string]any{
+			"id": p.ID, "name": p.Name, "size": p.Size,
+		})
+	}
+	return nil
+}
+
+// ServeDownload implements the stream.SessionHandler download endpoint.
+// Delegates to fileMgr which streams the body via http.ServeContent.
+func (a *App) ServeDownload(w http.ResponseWriter, r *http.Request, id string) {
+	if a.fileMgr == nil {
+		http.Error(w, "no transfer manager", http.StatusServiceUnavailable)
+		return
+	}
+	a.fileMgr.ServeDownload(w, r, id)
 }
 
 // ── Snapshot ─────────────────────────────────────────────────────────

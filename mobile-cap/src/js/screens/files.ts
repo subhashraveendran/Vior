@@ -170,6 +170,147 @@ function renderIncoming(): void {
   list.innerHTML = html;
   wrap.classList.toggle('hidden', !has);
 }
+// ── Desktop → Mobile HTTP-download path ─────────────────────────────
+//
+// The desktop pushes {type:"incoming-file", data:{id,name,size,mime,url}}
+// over the WS. We register the transfer in the same `fileTransfers`
+// map as the WS-chunked path so the Files UI just works, then either
+// auto-accept (trusted/known server) or render an Accept/Reject card.
+// On accept we GET `frameBaseUrl + url` and store the body as a blob URL.
+interface IncomingFilePayload { id: string; name: string; size: number; mime?: string; url?: string }
+
+function handleIncomingFile(msg: { type: 'incoming-file'; data: unknown }): void {
+  const d = (msg.data || {}) as IncomingFilePayload;
+  if (!d.id || !d.url) return;
+  const t: FileTransfer = {
+    id: d.id, name: d.name || 'file', size: d.size || 0,
+    mimeType: d.mime || 'application/octet-stream', preview: '',
+    transferred: 0, complete: false, direction: 'in', pending: true,
+    status: 'incoming',
+  };
+  // Stash the URL on the transfer object so accept can fetch later.
+  (t as unknown as { url: string }).url = d.url;
+  fileTransfers[d.id] = t;
+
+  // Trust mirror: if this server is "known" client-side (we previously
+  // paired with it and never forgot the pair) auto-accept silently —
+  // same UX as the upload path's trusted device auto-accept.
+  let auto = false;
+  try {
+    if (selectedServer) {
+      const key = selectedServer.host + ':' + selectedServer.port;
+      auto = localStorage.getItem('vior_known_' + key) === '1';
+    }
+  } catch (_) { /* localStorage blocked */ }
+
+  if (auto) {
+    toast('info', 'Receiving', d.name || '');
+    fetchDownload(d.id);
+  } else {
+    renderIncoming();
+    toast('info', 'Incoming', d.name || '');
+    switchTab('files');
+  }
+}
+
+async function fetchDownload(id: string): Promise<void> {
+  const t = fileTransfers[id];
+  if (!t) return;
+  const url = (t as unknown as { url?: string }).url;
+  if (!url || !frameBaseUrl) {
+    t.status = 'failed';
+    renderTransfers(); renderIncoming();
+    if (ws && ws.readyState === 1) {
+      ws.send(JSON.stringify({ type: 'download-reject', data: { id: id, reason: 'no url or transport' } }));
+    }
+    return;
+  }
+  t.pending = false; t.status = 'receiving';
+  renderIncoming(); renderTransfers();
+  // Tell the desktop we're starting — purely advisory so the desktop UI
+  // can show "Sending" instead of "Offered".
+  try {
+    if (ws && ws.readyState === 1) {
+      ws.send(JSON.stringify({ type: 'download-accept', data: { id: id } }));
+    }
+  } catch (_) { /* best-effort notify */ }
+
+  try {
+    const resp = await fetch(frameBaseUrl + url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    // Stream chunks so the progress bar reflects bytes received instead
+    // of jumping from 0 → 100. Falls back to blob() when ReadableStream
+    // isn't available (very old WebViews).
+    const total = t.size || parseInt(resp.headers.get('Content-Length') || '0', 10) || 0;
+    let blob: Blob;
+    if (resp.body && (resp.body as ReadableStream<Uint8Array>).getReader) {
+      const reader = (resp.body as ReadableStream<Uint8Array>).getReader();
+      const chunks: BlobPart[] = [];
+      let got = 0;
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          chunks.push(value as BlobPart);
+          got += value.byteLength;
+          t.transferred = got;
+          t.progress = total > 0 ? Math.round(got / total * 100) : 0;
+          renderTransfers();
+        }
+      }
+      blob = new Blob(chunks, { type: t.mimeType });
+    } else {
+      blob = await resp.blob();
+      t.transferred = blob.size;
+      t.progress = 100;
+    }
+    t.blobUrl = URL.createObjectURL(blob);
+    t.complete = true; t.status = 'received';
+    renderTransfers();
+    toast('success', 'Received', t.name);
+    try {
+      if (ws && ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'download-complete', data: { id: id } }));
+      }
+    } catch (_) { /* best-effort notify */ }
+  } catch (e) {
+    console.error('download failed', e);
+    t.status = 'failed';
+    renderTransfers();
+    toast('error', 'Download failed', String(e));
+    try {
+      if (ws && ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'download-reject', data: { id: id, reason: String(e) } }));
+      }
+    } catch (_) { /* best-effort notify */ }
+  }
+}
+
+// Extend Accept/Reject so the existing UI buttons drive the HTTP path
+// when the transfer was created via incoming-file (it has a stashed
+// `url`), otherwise fall back to the original WS chunked accept/reject.
+const _origAccept = (window as unknown as { _acceptFile: (id: string) => void })._acceptFile;
+(window as unknown as { _acceptFile: (id: string) => void })._acceptFile = function (id: string): void {
+  const t = fileTransfers[id];
+  if (t && (t as unknown as { url?: string }).url) { fetchDownload(id); return; }
+  _origAccept(id);
+};
+const _origReject = (window as unknown as { _rejectFile: (id: string) => void })._rejectFile;
+(window as unknown as { _rejectFile: (id: string) => void })._rejectFile = function (id: string): void {
+  const t = fileTransfers[id];
+  if (t && (t as unknown as { url?: string }).url) {
+    try {
+      if (ws && ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'download-reject', data: { id: id, reason: 'rejected' } }));
+      }
+    } catch (_) { /* best-effort notify */ }
+    delete fileTransfers[id]; renderIncoming(); renderTransfers();
+    return;
+  }
+  _origReject(id);
+};
+
 function renderTransfers(): void {
   const list = $('transfer-list') as HTMLElement, empty = $('transfer-empty') as HTMLElement;
   let html = ''; let count = 0;

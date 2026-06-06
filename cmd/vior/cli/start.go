@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -361,6 +362,22 @@ func (h *cliSessionHandler) OnClientFileChunk(session *protocol.Session, msg *pr
 
 func (h *cliSessionHandler) OnClientFileComplete(session *protocol.Session, msg *protocol.FileCompleteMessage) error {
 	return nil
+}
+
+func (h *cliSessionHandler) OnClientDownloadAccept(session *protocol.Session, msg *protocol.DownloadAcceptMessage) error {
+	return nil
+}
+
+func (h *cliSessionHandler) OnClientDownloadReject(session *protocol.Session, msg *protocol.DownloadRejectMessage) error {
+	return nil
+}
+
+func (h *cliSessionHandler) OnClientDownloadComplete(session *protocol.Session, msg *protocol.DownloadCompleteMessage) error {
+	return nil
+}
+
+func (h *cliSessionHandler) ServeDownload(w http.ResponseWriter, r *http.Request, id string) {
+	http.Error(w, "downloads unavailable in CLI mode", http.StatusNotFound)
 }
 
 func (h *cliSessionHandler) OnClientDisconnect(session *protocol.Session) {

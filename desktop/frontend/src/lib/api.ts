@@ -6,6 +6,7 @@ export {
   StartServer, StopServer, GetServerStatus,
   GetConnectedClients, GetConfig, UpdateConfig,
   GetVersion, CheckPermissions, PickAndSendFile,
+  AcceptIncomingFile, RejectIncomingFile, SendFileToPhone,
   GetMenuBarVisible, SetMenuBarVisible,
   HasAccessibility,
 } from '../../wailsjs/go/main/App'

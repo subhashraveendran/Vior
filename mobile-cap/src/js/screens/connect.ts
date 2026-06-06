@@ -207,6 +207,10 @@ function doConnect(): void {
       setConnState('offline');
     } else if (msg.type && msg.type.indexOf('file-') === 0) {
       try { handleFileMessage(msg); } catch (e) { console.error('file msg', e); }
+    } else if (msg.type === 'incoming-file') {
+      // Desktop → mobile HTTP-download path: notification only; the body
+      // is fetched via GET /download/{id} once the user accepts.
+      try { handleIncomingFile(msg as { type: 'incoming-file'; data: unknown }); } catch (e) { console.error('incoming-file', e); }
     }
   };
 

@@ -82,6 +82,7 @@ declare function esc(s: unknown): string;
 declare function setConnState(state: ConnectionState): void;
 declare function switchTab(name: TabName): void;
 declare function handleFileMessage(msg: { type: string; data?: unknown }): void;
+declare function handleIncomingFile(msg: { type: 'incoming-file'; data: unknown }): void;
 declare function selectServer(host: string, port: number, name: string, platform: string): void;
 declare function doConnect(): void;
 declare function sendInput(action: string, x: number, y: number): void;

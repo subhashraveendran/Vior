@@ -798,7 +798,7 @@ func (a *App) SendFileToPhone(path string) error {
 	}
 	url := fmt.Sprintf("/download/%s", p.ID)
 	if err := c.Send(protocol.MsgIncomingFile, &protocol.IncomingFileMessage{
-		ID: p.ID, Name: p.Name, Size: p.Size, MimeType: p.MimeType, URL: url,
+		ID: p.ID, Name: p.Name, Size: p.Size, MimeType: p.MimeType, URL: url, Preview: p.Preview,
 	}); err != nil {
 		a.fileMgr.CancelDownload(p.ID)
 		return err

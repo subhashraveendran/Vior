@@ -143,7 +143,8 @@ type IncomingFileMessage struct {
 	Name     string `json:"name"`
 	Size     int64  `json:"size"`
 	MimeType string `json:"mime"`
-	URL      string `json:"url,omitempty"` // relative path "/download/{id}"
+	URL      string `json:"url,omitempty"`     // relative path "/download/{id}"
+	Preview  string `json:"preview,omitempty"` // base64 thumbnail for images, empty otherwise
 }
 
 // DownloadAcceptMessage is sent by the mobile when it intends to GET

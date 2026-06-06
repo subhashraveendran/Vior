@@ -68,6 +68,7 @@ type PendingDownload struct {
 	Size     int64
 	MimeType string
 	Path     string
+	Preview  string // base64 thumbnail for images, empty otherwise
 	Accepted bool
 	Served   bool
 	mu       sync.Mutex
@@ -389,12 +390,14 @@ func (m *Manager) OfferDownload(path string) (*PendingDownload, error) {
 	if fi.Size() > MaxDownloadSize {
 		return nil, fmt.Errorf("file too large (%d bytes, max %d)", fi.Size(), MaxDownloadSize)
 	}
+	mimeType := detectMimeType(path)
 	p := &PendingDownload{
 		ID:       generateID(),
 		Name:     filepath.Base(path),
 		Size:     fi.Size(),
-		MimeType: detectMimeType(path),
+		MimeType: mimeType,
 		Path:     path,
+		Preview:  generatePreview(path, mimeType),
 	}
 	m.pendingMu.Lock()
 	m.pending[p.ID] = p

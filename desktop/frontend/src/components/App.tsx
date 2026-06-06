@@ -181,7 +181,29 @@ export default function App() {
       {incomingOffer && (
         <div className="error-backdrop">
           <div className="card error-modal">
-            <span className="error-icon">{Icons.download(26)}</span>
+            {/* Preview: real thumbnail for images, big extension badge otherwise. */}
+            {incomingOffer.preview ? (
+              <img
+                src={incomingOffer.preview.startsWith('data:') ? incomingOffer.preview : `data:${incomingOffer.mimeType || 'image/jpeg'};base64,${incomingOffer.preview}`}
+                alt=""
+                style={{
+                  width: 96, height: 96, objectFit: 'cover',
+                  borderRadius: 12, marginBottom: 14, alignSelf: 'center',
+                  border: '1px solid var(--border)',
+                }}
+              />
+            ) : (
+              <div style={{
+                width: 96, height: 96, borderRadius: 12, marginBottom: 14,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'var(--accent-weak)', color: 'var(--accent)',
+                font: '700 22px/1 var(--font-mono)', letterSpacing: '0.04em',
+                border: '1px solid var(--accent-line)', alignSelf: 'center',
+                textTransform: 'uppercase',
+              }}>
+                {(incomingOffer.name.split('.').pop() || 'FILE').slice(0, 4)}
+              </div>
+            )}
             <div className="modal-title">Incoming file</div>
             <div className="modal-body">
               <b>{incomingOffer.name}</b>

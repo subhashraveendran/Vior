@@ -148,11 +148,21 @@ function renderIncoming(): void {
     const t = fileTransfers[id];
     if (t.direction !== 'in' || !t.pending) return;
     has = true;
-    const icon = t.mimeType && t.mimeType.indexOf('image/') === 0 ? photoIconSvg() : fileIconSvg();
+    // Preview: real thumbnail if server sent one (images), big ext badge otherwise.
+    let thumb: string;
+    if (t.preview) {
+      const src = t.preview.indexOf('data:') === 0
+        ? t.preview
+        : ('data:' + (t.mimeType || 'image/jpeg') + ';base64,' + t.preview);
+      thumb = '<img src="' + src + '" alt="" style="width:56px;height:56px;border-radius:10px;object-fit:cover;border:1px solid var(--border);">';
+    } else {
+      const ext = (t.name.split('.').pop() || 'FILE').slice(0, 4).toUpperCase();
+      thumb = '<div style="width:56px;height:56px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--accent-weak);color:var(--accent);font:700 13px/1 var(--font-mono);letter-spacing:0.03em;border:1px solid var(--accent-line);">' + esc(ext) + '</div>';
+    }
     html +=
       '<div class="incoming-card">' +
         '<div class="incoming-head">' +
-          '<span class="incoming-icon">' + icon + '</span>' +
+          '<span class="incoming-icon">' + thumb + '</span>' +
           '<div style="flex:1;min-width:0;">' +
             '<div class="incoming-name">' + esc(t.name) + '</div>' +
             '<div class="incoming-meta">' + fmtSize(t.size) + ' · from ' + esc(serverName) + '</div>' +
@@ -177,14 +187,14 @@ function renderIncoming(): void {
 // map as the WS-chunked path so the Files UI just works, then either
 // auto-accept (trusted/known server) or render an Accept/Reject card.
 // On accept we GET `frameBaseUrl + url` and store the body as a blob URL.
-interface IncomingFilePayload { id: string; name: string; size: number; mime?: string; url?: string }
+interface IncomingFilePayload { id: string; name: string; size: number; mime?: string; url?: string; preview?: string }
 
 function handleIncomingFile(msg: { type: 'incoming-file'; data: unknown }): void {
   const d = (msg.data || {}) as IncomingFilePayload;
   if (!d.id || !d.url) return;
   const t: FileTransfer = {
     id: d.id, name: d.name || 'file', size: d.size || 0,
-    mimeType: d.mime || 'application/octet-stream', preview: '',
+    mimeType: d.mime || 'application/octet-stream', preview: d.preview || '',
     transferred: 0, complete: false, direction: 'in', pending: true,
     status: 'incoming',
   };

@@ -3,13 +3,21 @@
 // without forcing every component to import a dozen named symbols.
 import React from 'react'
 
-const I = (p) => (size = 18) => (
+export type IconRenderer = (size?: number) => React.JSX.Element
+
+const I = (p: string): IconRenderer => (size: number = 18) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
     stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"
     dangerouslySetInnerHTML={{ __html: p }} />
 )
 
-export const Icons = {
+export type IconName =
+  | 'display' | 'files' | 'remote' | 'settings' | 'power' | 'link'
+  | 'copy' | 'usb' | 'refresh' | 'close' | 'check' | 'arrowR'
+  | 'layers' | 'download' | 'monitor2' | 'remote2' | 'shield' | 'alert'
+  | 'file' | 'photo'
+
+export const Icons: Record<IconName, IconRenderer> = {
   display: I('<rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>'),
   files:   I('<path d="M3 7.5a2 2 0 0 1 2-2h4l2 2.2h6a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'),
   remote:  I('<path d="M5.5 3.2l13.6 7.2a.7.7 0 0 1-.1 1.27l-5.3 1.9-2.4 5.1a.7.7 0 0 1-1.3-.06z"/>'),

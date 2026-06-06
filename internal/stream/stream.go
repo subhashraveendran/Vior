@@ -516,9 +516,16 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			s.wsConn = nil
 		}
 		s.wsConnMu.Unlock()
-		s.handler.OnClientDisconnect(session)
+		// sync.Once on the session guarantees OnClientDisconnect runs
+		// exactly once even when an in-loop Bye and the post-loop
+		// defer both arrive — without this guard, the App handler
+		// would tear the virtual display down twice and race the
+		// macOS CGVirtualDisplay teardown.
+		session.FireDisconnect(func() {
+			s.handler.OnClientDisconnect(session)
+		})
 		session.Close()
-		log.Printf("WebSocket client disconnected: %s [%s]", r.RemoteAddr, session.ID)
+		log.Printf("stream: WebSocket client disconnected: %s [%s]", r.RemoteAddr, session.ID)
 	}()
 
 	// Wait for hello message.
@@ -608,8 +615,13 @@ func (a *wsMessageAdapter) OnResize(session *protocol.Session, msg *protocol.Res
 }
 
 func (a *wsMessageAdapter) OnBye(session *protocol.Session) error {
-	a.handler.OnClientDisconnect(session)
-	return nil
+	// Do NOT call OnClientDisconnect here. ReadLoop will return as
+	// soon as the underlying conn closes (either because we close it
+	// below or because the client hung up after Bye), and
+	// handleWebSocket's defer is the canonical disconnect path. Calling
+	// it here would invoke virtual.Destroy + capture.Stop twice, which
+	// races and leaves a ghost virtual display on macOS.
+	return session.Close()
 }
 
 func (a *wsMessageAdapter) OnFileOffer(session *protocol.Session, msg *protocol.FileOfferMessage) error {

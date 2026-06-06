@@ -34,6 +34,18 @@ type Session struct {
 	CreatedAt time.Time
 	mu        sync.Mutex
 	closed    bool
+	// disconnectOnce guards SessionHandler.OnClientDisconnect so it
+	// fires exactly once per session even when both the read-loop
+	// defer and an explicit Bye both try to invoke it.
+	disconnectOnce sync.Once
+}
+
+// FireDisconnect runs fn exactly once for the lifetime of this session.
+// The stream package wraps the SessionHandler.OnClientDisconnect call
+// with this so a Bye-then-defer race can't tear the virtual display
+// down twice.
+func (s *Session) FireDisconnect(fn func()) {
+	s.disconnectOnce.Do(fn)
 }
 
 // NewSession creates a session from an upgraded WebSocket connection.

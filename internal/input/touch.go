@@ -3,6 +3,7 @@ package input
 import (
 	"fmt"
 	"image"
+	"math"
 	"sync"
 	"time"
 )
@@ -108,8 +109,24 @@ func (t *TouchMapper) HandleMouse(action string, dx, dy float64) error {
 				t.cachedY = my + mh/2
 			}
 		}
-		newX := t.cachedX + int(dx)
-		newY := t.cachedY + int(dy)
+		// Mild pointer acceleration. On a tablet the user wants two
+		// behaviours from one trackpad: pixel-precise fine work AND
+		// large flings across a 4K virtual display. With a flat scale
+		// the user either spends the whole transfer ratchet-dragging
+		// or overshoots small targets. The classic remedy is a
+		// nonlinear gain: small deltas pass through unchanged (gain=1),
+		// long sweeps get a sub-linear boost from sqrt(magnitude).
+		// The mobile side already pre-scales touch deltas by 2× to
+		// keep the trackpad usable on a small slab of glass; this
+		// adds a second stage that only kicks in past ~8 px of
+		// movement per event (the "fling" regime).
+		mag := math.Hypot(dx, dy)
+		accel := mag / 8
+		if accel < 1 {
+			accel = 1
+		}
+		newX := t.cachedX + int(dx*accel)
+		newY := t.cachedY + int(dy*accel)
 		// Update the cache to the synthetic target — subsequent moves
 		// stack onto it without another OS round-trip.
 		t.cachedX, t.cachedY = newX, newY

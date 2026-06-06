@@ -2,7 +2,31 @@
 // ── Remote trackpad ──
 const trackpad = $('trackpad') as HTMLElement, trackpadHint = $('trackpad-hint') as HTMLElement;
 let tpLastX = 0, tpLastY = 0, tpFingers = 0, tpMoved = false, tpStartT = 0;
-function wsSend(obj: unknown): void { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+
+// Transport gate. The AOA wire protocol today carries video and touch
+// only — no mouse / scroll / key frames — so every Remote-tab input
+// here would silently no-op when the user is connected over USB. Until
+// we extend internal/usb/protocol.go with FrameMouse/FrameScroll/FrameKey
+// (tracked TODO), we surface the limitation as a banner the first time
+// the user opens the Remote tab on a USB session, plus a no-op + flash
+// on every interaction so the dead clicks aren't mysterious.
+function viorTransport(): 'wifi' | 'usb' {
+  const fn = (window as unknown as { viorTransport?: () => 'wifi' | 'usb' }).viorTransport;
+  return typeof fn === 'function' ? fn() : 'wifi';
+}
+let usbRemoteHintShown = false;
+function maybeWarnUsbRemote(): boolean {
+  if (viorTransport() !== 'usb') return false;
+  if (!usbRemoteHintShown) {
+    usbRemoteHintShown = true;
+    toast('warning', 'Remote needs Wi-Fi', 'Cable transport carries display only — use Wi-Fi for trackpad and keys.');
+  }
+  return true;
+}
+function wsSend(obj: unknown): void {
+  if (maybeWarnUsbRemote()) return;
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
+}
 interface FlashFn { (msg: string): void; _t?: ReturnType<typeof setTimeout>; }
 const flash: FlashFn = function (msg: string): void {
   const p = $('flash-pill') as HTMLElement;

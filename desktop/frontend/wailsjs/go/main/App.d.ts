@@ -54,6 +54,12 @@ export function OnClientFileOffer(arg1:protocol.Session,arg2:protocol.FileOfferM
 
 export function OnClientFileReject(arg1:protocol.Session,arg2:protocol.FileRejectMessage):Promise<void>;
 
+export function OnClientDownloadAccept(arg1:protocol.Session,arg2:protocol.DownloadAcceptMessage):Promise<void>;
+
+export function OnClientDownloadReject(arg1:protocol.Session,arg2:protocol.DownloadRejectMessage):Promise<void>;
+
+export function OnClientDownloadComplete(arg1:protocol.Session,arg2:protocol.DownloadCompleteMessage):Promise<void>;
+
 export function OnClientInput(arg1:protocol.Session,arg2:protocol.InputMessage):Promise<void>;
 
 export function OnClientResize(arg1:protocol.Session,arg2:protocol.ResizeMessage):Promise<void>;
@@ -65,6 +71,8 @@ export function RejectIncomingFile(arg1:string):Promise<void>;
 export function ResetConfig():Promise<void>;
 
 export function SendFile(arg1:string):Promise<void>;
+
+export function SendFileToPhone(arg1:string):Promise<void>;
 
 export function SetMenuBarVisible(arg1:boolean):Promise<void>;
 

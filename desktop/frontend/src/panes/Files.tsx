@@ -46,6 +46,14 @@ export default function FilesPane({ onSendFile, client }: Props) {
         <div className="drop-title">Drop files to send to {client?.name || 'device'}</div>
         <div className="drop-sub">or <b onClick={onSendFile}>browse</b> — up to 2 GB per file</div>
       </div>
+      <button
+        className="btn btn-primary"
+        style={{ width: '100%', margin: '12px 0' }}
+        onClick={onSendFile}
+        disabled={!client}
+      >
+        {Icons.arrowR(18)} Send file to phone
+      </button>
       <div className="label" style={{ marginBottom: 12 }}>Recent</div>
       {files.length === 0
         ? <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>No transfers yet.</div>

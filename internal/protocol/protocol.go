@@ -19,6 +19,17 @@ const (
 	MsgFileReject   MessageType = "file-reject"
 	MsgFileChunk    MessageType = "file-chunk"
 	MsgFileComplete MessageType = "file-complete"
+
+	// Bidirectional HTTP-download path (desktop → mobile).
+	// The desktop registers the file in fileMgr, pushes MsgIncomingFile
+	// to the connected client, then waits for either MsgDownloadAccept
+	// (which triggers an HTTP GET /download/{id} fetch) or
+	// MsgDownloadReject. The mobile reports MsgDownloadComplete after
+	// it finishes the GET so the desktop can clean up.
+	MsgIncomingFile     MessageType = "incoming-file"
+	MsgDownloadAccept   MessageType = "download-accept"
+	MsgDownloadReject   MessageType = "download-reject"
+	MsgDownloadComplete MessageType = "download-complete"
 )
 
 // Envelope is the outer JSON wrapper for all WebSocket messages.
@@ -110,6 +121,39 @@ type FileChunkMessage struct {
 type FileCompleteMessage struct {
 	ID   string `json:"id"`
 	Hash string `json:"hash,omitempty"` // SHA-256 of complete file for integrity
+}
+
+// IncomingFileMessage notifies the mobile client that the desktop has
+// a file waiting for it at GET /download/{id}. The mobile responds
+// with MsgDownloadAccept (and performs the HTTP fetch) or
+// MsgDownloadReject. Trusted clients SHOULD auto-accept silently to
+// match the upload-path UX.
+type IncomingFileMessage struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Size     int64  `json:"size"`
+	MimeType string `json:"mime"`
+	URL      string `json:"url,omitempty"` // relative path "/download/{id}"
+}
+
+// DownloadAcceptMessage is sent by the mobile when it intends to GET
+// /download/{id}. Lets the desktop log/track accepts.
+type DownloadAcceptMessage struct {
+	ID string `json:"id"`
+}
+
+// DownloadRejectMessage is sent by the mobile when the user declines
+// or the platform can't write the file.
+type DownloadRejectMessage struct {
+	ID     string `json:"id"`
+	Reason string `json:"reason,omitempty"`
+}
+
+// DownloadCompleteMessage is sent by the mobile after the HTTP GET
+// finishes so the desktop can mark the transfer done and free the
+// pending entry in fileMgr.
+type DownloadCompleteMessage struct {
+	ID string `json:"id"`
 }
 
 // Encode wraps a typed payload into an Envelope.

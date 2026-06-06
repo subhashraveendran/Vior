@@ -9,6 +9,7 @@ import {
   StartServer, StopServer, GetServerStatus,
   GetConnectedClients, GetConfig, UpdateConfig,
   GetVersion, PickAndSendFile,
+  AcceptIncomingFile, RejectIncomingFile,
   HasAccessibility,
 } from '../lib/api'
 
@@ -45,6 +46,7 @@ export default function App() {
   const [showPerms, setShowPerms] = useState<boolean>(false)
   const [toasts, setToasts] = useState<Toast[]>([])
   const [accent, setAccent] = useState<AccentHex>(localStorage.getItem('vior_accent') || '#ff8a4c')
+  const [incomingOffer, setIncomingOffer] = useState<{ id: string; name: string; size: number; mimeType: string; preview?: string } | null>(null)
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- accent applies
   // once at boot; subsequent changes flow through Appearance → applyAccent
@@ -94,7 +96,15 @@ export default function App() {
       HasAccessibility(true).catch(() => {})
       toast('error', 'Remote needs Accessibility', 'System Settings → Privacy & Security → Accessibility → enable Vior.')
     })
-    return () => { off1 && off1(); off2 && off2(); off3 && off3() }
+    // Incoming file from mobile (untrusted device path). Trusted devices
+    // never raise this event — desktop/app.go skips emit when trusted.
+    const off4 = EventsOn('file:offer', (o: { id: string; name: string; size: number; mimeType: string; preview?: string }) => {
+      setIncomingOffer(o)
+    })
+    const off5 = EventsOn('file:auto-accepted', (id: string) => {
+      toast('info', 'File accepted', `Saving to ~/Downloads/Vior · ${id.slice(0, 6)}…`)
+    })
+    return () => { off1 && off1(); off2 && off2(); off3 && off3(); off4 && off4(); off5 && off5() }
   }, [toast])
 
   // poll status
@@ -168,7 +178,54 @@ export default function App() {
         <div className="main">{body}</div>
       </div>
       {showPerms && <PermissionsModal onDone={() => setShowPerms(false)} />}
+      {incomingOffer && (
+        <div className="error-backdrop">
+          <div className="card error-modal">
+            <span className="error-icon">{Icons.download(26)}</span>
+            <div className="modal-title">Incoming file</div>
+            <div className="modal-body">
+              <b>{incomingOffer.name}</b>
+              <br />
+              {fmtSize(incomingOffer.size)} · {incomingOffer.mimeType || 'unknown type'}
+              <br />
+              <span style={{ color: 'var(--text-3)' }}>from {client?.name || 'connected device'}</span>
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+              <button
+                className="btn btn-ghost btn-block"
+                onClick={async () => {
+                  const id = incomingOffer.id
+                  setIncomingOffer(null)
+                  try { await RejectIncomingFile(id) } catch {}
+                  toast('info', 'Declined', incomingOffer.name)
+                }}
+              >
+                {Icons.close(19)} Decline
+              </button>
+              <button
+                className="btn btn-primary btn-block"
+                onClick={async () => {
+                  const id = incomingOffer.id
+                  const name = incomingOffer.name
+                  setIncomingOffer(null)
+                  try { await AcceptIncomingFile(id); toast('success', 'Accepting', name) }
+                  catch (e) { toast('error', 'Accept failed', String(e)) }
+                }}
+              >
+                {Icons.check(19)} Accept
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <ToastHost toasts={toasts} onClose={(id: number) => setToasts(ts => ts.filter(t => t.id !== id))} />
     </div>
   )
+}
+
+function fmtSize(b: number): string {
+  if (b < 1024) return `${b} B`
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`
+  if (b < 1024 * 1024 * 1024) return `${(b / 1024 / 1024).toFixed(1)} MB`
+  return `${(b / 1024 / 1024 / 1024).toFixed(2)} GB`
 }

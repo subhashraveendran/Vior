@@ -33,6 +33,11 @@ const (
 
 	// MaxPreviewSize is the max thumbnail dimension.
 	MaxPreviewSize = 200
+
+	// MaxDownloadSize is the upper sanity limit for HTTP-served file
+	// transfers (desktop → mobile). Matches the UI hint shown in the
+	// Files drop-zone copy.
+	MaxDownloadSize = 2 * 1024 * 1024 * 1024 // 2 GiB
 )
 
 // Transfer tracks a single file transfer in progress.
@@ -54,11 +59,29 @@ type Transfer struct {
 	mu   sync.Mutex
 }
 
+// PendingDownload tracks a file the desktop has offered to the mobile
+// over the HTTP-download path. The body stays on disk until either the
+// mobile fetches it via GET /download/{id} or it expires/is cancelled.
+type PendingDownload struct {
+	ID       string
+	Name     string
+	Size     int64
+	MimeType string
+	Path     string
+	Accepted bool
+	Served   bool
+	mu       sync.Mutex
+}
+
 // Manager handles file transfers for a session.
 type Manager struct {
 	// Active transfers by ID.
 	transfers map[string]*Transfer
 	mu        sync.Mutex
+
+	// Pending HTTP-download offers (desktop → mobile).
+	pending   map[string]*PendingDownload
+	pendingMu sync.Mutex
 
 	// Where to save received files.
 	ReceiveDir string
@@ -69,12 +92,18 @@ type Manager struct {
 	// Callbacks.
 	OnFileReceived func(t *Transfer)
 	OnFileOffer    func(t *Transfer) // called when remote offers a file
+
+	// OnDownloadDone fires after the mobile reports it finished the GET
+	// (or we hit ServeDownload to completion). Lets the desktop UI mark
+	// the row green.
+	OnDownloadDone func(p *PendingDownload)
 }
 
 // NewManager creates a file transfer manager.
 func NewManager(receiveDir string) *Manager {
 	return &Manager{
 		transfers:  make(map[string]*Transfer),
+		pending:    make(map[string]*PendingDownload),
 		ReceiveDir: receiveDir,
 	}
 }
@@ -329,7 +358,6 @@ func (m *Manager) ActiveTransfers() []*Transfer {
 // Cleanup closes any open files.
 func (m *Manager) Cleanup() {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	for _, t := range m.transfers {
 		t.mu.Lock()
 		if t.file != nil {
@@ -338,6 +366,134 @@ func (m *Manager) Cleanup() {
 		}
 		t.mu.Unlock()
 	}
+	m.mu.Unlock()
+
+	m.pendingMu.Lock()
+	m.pending = make(map[string]*PendingDownload)
+	m.pendingMu.Unlock()
+}
+
+// ── HTTP Download Path (desktop → mobile) ────────────────────────────
+
+// OfferDownload registers a local file as a pending download served
+// over HTTP. Returns the entry so the caller can push an
+// IncomingFileMessage over the WS to the mobile.
+func (m *Manager) OfferDownload(path string) (*PendingDownload, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("stat: %w", err)
+	}
+	if fi.IsDir() {
+		return nil, fmt.Errorf("cannot transfer directories")
+	}
+	if fi.Size() > MaxDownloadSize {
+		return nil, fmt.Errorf("file too large (%d bytes, max %d)", fi.Size(), MaxDownloadSize)
+	}
+	p := &PendingDownload{
+		ID:       generateID(),
+		Name:     filepath.Base(path),
+		Size:     fi.Size(),
+		MimeType: detectMimeType(path),
+		Path:     path,
+	}
+	m.pendingMu.Lock()
+	m.pending[p.ID] = p
+	m.pendingMu.Unlock()
+	return p, nil
+}
+
+// GetPending looks up a pending HTTP-download offer.
+func (m *Manager) GetPending(id string) *PendingDownload {
+	m.pendingMu.Lock()
+	defer m.pendingMu.Unlock()
+	return m.pending[id]
+}
+
+// MarkDownloadAccepted flips Accepted=true so concurrent GETs after a
+// reject can be 410'd.
+func (m *Manager) MarkDownloadAccepted(id string) {
+	m.pendingMu.Lock()
+	p := m.pending[id]
+	m.pendingMu.Unlock()
+	if p == nil {
+		return
+	}
+	p.mu.Lock()
+	p.Accepted = true
+	p.mu.Unlock()
+}
+
+// CancelDownload removes a pending entry without serving it. Called on
+// MsgDownloadReject so the file can no longer be fetched.
+func (m *Manager) CancelDownload(id string) {
+	m.pendingMu.Lock()
+	delete(m.pending, id)
+	m.pendingMu.Unlock()
+}
+
+// ServeDownload streams the pending file body to w. Safe for files up
+// to MaxDownloadSize — uses http.ServeContent so range requests and
+// chunked transfer-encoding work for free.
+func (m *Manager) ServeDownload(w http.ResponseWriter, r *http.Request, id string) {
+	p := m.GetPending(id)
+	if p == nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	p.mu.Lock()
+	served := p.Served
+	p.Served = true
+	p.mu.Unlock()
+	if served {
+		// Single-shot: protects against the mobile retrying after the
+		// file is already gone (e.g. desktop side cancelled).
+		http.Error(w, "already served", http.StatusGone)
+		return
+	}
+
+	f, err := os.Open(p.Path)
+	if err != nil {
+		http.Error(w, "open failed", http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+
+	fi, err := f.Stat()
+	if err != nil {
+		http.Error(w, "stat failed", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", p.MimeType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", p.Name))
+	// http.ServeContent streams via io.Copy under the hood — no full
+	// buffering — and handles range requests transparently.
+	http.ServeContent(w, r, p.Name, fi.ModTime(), f)
+
+	if m.OnDownloadDone != nil {
+		m.OnDownloadDone(p)
+	}
+}
+
+// CompleteDownload marks a pending download done and removes it. Called
+// when the mobile reports MsgDownloadComplete.
+func (m *Manager) CompleteDownload(id string) *PendingDownload {
+	m.pendingMu.Lock()
+	p := m.pending[id]
+	delete(m.pending, id)
+	m.pendingMu.Unlock()
+	return p
+}
+
+// PendingDownloads returns a snapshot of pending HTTP-download offers.
+func (m *Manager) PendingDownloads() []*PendingDownload {
+	m.pendingMu.Lock()
+	defer m.pendingMu.Unlock()
+	out := make([]*PendingDownload, 0, len(m.pending))
+	for _, p := range m.pending {
+		out = append(out, p)
+	}
+	return out
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────

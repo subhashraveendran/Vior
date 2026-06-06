@@ -67,6 +67,14 @@ type SessionHandler interface {
 	OnClientFileReject(session *protocol.Session, msg *protocol.FileRejectMessage) error
 	OnClientFileChunk(session *protocol.Session, msg *protocol.FileChunkMessage) error
 	OnClientFileComplete(session *protocol.Session, msg *protocol.FileCompleteMessage) error
+	OnClientDownloadAccept(session *protocol.Session, msg *protocol.DownloadAcceptMessage) error
+	OnClientDownloadReject(session *protocol.Session, msg *protocol.DownloadRejectMessage) error
+	OnClientDownloadComplete(session *protocol.Session, msg *protocol.DownloadCompleteMessage) error
+
+	// ServeDownload writes the pending file body for HTTP GET /download/{id}.
+	// Implementations should write 404 if the id is unknown / already served,
+	// and stream the file body (chunked) without buffering it fully in memory.
+	ServeDownload(w http.ResponseWriter, r *http.Request, id string)
 }
 
 // MJPEGServer streams JPEG frames to HTTP clients and manages WebSocket sessions.
@@ -129,6 +137,12 @@ func (s *MJPEGServer) Start() error {
 	mux.HandleFunc("/info", s.handleInfo)
 	if s.handler != nil {
 		mux.HandleFunc("/ws", s.handleWebSocket)
+		// /download/{id} → mobile fetches a file the desktop offered via
+		// the IncomingFile WS notification. Streamed via io.Copy so 2GB
+		// files don't blow up the heap. Auth: only the single connected
+		// WS client knows the id (just sent over the trusted WS), so a
+		// LAN-snooper would have to also intercept the WS to obtain it.
+		mux.HandleFunc("/download/", s.handleDownload)
 	}
 	// Serve embedded web client for all other paths.
 	mux.Handle("/", webClientHandler())
@@ -340,6 +354,20 @@ func (s *MJPEGServer) handleStream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *MJPEGServer) handleDownload(w http.ResponseWriter, r *http.Request) {
+	if s.handler == nil {
+		http.Error(w, "downloads disabled", http.StatusServiceUnavailable)
+		return
+	}
+	id := strings.TrimPrefix(r.URL.Path, "/download/")
+	id = strings.TrimSpace(id)
+	if id == "" || strings.ContainsAny(id, "/\\") {
+		http.Error(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	s.handler.ServeDownload(w, r, id)
+}
+
 func (s *MJPEGServer) handleInfo(w http.ResponseWriter, r *http.Request) {
 	name := friendlyDeviceName()
 	w.Header().Set("Content-Type", "application/json")
@@ -520,6 +548,18 @@ func (a *wsMessageAdapter) OnFileChunk(session *protocol.Session, msg *protocol.
 
 func (a *wsMessageAdapter) OnFileComplete(session *protocol.Session, msg *protocol.FileCompleteMessage) error {
 	return a.handler.OnClientFileComplete(session, msg)
+}
+
+func (a *wsMessageAdapter) OnDownloadAccept(session *protocol.Session, msg *protocol.DownloadAcceptMessage) error {
+	return a.handler.OnClientDownloadAccept(session, msg)
+}
+
+func (a *wsMessageAdapter) OnDownloadReject(session *protocol.Session, msg *protocol.DownloadRejectMessage) error {
+	return a.handler.OnClientDownloadReject(session, msg)
+}
+
+func (a *wsMessageAdapter) OnDownloadComplete(session *protocol.Session, msg *protocol.DownloadCompleteMessage) error {
+	return a.handler.OnClientDownloadComplete(session, msg)
 }
 
 // corsHandler wraps an http.Handler with permissive CORS headers.

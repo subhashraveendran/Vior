@@ -11,4 +11,7 @@ type MessageHandler interface {
 	OnFileReject(session *Session, msg *FileRejectMessage) error
 	OnFileChunk(session *Session, msg *FileChunkMessage) error
 	OnFileComplete(session *Session, msg *FileCompleteMessage) error
+	OnDownloadAccept(session *Session, msg *DownloadAcceptMessage) error
+	OnDownloadReject(session *Session, msg *DownloadRejectMessage) error
+	OnDownloadComplete(session *Session, msg *DownloadCompleteMessage) error
 }

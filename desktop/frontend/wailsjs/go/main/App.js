@@ -102,6 +102,18 @@ export function OnClientFileReject(arg1, arg2) {
   return window['go']['main']['App']['OnClientFileReject'](arg1, arg2);
 }
 
+export function OnClientDownloadAccept(arg1, arg2) {
+  return window['go']['main']['App']['OnClientDownloadAccept'](arg1, arg2);
+}
+
+export function OnClientDownloadReject(arg1, arg2) {
+  return window['go']['main']['App']['OnClientDownloadReject'](arg1, arg2);
+}
+
+export function OnClientDownloadComplete(arg1, arg2) {
+  return window['go']['main']['App']['OnClientDownloadComplete'](arg1, arg2);
+}
+
 export function OnClientInput(arg1, arg2) {
   return window['go']['main']['App']['OnClientInput'](arg1, arg2);
 }
@@ -124,6 +136,10 @@ export function ResetConfig() {
 
 export function SendFile(arg1) {
   return window['go']['main']['App']['SendFile'](arg1);
+}
+
+export function SendFileToPhone(arg1) {
+  return window['go']['main']['App']['SendFileToPhone'](arg1);
 }
 
 export function SetMenuBarVisible(arg1) {

@@ -180,6 +180,44 @@ export namespace main {
 
 export namespace protocol {
 	
+	export class DownloadAcceptMessage {
+	    id: string;
+
+	    static createFrom(source: any = {}) {
+	        return new DownloadAcceptMessage(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	    }
+	}
+	export class DownloadRejectMessage {
+	    id: string;
+	    reason?: string;
+
+	    static createFrom(source: any = {}) {
+	        return new DownloadRejectMessage(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.reason = source["reason"];
+	    }
+	}
+	export class DownloadCompleteMessage {
+	    id: string;
+
+	    static createFrom(source: any = {}) {
+	        return new DownloadCompleteMessage(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	    }
+	}
 	export class FileAcceptMessage {
 	    id: string;
 	

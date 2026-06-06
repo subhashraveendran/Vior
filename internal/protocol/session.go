@@ -174,6 +174,24 @@ func (s *Session) dispatch(env *Envelope, handler MessageHandler) error {
 			return err
 		}
 		return handler.OnFileComplete(s, msg)
+	case MsgDownloadAccept:
+		msg, err := DecodeData[DownloadAcceptMessage](env)
+		if err != nil {
+			return err
+		}
+		return handler.OnDownloadAccept(s, msg)
+	case MsgDownloadReject:
+		msg, err := DecodeData[DownloadRejectMessage](env)
+		if err != nil {
+			return err
+		}
+		return handler.OnDownloadReject(s, msg)
+	case MsgDownloadComplete:
+		msg, err := DecodeData[DownloadCompleteMessage](env)
+		if err != nil {
+			return err
+		}
+		return handler.OnDownloadComplete(s, msg)
 	default:
 		return fmt.Errorf("unexpected message type: %s", env.Type)
 	}

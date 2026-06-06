@@ -1,3 +1,4 @@
+// MIGRATED → see files.ts
 'use strict';
 // ── File transfer ──
 var CHUNK_SIZE = 48 * 1024;

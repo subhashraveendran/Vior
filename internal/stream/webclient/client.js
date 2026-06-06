@@ -213,13 +213,14 @@
     });
 
     // ── Pair-code input formatting ────────────────────────────────
+    // Pair code is the machine's stable 4-digit "phone number". Strip
+    // anything that isn't a decimal digit and clamp to 4 chars.
     var pairInput = $('pair-input');
     function formatPair(raw) {
-        var v = (raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
-        return v.length > 3 ? v.slice(0, 3) + '-' + v.slice(3) : v;
+        return (raw || '').replace(/[^0-9]/g, '').slice(0, 4);
     }
     function strippedPair() {
-        return ((pairInput && pairInput.value) || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        return ((pairInput && pairInput.value) || '').replace(/[^0-9]/g, '');
     }
     pairInput.addEventListener('input', function () {
         var f = formatPair(pairInput.value);
@@ -228,16 +229,16 @@
     pairInput.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') { e.preventDefault(); $('connect-btn').click(); }
     });
-    // Pre-fill from URL ?pair=ABC123 (server's QR uses this) or remembered.
+    // Pre-fill from URL ?pair=1234 (server's QR uses this) or remembered.
     (function bootstrapPair() {
         var u = new URL(location.href);
-        var fromUrl = (u.searchParams.get('pair') || '').toUpperCase().trim();
+        var fromUrl = formatPair(u.searchParams.get('pair') || '');
         if (fromUrl) {
             lsSet(PAIR_KEY, fromUrl);
-            pairInput.value = formatPair(fromUrl);
+            pairInput.value = fromUrl;
         } else {
-            var saved = lsGet(PAIR_KEY);
-            if (saved) pairInput.value = formatPair(saved);
+            var saved = formatPair(lsGet(PAIR_KEY));
+            if (saved) pairInput.value = saved;
         }
     })();
 
@@ -289,7 +290,7 @@
             .then(function (info) {
                 clearTimeout(to);
                 if (!info) return null;
-                if ((info.pairCode || '').toUpperCase() === pair.toUpperCase()) {
+                if ((info.pairCode || '') === pair) {
                     return { host: host, port: port, info: info };
                 }
                 return null;
@@ -363,8 +364,8 @@
 
     connectBtn.addEventListener('click', function () {
         var pair = strippedPair();
-        if (pair.length !== 6) {
-            toast('warn', 'Pair code', 'Enter the 6-character code shown on the desktop.');
+        if (pair.length !== 4) {
+            toast('warn', 'Pair code', 'Enter the 4-digit code shown on the desktop.');
             return;
         }
         lsSet(PAIR_KEY, pair);
@@ -426,6 +427,15 @@
             var h = Math.round(window.innerHeight * dpr);
             var intent = getIntent();
             var skipDisplay = intent !== 'display';
+            // Friendly platform label for the desktop "Trusted Devices"
+            // UI. Cheap UA sniff; never used for security.
+            var ua = navigator.userAgent || '';
+            var platform = 'Web';
+            if (/iPad|iPhone|iPod/.test(ua)) platform = 'iOS Web';
+            else if (/Android/.test(ua)) platform = 'Android Web';
+            else if (/Mac/.test(ua)) platform = 'Mac Web';
+            else if (/Windows/.test(ua)) platform = 'Windows Web';
+            else if (/Linux/.test(ua)) platform = 'Linux Web';
             var hello = {
                 type: 'hello',
                 data: {
@@ -435,7 +445,8 @@
                     pairCode: state.pairCode || lsGet(PAIR_KEY),
                     deviceId: state.deviceID,
                     intent: intent,
-                    skipDisplay: skipDisplay
+                    skipDisplay: skipDisplay,
+                    platform: platform
                 }
             };
             ws.send(JSON.stringify(hello));

@@ -126,10 +126,10 @@ applyOrient(localStorage.getItem('vior_orient') || 'auto');
   try {
     const text = await navigator.clipboard.readText();
     if (!text) { toast('warning', 'Clipboard empty', null); return; }
-    const m = text.match(/(?:https?:\/\/)?([\d.]+)(?::(\d+))?(?:[?&]pair=([A-F0-9]+))?/i);
+    const m = text.match(/(?:https?:\/\/)?([\d.]+)(?::(\d+))?(?:[?&]pair=([0-9A-Z]+))?/i);
     if (!m) { toast('error', 'No URL in clipboard', text.slice(0, 40)); return; }
     const host = m[1], port = parseInt(m[2] || '8080'), code = m[3] || '';
-    if (code) ($('manual-pair') as HTMLInputElement).value = code.toUpperCase();
+    if (code) ($('manual-pair') as HTMLInputElement).value = code.replace(/[^0-9]/g, '');
     ($('settings-sheet') as HTMLElement).classList.add('hidden');
     selectServer(host, port, host, '');
     doConnect();

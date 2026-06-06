@@ -53,11 +53,11 @@
         <div class="landing-card">
             <img class="logo" src="/icon.svg" alt="Vior" width="64" height="64">
             <h1 class="landing-title">Connect to Vior</h1>
-            <p class="landing-sub" id="landing-sub">Enter the 6-character pair code shown on the desktop.</p>
+            <p class="landing-sub" id="landing-sub">Enter the 4-digit pair code shown on the desktop.</p>
 
             <div class="pair-input-wrap">
-                <input id="pair-input" type="text" maxlength="7" autocomplete="off" autocapitalize="characters" spellcheck="false"
-                       inputmode="text" placeholder="ABC-123" aria-label="Pair code">
+                <input id="pair-input" type="tel" maxlength="4" autocomplete="off" spellcheck="false"
+                       inputmode="numeric" pattern="[0-9]{4}" placeholder="0000" aria-label="Pair code">
             </div>
             <button id="connect-btn" class="btn btn-primary">
                 <span class="btn-label">Connect</span>

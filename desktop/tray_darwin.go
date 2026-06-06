@@ -95,14 +95,12 @@ func startTray(ctx context.Context, app *App) {
 	})
 }
 
-// formatPairCode splits the 6-char hex pair code into "ABC-123" purely
-// for display. Kept here so both the tray and any other Go-side surface
-// share one formatter; the mobile side parses both forms transparently.
+// formatPairCode renders the pair code for the menu-bar status. The
+// code is 4 numeric digits (machine-derived) by default — no chunking
+// needed. Kept as a separate function so future longer overrides
+// (e.g. 6/8-digit) can grow grouping logic in one place.
 func formatPairCode(code string) string {
-	if len(code) <= 3 {
-		return code
-	}
-	return code[:3] + "-" + code[3:]
+	return code
 }
 
 // setMenuBarVisible toggles the NSStatusItem at runtime.

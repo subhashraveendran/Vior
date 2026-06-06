@@ -15,7 +15,7 @@ function parseScanResult(raw: string): ParsedScan {
   else {
     const u = raw.match(/^https?:\/\/([\d.]+)(?::(\d+))?/i);
     if (u) { url = 'http://' + u[1] + ':' + (u[2] || '8080'); }
-    const pm = raw.match(/[?&]pair=([A-F0-9]+)/i); if (pm) code = pm[1];
+    const pm = raw.match(/[?&]pair=([0-9A-Z]+)/i); if (pm) code = pm[1];
   }
   const hp = url.replace(/^https?:\/\//, '').split(':');
   return { host: hp[0], port: parseInt(hp[1] || '8080'), code: code };
@@ -28,7 +28,7 @@ function onScanHit(raw: string): void {
   const dot = $('qr-scanning-dot'), txt = $('qr-hint-text');
   if (dot) dot.style.background = '#3ecf6f';
   if (txt) txt.textContent = 'Decoded ' + (p.host || 'server') + ' — connecting…';
-  if (p.code) ($('manual-pair') as HTMLInputElement).value = p.code.toUpperCase();
+  if (p.code) ($('manual-pair') as HTMLInputElement).value = p.code.replace(/[^0-9]/g, '');
   toast('success', 'QR scanned', 'Connecting to ' + p.host + (p.port !== 8080 ? ':' + p.port : '') + '…');
   setTimeout(function () {
     stopQRScan();

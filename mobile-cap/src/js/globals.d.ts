@@ -96,6 +96,30 @@ declare const viorState: {
   chipLabel: (s: ViorStateData) => string;
 };
 
+// ── WS keepalive (core/ws-keepalive.ts) ──
+interface ViorKeepalive {
+  attach: (ws: WebSocket) => void;
+  notePong: () => void;
+  noteInbound: () => void;
+  stop: () => void;
+  msSinceLastPong: () => number | null;
+}
+interface ViorResumeRecord {
+  host: string;
+  port: number;
+  deviceId: string;
+  serverDeviceId?: string;
+  pair?: string;
+  ts: number;
+}
+declare const viorKeepalive: {
+  create: (cb: { onLost: (reason: string) => void }) => ViorKeepalive;
+  saveResume: (r: ViorResumeRecord) => void;
+  loadResume: () => ViorResumeRecord | null;
+  clearResume: () => void;
+  applyHealthTone: (msSincePong: number | null) => void;
+};
+
 // ── Cross-file functions defined in screen modules ──
 declare function startDiscovery(): void;
 declare function stopQRScan(): void;

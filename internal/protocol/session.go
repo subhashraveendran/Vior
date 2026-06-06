@@ -38,6 +38,48 @@ type Session struct {
 	// fires exactly once per session even when both the read-loop
 	// defer and an explicit Bye both try to invoke it.
 	disconnectOnce sync.Once
+
+	// Health metrics — updated on every message + pong. Used by the
+	// 60s "session healthy" log line and by anyone (UI, debug
+	// endpoint) who wants to read the connection's pulse without
+	// adding more callbacks. healthMu guards the lot; reads are cheap
+	// (RLock would be overkill for a 4-field struct).
+	healthMu     sync.Mutex
+	lastPongAt   time.Time
+	lastReadAt   time.Time
+	bytesIn      uint64
+	bytesOut     uint64
+	messagesIn   uint64
+}
+
+// Health snapshots the current liveness counters for a session.
+// Cheap to call from any goroutine — copied under a brief mutex.
+type Health struct {
+	LastPongAgo  time.Duration
+	LastReadAgo  time.Duration
+	BytesIn      uint64
+	BytesOut     uint64
+	MessagesIn   uint64
+}
+
+// Snapshot returns the current health counters relative to now.
+// Safe to call concurrently with the read loop.
+func (s *Session) Snapshot() Health {
+	s.healthMu.Lock()
+	defer s.healthMu.Unlock()
+	now := time.Now()
+	h := Health{
+		BytesIn:    s.bytesIn,
+		BytesOut:   s.bytesOut,
+		MessagesIn: s.messagesIn,
+	}
+	if !s.lastPongAt.IsZero() {
+		h.LastPongAgo = now.Sub(s.lastPongAt)
+	}
+	if !s.lastReadAt.IsZero() {
+		h.LastReadAgo = now.Sub(s.lastReadAt)
+	}
+	return h
 }
 
 // FireDisconnect runs fn exactly once for the lifetime of this session.
@@ -50,10 +92,13 @@ func (s *Session) FireDisconnect(fn func()) {
 
 // NewSession creates a session from an upgraded WebSocket connection.
 func NewSession(conn *websocket.Conn) *Session {
+	now := time.Now()
 	return &Session{
-		ID:        generateID(),
-		Conn:      conn,
-		CreatedAt: time.Now(),
+		ID:         generateID(),
+		Conn:       conn,
+		CreatedAt:  now,
+		lastPongAt: now,
+		lastReadAt: now,
 	}
 }
 
@@ -64,12 +109,19 @@ func (s *Session) Send(msgType MessageType, data any) error {
 		return fmt.Errorf("encode: %w", err)
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.closed {
+		s.mu.Unlock()
 		return fmt.Errorf("session closed")
 	}
 	s.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-	return s.Conn.WriteMessage(websocket.TextMessage, b)
+	writeErr := s.Conn.WriteMessage(websocket.TextMessage, b)
+	s.mu.Unlock()
+	if writeErr == nil {
+		s.healthMu.Lock()
+		s.bytesOut += uint64(len(b))
+		s.healthMu.Unlock()
+	}
+	return writeErr
 }
 
 // ReadLoop reads messages from the client and dispatches them to the handler.
@@ -78,12 +130,21 @@ func (s *Session) ReadLoop(handler MessageHandler) error {
 	s.Conn.SetReadLimit(maxMessageSize)
 	s.Conn.SetReadDeadline(time.Now().Add(pongWait))
 	s.Conn.SetPongHandler(func(string) error {
+		// Spec-level pong (gorilla driver). Refresh the read deadline
+		// and snapshot the time so the health logger / mobile UI can
+		// see freshness even when the only traffic is keepalive.
 		s.Conn.SetReadDeadline(time.Now().Add(pongWait))
+		s.healthMu.Lock()
+		s.lastPongAt = time.Now()
+		s.healthMu.Unlock()
 		return nil
 	})
 
-	// Start ping ticker.
+	// Start ping ticker + 60s health logger.
 	go s.pingLoop()
+	stopHealth := make(chan struct{})
+	go s.healthLogger(stopHealth)
+	defer close(stopHealth)
 
 	for {
 		_, msg, err := s.Conn.ReadMessage()
@@ -94,15 +155,72 @@ func (s *Session) ReadLoop(handler MessageHandler) error {
 			return err
 		}
 
+		// Bump byte/message counters under the same brief lock used by
+		// Snapshot/healthLogger. Refreshing lastReadAt here (in addition
+		// to the spec-pong refresh above) means any in-band message
+		// counts as a liveness proof — useful when Doze suspends the
+		// mobile's ping timer but the user is actively typing.
+		s.healthMu.Lock()
+		s.bytesIn += uint64(len(msg))
+		s.messagesIn++
+		s.lastReadAt = time.Now()
+		s.healthMu.Unlock()
+
 		env, err := Decode(msg)
 		if err != nil {
 			log.Printf("protocol: ws decode error [%s]: %v", s.ID, err)
 			continue
 		}
 
+		// App-level ping/pong is handled inline — never reaches the
+		// SessionHandler. Browsers can't issue spec ping frames, so
+		// mobile clients fake it with an in-band MsgPing every 15s and
+		// expect a MsgPong reply. Treating it as a normal message also
+		// updates lastReadAt above, which doubles as the freshness
+		// signal for the health logger.
+		if env.Type == MsgPing {
+			s.healthMu.Lock()
+			s.lastPongAt = time.Now()
+			s.healthMu.Unlock()
+			if err := s.Send(MsgPong, nil); err != nil {
+				log.Printf("protocol: ws pong send failed [%s]: %v", s.ID, err)
+			}
+			continue
+		}
+		if env.Type == MsgPong {
+			// Symmetric path — if the desktop ever drives pings (it
+			// doesn't today; gorilla's spec ping is plenty), this is
+			// where we'd record the round-trip.
+			s.healthMu.Lock()
+			s.lastPongAt = time.Now()
+			s.healthMu.Unlock()
+			continue
+		}
+
 		if err := s.dispatch(env, handler); err != nil {
 			log.Printf("protocol: ws dispatch error [%s] type=%s: %v", s.ID, env.Type, err)
 			s.Send(MsgError, &ErrorMessage{Code: "handler_error", Message: err.Error()})
+		}
+	}
+}
+
+// healthLogger emits one structured log line every 60s for the life of
+// the session. Quiet by design — the user complaint we're diagnosing is
+// "the connection drops without warning", so one line per minute is
+// enough to spot silent gaps in the timestamp series. Stops when the
+// caller closes stop (typically the ReadLoop's defer).
+func (s *Session) healthLogger(stop <-chan struct{}) {
+	t := time.NewTicker(60 * time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-t.C:
+			h := s.Snapshot()
+			log.Printf("protocol: session %s healthy: msgs=%d in=%dB out=%dB lastPong=%dms lastRead=%dms",
+				s.ID, h.MessagesIn, h.BytesIn, h.BytesOut,
+				h.LastPongAgo.Milliseconds(), h.LastReadAgo.Milliseconds())
 		}
 	}
 }

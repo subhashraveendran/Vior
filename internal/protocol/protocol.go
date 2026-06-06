@@ -30,6 +30,16 @@ const (
 	MsgDownloadAccept   MessageType = "download-accept"
 	MsgDownloadReject   MessageType = "download-reject"
 	MsgDownloadComplete MessageType = "download-complete"
+
+	// Application-level keepalive. Browsers can't issue WebSocket-spec
+	// pings (the API doesn't expose ping frames), but Android Doze /
+	// App-Standby will suspend timers AND silently kill TCP sockets in
+	// the background — meaning the underlying gorilla ping frame never
+	// reaches the client. App-level ping/pong lets the mobile drive the
+	// liveness check itself: send MsgPing every 15s, expect MsgPong, if
+	// none in 20s force-close + reconnect.
+	MsgPing MessageType = "ping"
+	MsgPong MessageType = "pong"
 )
 
 // Envelope is the outer JSON wrapper for all WebSocket messages.

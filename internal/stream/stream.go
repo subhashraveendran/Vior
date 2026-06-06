@@ -36,6 +36,73 @@ func TrustedDevices() *trust.Store { return trustedDevices }
 // terminal and exposed via /info + embedded in the QR for verification.
 var pairCode = generatePairCode()
 
+// pairAttempts tracks failed pair-code submissions per remote IP. A
+// script kiddie on the LAN can otherwise brute-force a 6-char hex pair
+// (16.7M combos, but file transfers are the prize) in hours by spamming
+// hellos. Throttle each IP to maxPairAttempts every pairAttemptWindow.
+const (
+	maxPairAttempts   = 5
+	pairAttemptWindow = time.Minute
+)
+
+type pairAttemptBucket struct {
+	times []time.Time
+}
+
+var (
+	pairAttemptsMu sync.Mutex
+	pairAttempts   = map[string]*pairAttemptBucket{}
+)
+
+// recordPairAttempt registers a failed attempt from ip. Returns true if
+// the IP is now over the limit and should be refused.
+func recordPairAttempt(ip string) bool {
+	if ip == "" {
+		return false
+	}
+	now := time.Now()
+	cutoff := now.Add(-pairAttemptWindow)
+	pairAttemptsMu.Lock()
+	defer pairAttemptsMu.Unlock()
+	b := pairAttempts[ip]
+	if b == nil {
+		b = &pairAttemptBucket{}
+		pairAttempts[ip] = b
+	}
+	// Drop expired entries.
+	pruned := b.times[:0]
+	for _, t := range b.times {
+		if t.After(cutoff) {
+			pruned = append(pruned, t)
+		}
+	}
+	pruned = append(pruned, now)
+	b.times = pruned
+	return len(b.times) > maxPairAttempts
+}
+
+// clearPairAttempts drops the bucket for ip — called after a successful
+// admission so an honest device that mistyped once doesn't carry the
+// counter into a permanent ban.
+func clearPairAttempts(ip string) {
+	if ip == "" {
+		return
+	}
+	pairAttemptsMu.Lock()
+	delete(pairAttempts, ip)
+	pairAttemptsMu.Unlock()
+}
+
+// remoteIP extracts the bare IP (no port) from a RemoteAddr like
+// "192.168.1.50:54321" or an IPv6 "[::1]:54321".
+func remoteIP(remoteAddr string) string {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		return remoteAddr
+	}
+	return host
+}
+
 func generatePairCode() string {
 	b := make([]byte, 3)
 	if _, err := rand.Read(b); err != nil {
@@ -472,10 +539,12 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	//   2. Correct pair code present                                → admit + add to trust store
 	//   3. Otherwise                                                → reject
 	// This way the user only enters the code once per physical device.
+	ip := remoteIP(r.RemoteAddr)
 	switch {
 	case trustedDevices.IsTrusted(hello.DeviceID):
 		log.Printf("ws admitted trusted device [%s] id=%s", session.ID, hello.DeviceID)
 		_ = trustedDevices.Add(hello.DeviceID, hello.Name) // touch LastSeen
+		clearPairAttempts(ip)
 	case strings.EqualFold(strings.TrimSpace(hello.PairCode), pairCode):
 		if hello.DeviceID != "" {
 			if err := trustedDevices.Add(hello.DeviceID, hello.Name); err != nil {
@@ -484,12 +553,25 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				log.Printf("ws paired new device [%s] id=%s name=%q", session.ID, hello.DeviceID, hello.Name)
 			}
 		}
+		clearPairAttempts(ip)
 	default:
-		log.Printf("ws pair mismatch [%s]: got %q want %q (deviceID=%q untrusted)", session.ID, hello.PairCode, pairCode, hello.DeviceID)
-		session.Send(protocol.MsgError, &protocol.ErrorMessage{
-			Code:    "pair_mismatch",
-			Message: "Pair code missing or incorrect. Check the code shown on the desktop.",
-		})
+		// Brute-force throttle: 5 wrong codes / minute / IP → 429 +
+		// close. Without this a script on the LAN could enumerate the
+		// 16M-combo hex pair code in roughly a day.
+		over := recordPairAttempt(ip)
+		log.Printf("stream: pair mismatch [%s] from %s: got %q want %q (deviceID=%q untrusted) over=%v",
+			session.ID, ip, hello.PairCode, pairCode, hello.DeviceID, over)
+		if over {
+			session.Send(protocol.MsgError, &protocol.ErrorMessage{
+				Code:    "rate_limited",
+				Message: "Too many failed pair attempts. Wait a minute and try again.",
+			})
+		} else {
+			session.Send(protocol.MsgError, &protocol.ErrorMessage{
+				Code:    "pair_mismatch",
+				Message: "Pair code missing or incorrect. Check the code shown on the desktop.",
+			})
+		}
 		return
 	}
 

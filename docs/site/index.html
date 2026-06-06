@@ -20,6 +20,7 @@
 <meta name="twitter:card" content="summary_large_image">
 
 <link rel="stylesheet" href="style.css">
+<script src="https://unpkg.com/@lottiefiles/dotlottie-wc@0.6.2/dist/dotlottie-wc.js" type="module"></script>
 </head>
 <body>
 
@@ -36,7 +37,6 @@
     </a>
     <div class="nav-links">
       <a href="#features">Features</a>
-      <a href="#shots">Screens</a>
       <a href="#how">How it works</a>
       <a href="#platforms">Platforms</a>
       <a href="https://github.com/subhashraveendran/Vior">GitHub</a>
@@ -48,9 +48,9 @@
 <!-- ── Hero ── -->
 <header class="hero">
   <div class="wrap hero-grid">
-    <div class="hero-copy">
+    <div class="hero-copy reveal">
       <div class="eyebrow">
-        <span class="dot"></span> v0.4 · phase 2 shipped
+        <span class="dot"></span> <span id="release-tag">v0.4 · phase 2 shipped</span>
       </div>
 
       <div class="wordmark">
@@ -65,7 +65,7 @@
       </p>
 
       <div class="hero-ctas">
-        <a class="btn btn-primary" href="https://github.com/subhashraveendran/Vior/releases">
+        <a id="release-cta" class="btn btn-primary" href="https://github.com/subhashraveendran/Vior/releases">
           Download
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v14"/><path d="m6 11 6 6 6-6"/><path d="M5 21h14"/></svg>
         </a>
@@ -94,8 +94,30 @@
       <div class="radar-tick t1"></div>
       <div class="radar-tick t2"></div>
       <div class="radar-tick t3"></div>
+
       <div class="radar-core">
-        <img src="img/icon.svg" alt="" width="92" height="92" style="border-radius: 22px; display: block;">
+        <!-- Minimal radar: 3 rings + sweep arm + center brand glyph. -->
+        <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="rg-sweep" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0%"   stop-color="rgba(255,138,76,0)"/>
+              <stop offset="100%" stop-color="rgba(255,138,76,0.45)"/>
+            </linearGradient>
+          </defs>
+          <g fill="none" stroke="rgba(255,138,76,0.18)" stroke-width="0.8">
+            <circle cx="120" cy="120" r="50"/>
+            <circle cx="120" cy="120" r="85"/>
+            <circle cx="120" cy="120" r="118"/>
+          </g>
+          <g transform-origin="120 120">
+            <path d="M120 120 L120 2 A 118 118 0 0 1 235 100 Z" fill="url(#rg-sweep)" opacity="0.85">
+              <animateTransform attributeName="transform" type="rotate"
+                                from="0 120 120" to="360 120 120" dur="5s"
+                                repeatCount="indefinite"/>
+            </path>
+          </g>
+          <image href="img/icon.svg" x="80" y="80" width="80" height="80"/>
+        </svg>
       </div>
     </div>
   </div>
@@ -105,10 +127,10 @@
 <section class="section" id="features">
   <div class="wrap">
     <div class="section-label">// what it does</div>
-    <h2 class="section-title">Everything in one app.</h2>
+    <h2 class="section-title reveal">Everything in one app.</h2>
     <p class="section-sub">No accounts. No cloud. No subscription. Just your phone, your computer, and your network.</p>
 
-    <div class="features">
+    <div class="features reveal-stagger">
       <div class="feature">
         <div class="feature-icon">
           <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
@@ -174,59 +196,84 @@
   </div>
 </section>
 
-<!-- ── Screenshots ── -->
-<section class="section" id="shots">
-  <div class="wrap">
-    <div class="section-label">// see it</div>
-    <h2 class="section-title">Built like a product, not a script.</h2>
-    <p class="section-sub">Cool dark theme, Geist throughout, orange where it matters. The mobile app and desktop app share one design language.</p>
-
-    <div class="shots">
-      <div class="shot">
-        <div class="phone-frame">
-          <img src="img/mobile-display.png" alt="Vior mobile — Display tab with QR scan and manual connect">
-        </div>
-        <div class="shot-label"><strong>Display</strong>discover &amp; connect</div>
-      </div>
-      <div class="shot">
-        <div class="phone-frame">
-          <img src="img/mobile-files.png" alt="Vior mobile — Files tab waiting for a session">
-        </div>
-        <div class="shot-label"><strong>Files</strong>drop &amp; receive</div>
-      </div>
-      <div class="shot">
-        <div class="phone-frame">
-          <img src="img/mobile-remote.png" alt="Vior mobile — Remote tab with trackpad and shortcuts">
-        </div>
-        <div class="shot-label"><strong>Remote</strong>trackpad &amp; shortcuts</div>
-      </div>
-      <div class="shot shot-desktop">
-        <div class="mac-frame">
-          <img src="img/desktop-connected.png" alt="Vior desktop — Server tab ready to broadcast">
-        </div>
-        <div class="shot-label"><strong>Desktop</strong>start server, share QR</div>
-      </div>
-    </div>
-  </div>
-</section>
 
 <!-- ── How it works ── -->
 <section class="section" id="how">
   <div class="wrap">
     <div class="section-label">// how it works</div>
-    <h2 class="section-title">Connect in 3 steps.</h2>
+    <h2 class="section-title reveal">Connect in 3 steps.</h2>
     <p class="section-sub">No accounts, no setup wizard, no driver install. Just three taps.</p>
 
-    <div class="steps">
+    <div class="steps reveal-stagger">
       <div class="step">
+        <!-- Step 1: animated server-start power button -->
+        <div class="step-anim">
+          <svg viewBox="0 0 120 120" width="86" height="86" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="60" cy="60" r="44" stroke-opacity="0.18"/>
+            <circle cx="60" cy="60" r="44" stroke-dasharray="276" stroke-dashoffset="276">
+              <animate attributeName="stroke-dashoffset" from="276" to="0" dur="1.4s" begin="0s;4s" fill="freeze"/>
+              <animate attributeName="stroke-dashoffset" from="0" to="276" dur="0.4s" begin="3.6s" fill="freeze"/>
+            </circle>
+            <path d="M60 38 V 60"/>
+            <path d="M44 50 A 22 22 0 1 0 76 50"/>
+          </svg>
+        </div>
         <h3>1. Start on computer</h3>
         <p>Open Vior on your Mac, Linux, or Windows machine and click <code>Start Server</code>. You'll see a QR code and a 6-digit pair code.</p>
       </div>
       <div class="step">
+        <!-- Step 2: animated QR with scanning bar -->
+        <div class="step-anim">
+          <svg viewBox="0 0 120 120" width="86" height="86" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="14" y="14" width="92" height="92" rx="6" stroke-opacity="0.35"/>
+            <!-- QR finder squares -->
+            <g fill="var(--accent)" stroke="none">
+              <rect x="22" y="22" width="18" height="18" rx="2"/>
+              <rect x="80" y="22" width="18" height="18" rx="2"/>
+              <rect x="22" y="80" width="18" height="18" rx="2"/>
+              <rect x="27" y="27" width="8" height="8" rx="1" fill="var(--bg)"/>
+              <rect x="85" y="27" width="8" height="8" rx="1" fill="var(--bg)"/>
+              <rect x="27" y="85" width="8" height="8" rx="1" fill="var(--bg)"/>
+              <!-- Sparse data dots -->
+              <rect x="50" y="50" width="4" height="4"/><rect x="58" y="50" width="4" height="4"/>
+              <rect x="66" y="58" width="4" height="4"/><rect x="74" y="66" width="4" height="4"/>
+              <rect x="50" y="66" width="4" height="4"/><rect x="58" y="74" width="4" height="4"/>
+            </g>
+            <!-- Scanning bar -->
+            <line x1="14" y1="20" x2="106" y2="20" stroke="#46d39a" stroke-width="2.5" opacity="0.85">
+              <animate attributeName="y1" values="20;100;20" dur="2.2s" repeatCount="indefinite"/>
+              <animate attributeName="y2" values="20;100;20" dur="2.2s" repeatCount="indefinite"/>
+            </line>
+          </svg>
+        </div>
         <h3>2. Open on phone</h3>
         <p>Open the Vior Android app (or any browser on iOS). It finds your computer automatically over Wi-Fi, or you can scan the QR code.</p>
       </div>
       <div class="step">
+        <!-- Step 3: animated 6-char pair code + checkmark on success -->
+        <div class="step-anim">
+          <svg viewBox="0 0 160 80" width="140" height="70" fill="none" stroke="var(--text-1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <g font-family="ui-monospace, Menlo, monospace" font-size="20" font-weight="600" fill="var(--accent)" stroke="none" letter-spacing="6">
+              <text x="10" y="38">A</text>
+              <text x="30" y="38">7</text>
+              <text x="50" y="38">D</text>
+              <text x="70" y="38">3</text>
+              <text x="90" y="38">F</text>
+              <text x="110" y="38">2
+                <animate attributeName="opacity" values="1;0.3;1" dur="1.6s" repeatCount="indefinite"/>
+              </text>
+            </g>
+            <!-- Underline -->
+            <line x1="10" y1="48" x2="130" y2="48" stroke="var(--accent-line)" stroke-width="1.5"/>
+            <!-- Checkmark -->
+            <g transform="translate(135,55)" stroke="#46d39a" stroke-width="2.6">
+              <circle cx="10" cy="10" r="11" stroke-opacity="0.3"/>
+              <path d="M5 10 L9 14 L16 7">
+                <animate attributeName="stroke-dasharray" from="0 30" to="30 0" dur="0.6s" begin="0.4s;3s" fill="freeze"/>
+              </path>
+            </g>
+          </svg>
+        </div>
         <h3>3. Enter pair code · once</h3>
         <p>Type the 6-digit code shown on the desktop. From then on, that device is trusted — it auto-connects without asking again.</p>
       </div>
@@ -238,10 +285,10 @@
 <section class="section" id="platforms">
   <div class="wrap">
     <div class="section-label">// runs on</div>
-    <h2 class="section-title">Cross-platform from day one.</h2>
+    <h2 class="section-title reveal">Cross-platform from day one.</h2>
     <p class="section-sub">Server runs natively on macOS, Linux, and Windows. Mobile client is an Android APK — iOS app is coming soon (Wi-Fi today via Safari + Add to Home Screen).</p>
 
-    <div class="platforms">
+    <div class="platforms reveal">
       <table>
         <thead>
           <tr>
@@ -307,7 +354,7 @@
 <section class="section">
   <div class="wrap">
     <div class="section-label">// stack</div>
-    <h2 class="section-title">Built with boring, durable tools.</h2>
+    <h2 class="section-title reveal">Built with boring, durable tools.</h2>
     <p class="section-sub">No frameworks-of-the-week. Everything below has been in production for years.</p>
 
     <div class="chips">
@@ -341,7 +388,6 @@
         <div class="foot-col">
           <h4>Product</h4>
           <a href="https://github.com/subhashraveendran/Vior/releases">Download</a>
-          <a href="#shots">Screenshots</a>
           <a href="#platforms">Platforms</a>
         </div>
         <div class="foot-col">
@@ -365,5 +411,6 @@
   </div>
 </footer>
 
+<script src="parallax.js" defer></script>
 </body>
 </html>

@@ -55,6 +55,18 @@ func (h *captureHandler) OnClientFileChunk(*protocol.Session, *protocol.FileChun
 func (h *captureHandler) OnClientFileComplete(*protocol.Session, *protocol.FileCompleteMessage) error {
 	return nil
 }
+func (h *captureHandler) OnClientDownloadAccept(*protocol.Session, *protocol.DownloadAcceptMessage) error {
+	return nil
+}
+func (h *captureHandler) OnClientDownloadReject(*protocol.Session, *protocol.DownloadRejectMessage) error {
+	return nil
+}
+func (h *captureHandler) OnClientDownloadComplete(*protocol.Session, *protocol.DownloadCompleteMessage) error {
+	return nil
+}
+func (h *captureHandler) ServeDownload(w http.ResponseWriter, _ *http.Request, _ string) {
+	http.NotFound(w, nil)
+}
 
 // TestRemoteTabInputReachesHandler simulates the mobile Remote-tab path:
 // open WS, send hello with valid pair code, then a stream of mouse/key

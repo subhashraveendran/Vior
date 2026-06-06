@@ -1,3 +1,4 @@
+// MIGRATED → see remote.ts
 'use strict';
 // ── Remote trackpad ──
 var trackpad = $('trackpad'), trackpadHint = $('trackpad-hint');

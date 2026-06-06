@@ -1,3 +1,4 @@
+// MIGRATED → see settings.ts
 'use strict';
 // ── Settings sheet ──
 $('settings-btn').addEventListener('click', function () { $('settings-sheet').classList.remove('hidden'); });

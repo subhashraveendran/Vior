@@ -11,7 +11,6 @@
 // no display to describe. Those panels only appear after pairing.
 import React from 'react'
 import { Icons } from '../lib/icons'
-import QR from '../lib/QR'
 import type { WaitingScreenProps as BaseWaitingScreenProps, ServerStatus } from '../types'
 
 interface WaitingScreenProps extends BaseWaitingScreenProps {
@@ -32,7 +31,6 @@ function formatPair(code: string | undefined): string {
 export default function WaitingScreen({ status, onStop, onCopy, onCopyPair, disconnectBanner }: WaitingScreenProps): React.JSX.Element {
   const s: ServerStatus | null = status
   const url = s?.url || ''
-  const seed = s?.url || 'vior'
   const pairDisplay = formatPair(s?.pairCode)
   return (
     <div className="waiting-v2">
@@ -50,12 +48,17 @@ export default function WaitingScreen({ status, onStop, onCopy, onCopyPair, disc
         </div>
         <div className="waiting-headline">Scan to connect</div>
         <div className="waiting-sub">
-          Open Vior on your phone and either scan the QR or enter the pair code.
-          Vior on your phone should also appear in its device list automatically.
+          Open the Vior mobile app on your phone and scan this QR with the
+          in-app scanner, or enter the pair code shown below. Both devices must
+          be on the same Wi-Fi network.
         </div>
 
         <div className="waiting-qr-wrap">
-          <QR size={280} seed={seed} />
+          {s?.qrCodeDataUrl ? (
+            <img src={s.qrCodeDataUrl} alt="QR code — scan with Vior mobile app" style={{ width: 280, height: 280, borderRadius: 14, border: '1px solid var(--border)' }} />
+          ) : (
+            <div className="waiting-qr-wrap" style={{ width: 280, height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)' }}>QR loading…</div>
+          )}
         </div>
 
         <div className="waiting-actions">

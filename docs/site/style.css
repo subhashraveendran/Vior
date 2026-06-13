@@ -821,3 +821,47 @@ footer {
   .radar { max-width: 320px; min-height: 240px; }
 }
 
+/* ── Walkthrough (user flow steps) ── */
+.walkthrough {
+  display: flex; flex-direction: column; gap: 16px;
+  max-width: 780px;
+}
+.walk-step {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 24px 28px;
+}
+.walk-step h3 {
+  font-size: 17px; font-weight: 600;
+  letter-spacing: -0.015em;
+  margin: 0 0 10px;
+  display: flex; align-items: center; gap: 10px;
+}
+.walk-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 28px; height: 28px;
+  background: var(--accent-weak);
+  color: var(--accent);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 13px; font-weight: 600;
+}
+.walk-step p {
+  font-size: 14.5px; color: var(--text-2);
+  line-height: 1.55;
+  margin: 0;
+}
+.walk-step p + p { margin-top: 10px; }
+.walk-note {
+  font-size: 12.5px !important;
+  color: var(--text-3) !important;
+  background: var(--surface-2);
+  padding: 10px 14px;
+  border-radius: 8px;
+  border-left: 3px solid var(--accent-line);
+}
+@media (max-width: 640px) {
+  .walk-step { padding: 18px 20px; }
+}
+

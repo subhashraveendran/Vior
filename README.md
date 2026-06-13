@@ -26,7 +26,7 @@ What you get:
 
 - **macOS extended display** via the private `CGVirtualDisplay` API — no kernel extension, no signed driver, no Sidecar-style device whitelist.
 - **One binary** per OS. No installer wizard on macOS or Linux. Windows needs an optional IDD driver only for virtual-display mode.
-- **No account, no telemetry.** Pair once with a 6-digit code; the desktop and phone find each other over UDP broadcast on the LAN.
+- **No account, no telemetry.** Pair once with a 4-digit code; the desktop and phone find each other over UDP broadcast on the LAN.
 - **Wi-Fi *and* USB.** AOA (Android Open Accessory) lets the phone connect with a plain USB cable, no ADB and no developer mode.
 - **Cross-platform from day one.** macOS, Linux (X11), Windows server. Android client today, iOS via Safari PWA, native iOS planned.
 
@@ -71,9 +71,9 @@ vior start
 
 ### First run
 
-1. Launch the desktop app and click **Start Server**. You will see one or more LAN URLs, a QR code, and a 6-digit pair code.
+1. Launch the desktop app and click **Start Server**. You will see one or more LAN URLs, a QR code, and a 4-digit pair code.
 2. Open Vior on the phone. It auto-discovers the desktop over UDP broadcast. If discovery is blocked, scan the QR code or type the URL.
-3. Enter the 6-digit pair code once. The device is added to `~/.vior/trusted.json` and reconnects automatically next time.
+3. Enter the 4-digit pair code once. The device is added to `~/.vior/trusted.json` and reconnects automatically next time.
 
 ## Features
 
@@ -165,7 +165,7 @@ Three transports share one envelope shape:
 
 Vior is designed for trusted LANs (home, office, hotspot). The threat model and what is actually protected:
 
-- On every connection the phone sends `{deviceId, pairCode?}` in its hello. The server admits the session iff (a) the `deviceId` is already in `~/.vior/trusted.json`, or (b) the `pairCode` matches the 6-character hex code printed alongside the URL.
+- On every connection the phone sends `{deviceId, pairCode?}` in its hello. The server admits the session iff (a) the `deviceId` is already in `~/.vior/trusted.json`, or (b) the `pairCode` matches the 4-digit numeric code printed alongside the URL.
 - Successfully paired devices are written to `~/.vior/trusted.json` (mode `0600`) and skip the pair prompt on subsequent connects. The user can revoke a device by deleting it from the file. File-transfer offers from a trusted device auto-accept; offers from a freshly-paired device require Accept on the desktop.
 - The pair code is regenerated on every server start. Restart the server to invalidate all unsaved sessions.
 - All traffic stays on your LAN. There is no telemetry, no analytics, no remote endpoint of any kind. Run `grep -ri "http" internal/ | grep -v test` to verify.

@@ -38,6 +38,8 @@
     <div class="nav-links">
       <a href="#features">Features</a>
       <a href="#how">How it works</a>
+      <a href="#walkthrough">Walkthrough</a>
+      <a href="#usb-flow">USB</a>
       <a href="#platforms">Platforms</a>
       <a href="https://github.com/subhashraveendran/Vior">GitHub</a>
       <a href="https://github.com/subhashraveendran/Vior/releases" class="nav-cta">Download</a>
@@ -181,7 +183,7 @@
           </svg>
         </div>
         <h3>Pair-code security</h3>
-        <p>One-time 6-digit code on the desktop. Trusted devices reconnect instantly — no re-pairing.</p>
+        <p>One-time 4-digit code on the desktop. Trusted devices reconnect instantly — no re-pairing.</p>
       </div>
       <div class="feature">
         <div class="feature-icon">
@@ -219,7 +221,7 @@
           </svg>
         </div>
         <h3>1. Start on computer</h3>
-        <p>Open Vior on your Mac, Linux, or Windows machine and click <code>Start Server</code>. You'll see a QR code and a 6-digit pair code.</p>
+        <p>Open Vior on your Mac, Linux, or Windows machine and click <code>Start Server</code>. You'll see a QR code and a 4-digit pair code.</p>
       </div>
       <div class="step">
         <!-- Step 2: animated QR with scanning bar -->
@@ -250,23 +252,19 @@
         <p>Open the Vior Android app (or any browser on iOS). It finds your computer automatically over Wi-Fi, or you can scan the QR code.</p>
       </div>
       <div class="step">
-        <!-- Step 3: animated 6-char pair code + checkmark on success -->
+        <!-- Step 3: animated 4-digit pair code + checkmark on success -->
         <div class="step-anim">
-          <svg viewBox="0 0 160 80" width="140" height="70" fill="none" stroke="var(--text-1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <g font-family="ui-monospace, Menlo, monospace" font-size="20" font-weight="600" fill="var(--accent)" stroke="none" letter-spacing="6">
-              <text x="10" y="38">A</text>
-              <text x="30" y="38">7</text>
-              <text x="50" y="38">D</text>
-              <text x="70" y="38">3</text>
-              <text x="90" y="38">F</text>
-              <text x="110" y="38">2
+          <svg viewBox="0 0 120 80" width="110" height="70" fill="none" stroke="var(--text-1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <g font-family="ui-monospace, Menlo, monospace" font-size="24" font-weight="700" fill="var(--accent)" stroke="none" letter-spacing="8">
+              <text x="10" y="38">4</text>
+              <text x="36" y="38">8</text>
+              <text x="62" y="38">2</text>
+              <text x="88" y="38">1
                 <animate attributeName="opacity" values="1;0.3;1" dur="1.6s" repeatCount="indefinite"/>
               </text>
             </g>
-            <!-- Underline -->
-            <line x1="10" y1="48" x2="130" y2="48" stroke="var(--accent-line)" stroke-width="1.5"/>
-            <!-- Checkmark -->
-            <g transform="translate(135,55)" stroke="#46d39a" stroke-width="2.6">
+            <line x1="10" y1="48" x2="110" y2="48" stroke="var(--accent-line)" stroke-width="1.5"/>
+            <g transform="translate(115,55)" stroke="#46d39a" stroke-width="2.6">
               <circle cx="10" cy="10" r="11" stroke-opacity="0.3"/>
               <path d="M5 10 L9 14 L16 7">
                 <animate attributeName="stroke-dasharray" from="0 30" to="30 0" dur="0.6s" begin="0.4s;3s" fill="freeze"/>
@@ -275,7 +273,123 @@
           </svg>
         </div>
         <h3>3. Enter pair code · once</h3>
-        <p>Type the 6-digit code shown on the desktop. From then on, that device is trusted — it auto-connects without asking again.</p>
+        <p>Type the 4-digit code shown on the desktop. From then on, that device is trusted — it auto-connects without asking again.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Full user flow ── -->
+<section class="section" id="walkthrough">
+  <div class="wrap">
+    <div class="section-label">// what you'll see</div>
+    <h2 class="section-title reveal">First time? Here's exactly what happens.</h2>
+    <p class="section-sub">No guesswork. Every screen, every button, explained.</p>
+
+    <div class="walkthrough reveal-stagger">
+
+      <div class="walk-step">
+        <h3><span class="walk-num">Desktop</span> Idle → Waiting</h3>
+        <p>Open Vior on your computer. You'll see an amber dot saying "Not broadcasting" and one big orange button: <strong>Start Server</strong>. Click it — the button shows a spinner, says "Starting…", then the screen changes to show a green pulsing dot, a <strong>real scannable QR code</strong>, and a <strong>4-digit pair code</strong> at the bottom. You also get Copy URL and Copy pair code buttons for sharing manually.</p>
+        <p class="walk-note">No loading spinner before? Fixed. No confirmation on stop? Fixed. QR was fake decorative grid before? Fixed — it's real now.</p>
+      </div>
+
+      <div class="walk-step">
+        <h3><span class="walk-num">Phone</span> Launch → Discovery</h3>
+        <p>Open the Vior Android app. First time ever: you pick your intent — <strong>Display</strong> (second screen), <strong>Remote</strong> (trackpad + keyboard), or <strong>Files</strong> (send/receive). Pick once, never asked again. The app scans your local network (254 addresses in parallel, ~1.5 seconds) looking for the desktop. Your computer appears as a row: name, IP, green dot. <strong>Tap the row</strong> — no separate "Connect" button needed.</p>
+        <p class="walk-note">If no server found: a cascade appears — scan QR → type pair code → type IP manually. Each step has an escape hatch. USB cable toggle is just above.</p>
+      </div>
+
+      <div class="walk-step">
+        <h3><span class="walk-num">Pair</span> First time only</h3>
+        <p>If this is your first connection to this computer, the phone shows a modal: "Pair this device — Enter the 4-digit code shown on the desktop." Type the 4 digits, tap Connect. From then on, that device is <strong>trusted forever</strong> — reconnects instantly without re-entering the code. Manage trusted devices in Settings.</p>
+        <p class="walk-note">Rate-limited: 5 wrong attempts per minute per device. Trust store at ~/.vior/trusted.json (0600).</p>
+      </div>
+
+      <div class="walk-step">
+        <h3><span class="walk-num">Connected</span> What you can do</h3>
+        <p>Once connected, the bottom tab bar appears: <strong>Display, Files, Remote</strong>. On the Display tab, tap <strong>View Stream</strong> to see your desktop screen on your phone — touch the screen to control the mouse. The desktop shows <strong>Extend</strong> (phone is a second monitor) or <strong>Mirror</strong> (phone shows the same screen). Both modes are one tap and the desktop immediately reconfigures.</p>
+      </div>
+
+      <div class="walk-step">
+        <h3><span class="walk-num">Files</span> Send anything</h3>
+        <p>On the phone: tap <strong>Send File</strong> or <strong>Send Photo</strong>, pick something, and it transfers over your Wi-Fi in 48KB chunks with <strong>SHA-256 verification</strong> on both ends. Desktop shows an Accept/Decline modal with a preview thumbnail. Trusted devices auto-accept. On desktop: click "Send file to phone" in the Connected screen, pick a file, phone shows Accept/Decline. Files go to ~/Downloads/Vior.</p>
+        <p class="walk-note">2 GB max. Path traversal blocked. Windows reserved names rejected. USB doesn't support file transfer yet.</p>
+      </div>
+
+      <div class="walk-step">
+        <h3><span class="walk-num">Remote</span> Trackpad + Keyboard</h3>
+        <p>Swipe on the trackpad area to move the cursor (sub-linear acceleration so you don't overshoot). Tap = left click. Two-finger tap = right click. Two-finger drag = scroll. Vertical scroll strip on the right edge. Tap Keyboard to pull up the soft keyboard. 40+ shortcut buttons: Copy/Paste/Cut/Undo, Cmd+Tab, Spotlight, F1-F12, arrow keys, modifier chords. A flash pill says "Click sent" on every action.</p>
+        <p class="walk-note">macOS needs Accessibility permission for this. Vior shows a red card on the desktop and sends a warning to the phone too.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── USB cable flow ── -->
+<section class="section" id="usb-flow">
+  <div class="wrap">
+    <div class="section-label">// no wi-fi? no problem</div>
+    <h2 class="section-title reveal">USB cable mode.</h2>
+    <p class="section-sub">Plug your phone into the desktop with any data-capable USB cable. No router, no Wi-Fi password, no ADB, no developer mode. Just plug in.</p>
+
+    <div class="walkthrough reveal-stagger">
+      <div class="walk-step">
+        <h3><span class="walk-num">1</span> Switch to USB</h3>
+        <p>On the phone, tap the <strong>USB</strong> transport pill at the top of the screen (next to Wi-Fi). You'll see a breathing orb that says "Waiting for cable…" along with a checklist: use a data cable, Vior desktop must be running, tap Allow on the prompt.</p>
+      </div>
+
+      <div class="walk-step">
+        <h3><span class="walk-num">2</span> Plug in</h3>
+        <p>Connect the cable. The orb turns amber — "Verifying cable…" — while the desktop and phone perform a magic+version handshake (under 3 seconds). If the desktop isn't running Vior, the orb turns red with a "Try again" button.</p>
+      </div>
+
+      <div class="walk-step">
+        <h3><span class="walk-num">3</span> Connected</h3>
+        <p>The orb turns green. Video streams over the cable automatically. Touch on the phone screen controls the mouse on the desktop. <strong>USB carries display + touch only.</strong> Trackpad, keyboard, and file transfer need Wi-Fi. A toast explains this the first time you try Remote on USB.</p>
+      </div>
+
+      <div class="walk-step">
+        <h3><span class="walk-num">4</span> Wi-Fi back to USB</h3>
+        <p>If Wi-Fi drops while a USB cable is connected, USB takes over smoothly — no race condition, no frozen stream. If the cable is yanked, a 1.5-second debounce prevents a false disconnect flash. In USB-only mode (Settings → Connectivity), unplugging stays on the USB waiting surface instead of dumping you into Wi-Fi discovery.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Reconnect & reliability ── -->
+<section class="section" id="reliability">
+  <div class="wrap">
+    <div class="section-label">// always on</div>
+    <h2 class="section-title reveal">Built to stay connected.</h2>
+    <div class="features reveal-stagger">
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 11a8 8 0 1 0-1.5 5.5"/><path d="M20 5v5h-5"/>
+          </svg>
+        </div>
+        <h3>Auto-reconnect</h3>
+        <p>Wi-Fi blip? Phone backgrounded? Vior retries up to 5 times with exponential backoff (1s → 30s). A yellow banner shows progress. DHCP lease renewed? Vior re-scans the subnet for the same computer and reconnects transparently.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>
+          </svg>
+        </div>
+        <h3>Heartbeat detection</h3>
+        <p>Desktop polls server status every 3 seconds. If 3 polls fail, the UI transitions to "Server stopped unexpectedly" with a restart option — no more frozen "Server ready" for hours after a crash.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="M9 12l2 2 4-4" stroke="var(--accent)"/>
+          </svg>
+        </div>
+        <h3>SHA-256 integrity</h3>
+        <p>Every file transfer is verified end-to-end. The sender computes a SHA-256 hash incrementally. The receiver computes its own and compares — rejects on mismatch. Silent corruption caught, not ignored.</p>
       </div>
     </div>
   </div>
@@ -388,6 +502,8 @@
         <div class="foot-col">
           <h4>Product</h4>
           <a href="https://github.com/subhashraveendran/Vior/releases">Download</a>
+          <a href="#walkthrough">Walkthrough</a>
+          <a href="#usb-flow">USB cable</a>
           <a href="#platforms">Platforms</a>
         </div>
         <div class="foot-col">

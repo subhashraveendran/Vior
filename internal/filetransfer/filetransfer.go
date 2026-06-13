@@ -3,6 +3,7 @@
 package filetransfer
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -62,6 +63,10 @@ type Transfer struct {
 	// Receive buffer.
 	file *os.File
 	mu   sync.Mutex
+
+	// Cancellation for sending goroutines.
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // PendingDownload tracks a file the desktop has offered to the mobile
@@ -155,7 +160,9 @@ func (m *Manager) OfferFile(path string) (*Transfer, error) {
 	m.transfers[id] = t
 	m.mu.Unlock()
 
-	// Send offer.
+	if m.Send == nil {
+		return t, nil
+	}
 	return t, m.Send(protocol.MsgFileOffer, &protocol.FileOfferMessage{
 		ID:       id,
 		Name:     t.Name,
@@ -174,17 +181,37 @@ func (m *Manager) HandleAccept(msg *protocol.FileAcceptMessage) {
 		return
 	}
 
+	// Multi-file concurrency safe — each file transfer gets its own
+	// goroutine and no shared mutable state beyond what the Manager
+	// already guards.
+	ctx, cancel := context.WithCancel(context.Background())
+	t.mu.Lock()
+	t.ctx = ctx
+	t.cancel = cancel
+	t.mu.Unlock()
 	go m.sendChunks(t)
 }
 
 // HandleReject processes a file-reject.
 func (m *Manager) HandleReject(msg *protocol.FileRejectMessage) {
 	m.mu.Lock()
+	t := m.transfers[msg.ID]
 	delete(m.transfers, msg.ID)
 	m.mu.Unlock()
+	if t != nil {
+		t.mu.Lock()
+		if t.cancel != nil {
+			t.cancel()
+		}
+		t.mu.Unlock()
+	}
 }
 
 func (m *Manager) sendChunks(t *Transfer) {
+	t.mu.Lock()
+	ctx := t.ctx
+	t.mu.Unlock()
+
 	f, err := os.Open(t.Path)
 	if err != nil {
 		log.Printf("filetransfer: open error: %v", err)
@@ -197,6 +224,13 @@ func (m *Manager) sendChunks(t *Transfer) {
 	var offset int64
 
 	for {
+		select {
+		case <-ctx.Done():
+			log.Printf("filetransfer: cancelled %s", t.Name)
+			return
+		default:
+		}
+
 		n, err := f.Read(buf)
 		if n > 0 {
 			chunk := buf[:n]
@@ -589,7 +623,9 @@ func (m *Manager) PendingDownloads() []*PendingDownload {
 
 func generateID() string {
 	b := make([]byte, 8)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		return hex.EncodeToString([]byte(fmt.Sprintf("%d", time.Now().UnixNano())))
+	}
 	return hex.EncodeToString(b)
 }
 
@@ -746,5 +782,7 @@ func uniquePath(path string) string {
 			return candidate
 		}
 	}
-	return path
+	// 1000 files with the same name — extremely unlikely. Append a
+	// nanosecond timestamp as last-resort disambiguator.
+	return fmt.Sprintf("%s_%d%s", base, time.Now().UnixNano(), ext)
 }

@@ -32,7 +32,10 @@ export default function PermissionsModal({ onDone }: Props) {
           {granted
             ? <button className="btn btn-primary btn-block" onClick={onDone}>{Icons.arrowR(19)} Continue</button>
             : <>
-                <button className="btn btn-ghost btn-block">{Icons.settings(19)} Open Settings</button>
+                <a
+                  className="btn btn-ghost btn-block"
+                  href="x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenRecording"
+                >{Icons.settings(19)} Open Settings</a>
                 <button className="btn btn-primary btn-block" onClick={verify}>{verifying ? <span className="spin" style={{ width: 17, height: 17, border: '2.4px solid var(--surface-3)', borderTopColor: 'var(--on-accent)', borderRadius: '50%', display: 'inline-block' }} /> : 'Verify'}</button>
               </>}
         </div>

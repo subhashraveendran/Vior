@@ -11,6 +11,7 @@ export {
   HasAccessibility,
   ListTrustedDevices, ForgetTrustedDevice, ClearAllTrustedDevices,
   SetPairCode,
+  MirrorDisplay, ExtendDisplay,
 } from '../../wailsjs/go/main/App'
 
 export { EventsOn, EventsEmit } from '../../wailsjs/runtime/runtime'

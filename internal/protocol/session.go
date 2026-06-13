@@ -38,6 +38,7 @@ type Session struct {
 	// fires exactly once per session even when both the read-loop
 	// defer and an explicit Bye both try to invoke it.
 	disconnectOnce sync.Once
+	stopPing       chan struct{} // closed by Close() to stop pingLoop
 
 	// Health metrics — updated on every message + pong. Used by the
 	// 60s "session healthy" log line and by anyone (UI, debug
@@ -99,6 +100,7 @@ func NewSession(conn *websocket.Conn) *Session {
 		CreatedAt:  now,
 		lastPongAt: now,
 		lastReadAt: now,
+		stopPing:   make(chan struct{}),
 	}
 }
 
@@ -255,6 +257,12 @@ func (s *Session) Close() error {
 		return nil
 	}
 	s.closed = true
+	// Stop the ping loop so it doesn't try to write to a closed conn.
+	select {
+	case <-s.stopPing:
+	default:
+		close(s.stopPing)
+	}
 	return s.Conn.Close()
 }
 
@@ -330,23 +338,31 @@ func (s *Session) dispatch(env *Envelope, handler MessageHandler) error {
 func (s *Session) pingLoop() {
 	ticker := time.NewTicker(pingInterval)
 	defer ticker.Stop()
-	for range ticker.C {
-		s.mu.Lock()
-		if s.closed {
+	for {
+		select {
+		case <-s.stopPing:
+			return
+		case <-ticker.C:
+			s.mu.Lock()
+			if s.closed {
+				s.mu.Unlock()
+				return
+			}
+			s.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			err := s.Conn.WriteMessage(websocket.PingMessage, nil)
 			s.mu.Unlock()
-			return
-		}
-		s.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-		err := s.Conn.WriteMessage(websocket.PingMessage, nil)
-		s.mu.Unlock()
-		if err != nil {
-			return
+			if err != nil {
+				return
+			}
 		}
 	}
 }
 
 func generateID() string {
 	b := make([]byte, 8)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		// crypto/rand failure — fall back to time-based uniqueness.
+		return hex.EncodeToString([]byte(fmt.Sprintf("%d", time.Now().UnixNano())))
+	}
 	return hex.EncodeToString(b)
 }

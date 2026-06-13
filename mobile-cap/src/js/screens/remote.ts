@@ -43,6 +43,7 @@ trackpad.addEventListener('touchstart', function (e: TouchEvent): void {
 }, { passive: false });
 trackpad.addEventListener('touchmove', function (e: TouchEvent): void {
   e.preventDefault();
+  if (maybeWarnUsbRemote()) return;
   const t = e.touches[0];
   const dx = t.clientX - tpLastX, dy = t.clientY - tpLastY;
   tpLastX = t.clientX; tpLastY = t.clientY;
@@ -52,6 +53,7 @@ trackpad.addEventListener('touchmove', function (e: TouchEvent): void {
 }, { passive: false });
 trackpad.addEventListener('touchend', function (e: TouchEvent): void {
   e.preventDefault();
+  if (maybeWarnUsbRemote()) return;
   const dur = Date.now() - tpStartT;
   if (!tpMoved && dur < 300) {
     const action = tpFingers >= 2 ? 'rightclick' : 'click';
@@ -74,8 +76,8 @@ ss.addEventListener('touchmove', function (e: TouchEvent): void {
 }, { passive: false });
 ss.addEventListener('touchend', function (e: TouchEvent): void { e.preventDefault(); ssDown = false; ss.classList.remove('active'); }, { passive: false });
 
-($('click-btn') as HTMLElement).addEventListener('click', function (): void { wsSend({ type: 'input', data: { event: 'mouse', action: 'click' } }); flash('Click'); });
-($('rclick-btn') as HTMLElement).addEventListener('click', function (): void { wsSend({ type: 'input', data: { event: 'mouse', action: 'rightclick' } }); flash('Right click'); });
+($('click-btn') as HTMLElement).addEventListener('click', function (): void { if (maybeWarnUsbRemote()) return; wsSend({ type: 'input', data: { event: 'mouse', action: 'click' } }); flash('Click'); });
+($('rclick-btn') as HTMLElement).addEventListener('click', function (): void { if (maybeWarnUsbRemote()) return; wsSend({ type: 'input', data: { event: 'mouse', action: 'rightclick' } }); flash('Right click'); });
 
 // Remote view toggle
 ($('remote-view-trackpad') as HTMLElement).addEventListener('click', function (): void {

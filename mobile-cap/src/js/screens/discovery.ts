@@ -6,6 +6,7 @@
 // connect (or pair-prompt if the server hasn't been trusted yet).
 let foundServers: Record<string, ServerInfo> = {};
 let discoveryTimeout: ReturnType<typeof setTimeout> | null = null;
+let autoConnectTimer: ReturnType<typeof setTimeout> | null = null;
 let scanning = false;
 function startDiscovery(): void {
   foundServers = {}; selectedServer = null; scanning = true;
@@ -86,7 +87,14 @@ function probeServer(host: string, port: number): Promise<void> {
         const auto = localStorage.getItem('vior_autoconnect') !== '0';
         if (auto && last === host + ':' + port && !connected) {
           selectServer(host, port, info.name || host, info.platform || '');
-          setTimeout(function () { if (!connected) initiateConnect(); }, 400);
+          // 400 ms window lets the list render before we auto-plunge.
+          // Clear any previous pending auto-connect so a fast manual
+          // tap on another row doesn't race the timer.
+          if (autoConnectTimer) clearTimeout(autoConnectTimer);
+          autoConnectTimer = setTimeout(function () {
+            autoConnectTimer = null;
+            if (!connected) initiateConnect();
+          }, 400);
         }
       }
     })
@@ -120,6 +128,7 @@ function renderServerList(): void {
     // "Connect" button. Select + connect in one tap; the connect path
     // routes through the pair-prompt modal if the server isn't known.
     row.addEventListener('click', function () {
+      if (autoConnectTimer) { clearTimeout(autoConnectTimer); autoConnectTimer = null; }
       selectServer(host, port, info.name || host, info.platform || '');
       initiateConnect();
     });

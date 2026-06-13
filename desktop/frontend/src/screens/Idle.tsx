@@ -42,7 +42,9 @@ export default function IdleScreen({ onStart, showUpdate, onUpdate, onDismiss }:
         <button className="btn btn-primary idle-cta-btn" onClick={onStart}>
           {Icons.power(20)} Start Server
         </button>
-        <button className="idle-fallback" onClick={onStart}>{Icons.link(15)} Open in a browser instead</button>
+        <p className="idle-sub" style={{ textAlign: 'center', marginTop: 12, color: 'var(--text-3)' }}>
+          Once started, your phone discovers this Mac over Wi-Fi — open the Vior mobile app and scan the QR.
+        </p>
       </div>
     </div>
   )

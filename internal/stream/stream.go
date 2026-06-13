@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/subhashraveendran/vior/internal/config"
 	"github.com/subhashraveendran/vior/internal/machineid"
 	"github.com/subhashraveendran/vior/internal/protocol"
 	"github.com/subhashraveendran/vior/internal/trust"
@@ -166,7 +167,11 @@ func loadOrCreateServerID() string {
 		// Worst case: ephemeral ID for this run. Mobile can't pin it
 		// across IP changes, but everything else still works.
 		b := make([]byte, 8)
-		_, _ = rand.Read(b)
+		if _, err := rand.Read(b); err != nil {
+			// Extremely unlikely — crypto/rand failure. Fall back to
+			// a time-based unique value as last resort.
+			return "srv-" + hex.EncodeToString([]byte(fmt.Sprintf("%d", time.Now().UnixNano())))
+		}
 		return "srv-" + hex.EncodeToString(b)
 	}
 	dir := filepath.Join(home, ".vior")
@@ -207,6 +212,31 @@ var (
 	pairAttemptsMu sync.Mutex
 	pairAttempts   = map[string]*pairAttemptBucket{}
 )
+
+func init() {
+	go func() {
+		for {
+			time.Sleep(pairAttemptWindow)
+			pairAttemptsMu.Lock()
+			cutoff := time.Now().Add(-pairAttemptWindow)
+			for ip, b := range pairAttempts {
+				pruned := b.times[:0]
+				for _, t := range b.times {
+					if t.After(cutoff) {
+						pruned = append(pruned, t)
+					}
+				}
+				if len(pruned) == 0 {
+					delete(pairAttempts, ip)
+				} else {
+					b.times = pruned
+					pairAttempts[ip] = b
+				}
+			}
+			pairAttemptsMu.Unlock()
+		}
+	}()
+}
 
 // recordPairAttempt registers a failed attempt from ip. Returns true if
 // the IP is now over the limit and should be refused.
@@ -322,6 +352,8 @@ type MJPEGServer struct {
 
 	// stopDistribute signals the distributeFrames goroutine to stop.
 	stopDistribute chan struct{}
+	distDone       chan struct{} // closed when the distributor goroutine exits
+	distRunning    bool
 }
 
 // NewMJPEGServer creates a new MJPEG streaming server.
@@ -336,6 +368,7 @@ func NewMJPEGServer(host string, port int, frameCh <-chan []byte, handler Sessio
 			CheckOrigin: func(r *http.Request) bool { return true },
 		},
 		stopDistribute: make(chan struct{}),
+		distDone:       make(chan struct{}),
 	}
 }
 
@@ -376,6 +409,8 @@ func (s *MJPEGServer) Start() error {
 
 	// Distribute frames to all connected clients.
 	if s.frameCh != nil {
+		s.distRunning = true
+		s.distDone = make(chan struct{})
 		go s.distributeFrames()
 	}
 
@@ -440,19 +475,23 @@ func (s *MJPEGServer) IsRunning() bool {
 // SetFrameCh replaces the frame channel (e.g. when a new capture session starts
 // after a client connects with different resolution).
 func (s *MJPEGServer) SetFrameCh(ch <-chan []byte) {
-	// Stop old distributor.
-	select {
-	case <-s.stopDistribute:
-	default:
-		close(s.stopDistribute)
+	if s.distRunning {
+		select {
+		case <-s.stopDistribute:
+		default:
+			close(s.stopDistribute)
+		}
+		<-s.distDone
 	}
-	// Small delay for old goroutine to exit.
-	time.Sleep(10 * time.Millisecond)
 
 	s.frameCh = ch
 	s.stopDistribute = make(chan struct{})
+	s.distDone = make(chan struct{})
 	if ch != nil {
+		s.distRunning = true
 		go s.distributeFrames()
+	} else {
+		s.distRunning = false
 	}
 }
 
@@ -469,6 +508,8 @@ func (s *MJPEGServer) Port() int {
 }
 
 func (s *MJPEGServer) distributeFrames() {
+	defer func() { s.distRunning = false }()
+	defer close(s.distDone)
 	for {
 		select {
 		case <-s.stopDistribute:
@@ -516,7 +557,13 @@ func (s *MJPEGServer) removeClient(ch chan []byte) {
 	close(ch)
 }
 
-const boundary = "vior-frame-boundary"
+func (s *MJPEGServer) generateBoundary() string {
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		return "vior-frame-boundary"
+	}
+	return "vior-boundary-" + hex.EncodeToString(b)
+}
 
 func (s *MJPEGServer) handleStream(w http.ResponseWriter, r *http.Request) {
 	log.Printf("stream: MJPEG client connected: %s", r.RemoteAddr)
@@ -528,6 +575,7 @@ func (s *MJPEGServer) handleStream(w http.ResponseWriter, r *http.Request) {
 	}
 	defer s.removeClient(ch)
 
+	boundary := s.generateBoundary()
 	w.Header().Set("Content-Type", "multipart/x-mixed-replace; boundary="+boundary)
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -592,7 +640,7 @@ func (s *MJPEGServer) handleInfo(w http.ResponseWriter, r *http.Request) {
 	// deviceId is the stable server-install ID. Mobiles save it and
 	// use it to re-find the server at a new IP after DHCP drift.
 	fmt.Fprintf(w, `{"name":"%s","version":"%s","platform":"%s","pairCode":"%s","deviceId":"%s"}`,
-		name, "0.1.0", friendlyPlatform(), PairCode(), serverID)
+		name, config.Version, friendlyPlatform(), PairCode(), serverID)
 }
 
 func friendlyDeviceName() string {
@@ -819,7 +867,7 @@ func corsHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(204)
 			return

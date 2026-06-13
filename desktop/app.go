@@ -227,7 +227,8 @@ func (a *App) StopServer() error {
 // GetServerStatus returns current server state for the desktop frontend.
 func (a *App) GetServerStatus() ServerStatus {
 	s := ServerStatus{
-		Port: a.cfg.Port,
+		Port:      a.cfg.Port,
+		FrameRate: a.cfg.FrameRate,
 	}
 	if a.server != nil {
 		s.Running = a.server.IsRunning()
@@ -776,6 +777,7 @@ type ServerStatus struct {
 	USBConnected  bool     `json:"usbConnected"`
 	Uptime        int      `json:"uptime"`
 	PairCode      string   `json:"pairCode"`
+	FrameRate     int      `json:"frameRate"`
 }
 
 // ── File Transfer ───────────────────────────────────────────────────

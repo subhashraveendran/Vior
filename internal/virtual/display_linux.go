@@ -4,11 +4,17 @@ package virtual
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 )
+
+// cleanupPath is where the virtual display config is saved so Destroy()
+// can tear it down without guessing.
+var cleanupPath = filepath.Join(os.TempDir(), "vior-display.cleanup")
 
 // Create creates a virtual display on Linux by configuring a dummy X11 output.
 // Requires xf86-video-dummy or a similar virtual output driver to be configured.
@@ -43,7 +49,13 @@ func Create(width, height uint32, refreshRate float64) (uint32, error) {
 
 	// Return the output index as a uint32. X11 outputs are string names,
 	// but we encode the output name hash as a numeric ID for the capture layer.
-	return outputHash(output), nil
+	id := outputHash(output)
+
+	// Persist cleanup info so Destroy() knows what to tear down.
+	cleanup := fmt.Sprintf("%s|%s", output, modeName)
+	_ = os.WriteFile(cleanupPath, []byte(cleanup), 0o600)
+
+	return id, nil
 }
 
 // CreateHiDPI creates a virtual HiDPI (2x) display on Linux.
@@ -51,34 +63,49 @@ func CreateHiDPI(logicalWidth, logicalHeight uint32, refreshRate float64) (uint3
 	return Create(logicalWidth*2, logicalHeight*2, refreshRate)
 }
 
-// Destroy disables the virtual display output.
+// Destroy disables the virtual display output and removes the created mode.
 func Destroy() {
-	// xrandr doesn't track which output we created, but disabling
-	// all outputs named "VIRTUAL*" or using the stored config works.
-	// For now, this is handled by X11 session restart or manual cleanup.
-	// The dummy driver outputs revert to disconnected when modes are removed.
+	// If we have cleanup info, use it.
+	data, err := os.ReadFile(cleanupPath)
+	if err == nil {
+		parts := strings.SplitN(strings.TrimSpace(string(data)), "|", 2)
+		if len(parts) == 2 {
+			_ = xrandr("--output", parts[0], "--off")
+			_ = xrandr("--delmode", parts[0], parts[1])
+			_ = xrandr("--rmmode", parts[1])
+		}
+		_ = os.Remove(cleanupPath)
+	}
 }
 
 // findAvailableOutput finds a disconnected output that can be used as virtual.
-// Looks for outputs from xf86-video-dummy (typically named VIRTUAL1, VIRTUAL2, etc.)
-// or any disconnected output.
+// Prefers VIRTUAL* outputs (xf86-video-dummy) over physical disconnected ports
+// like HDMI-1, so plugging a real monitor doesn't conflict.
 func findAvailableOutput() (string, error) {
 	out := xrandrOutput("--query")
 	if out == "" {
 		return "", fmt.Errorf("xrandr not available")
 	}
 
-	// Parse xrandr output to find disconnected outputs.
-	// Example: "VIRTUAL1 disconnected (normal left inverted right x axis y axis)"
 	re := regexp.MustCompile(`^(\S+)\s+disconnected`)
 	lines := strings.Split(out, "\n")
+	var fallback string
 	for _, line := range lines {
 		matches := re.FindStringSubmatch(line)
 		if len(matches) >= 2 {
-			return matches[1], nil
+			name := matches[1]
+			if strings.HasPrefix(strings.ToUpper(name), "VIRTUAL") {
+				return name, nil
+			}
+			// Hold the first physical disconnected output as fallback.
+			if fallback == "" {
+				fallback = name
+			}
 		}
 	}
-
+	if fallback != "" {
+		return fallback, nil
+	}
 	return "", fmt.Errorf("no disconnected outputs found (install xf86-video-dummy)")
 }
 

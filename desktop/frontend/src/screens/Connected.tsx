@@ -21,6 +21,8 @@ type ConnectedScreenProps = {
   client: ClientInfo | null
   mode: DisplayMode
   setMode: (m: DisplayMode) => void
+  onModeExtend: () => void
+  onModeMirror: () => void
   onDisconnect: () => void
   onSendFile: () => void
   errorState: boolean
@@ -55,6 +57,7 @@ function elapsedSince(iso: string | undefined): string {
 
 export default function ConnectedScreen({
   status, client, mode, setMode, onDisconnect, onSendFile,
+  onModeExtend, onModeMirror,
   errorState, onRetry, onStop,
   accessibilityOk, onFixAccessibility, showFilesTab,
 }: ConnectedScreenProps): React.JSX.Element {
@@ -147,11 +150,11 @@ export default function ConnectedScreen({
         <div className="section">
           <div className="section-head"><div className="label">Display mode</div></div>
           <div className="seg" style={{ gridTemplateColumns: '1fr 1fr' }}>
-            <button className={`seg-btn ${mode === 'extend' ? 'active' : ''}`} onClick={() => setMode('extend')}>
+            <button className={`seg-btn ${mode === 'extend' ? 'active' : ''}`} onClick={() => { setMode('extend'); onModeExtend() }}>
               <div className="seg-row"><span className="seg-icon">{Icons.layers(17)}</span><span>Extend</span></div>
               <div className="seg-sub">Use as a second display</div>
             </button>
-            <button className={`seg-btn ${mode === 'mirror' ? 'active' : ''}`} onClick={() => setMode('mirror')}>
+            <button className={`seg-btn ${mode === 'mirror' ? 'active' : ''}`} onClick={() => { setMode('mirror'); onModeMirror() }}>
               <div className="seg-row"><span className="seg-icon">{Icons.display(17)}</span><span>Mirror</span></div>
               <div className="seg-sub">Duplicate this screen</div>
             </button>

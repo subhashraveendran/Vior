@@ -9,21 +9,6 @@ import (
 	qrcode "github.com/skip2/go-qrcode"
 )
 
-// Peer represents a connected device.
-type Peer struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Address string `json:"address"`
-	Port    int    `json:"port"`
-}
-
-// Discovery defines the interface for peer discovery implementations.
-type Discovery interface {
-	FindPeers() ([]Peer, error)
-	Advertise(port int) error
-	StopAdvertise() error
-}
-
 // QRCodePlain returns an ASCII-art QR code using plain characters
 // (no ANSI codes, safe for all terminals).
 func QRCodePlain(url string) (string, error) {

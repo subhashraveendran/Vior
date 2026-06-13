@@ -20,6 +20,7 @@ import {
   GetVersion, PickAndSendFile,
   AcceptIncomingFile, RejectIncomingFile,
   HasAccessibility,
+  MirrorDisplay, ExtendDisplay,
 } from '../lib/api'
 
 import { Icons }       from '../lib/icons'
@@ -131,7 +132,16 @@ export default function App() {
     const off5 = EventsOn('file:auto-accepted', (id: string) => {
       toast('info', 'File accepted', `Saving to ~/Downloads/Vior · ${id.slice(0, 6)}…`)
     })
-    return () => { off1 && off1(); off2 && off2(); off3 && off3(); off4 && off4(); off5 && off5() }
+    const off6 = EventsOn('client:resized', (dims: { width: number; height: number }) => {
+      if (client && dims) {
+        setClient({ ...client, width: dims.width, height: dims.height })
+      }
+    })
+    const off7 = EventsOn('server:ip-changed', () => {
+      // Trigger a fresh poll so the Waiting screen refreshes URLs/QR.
+      GetServerStatus().then(setServerStatus).catch(() => {})
+    })
+    return () => { off1 && off1(); off2 && off2(); off3 && off3(); off4 && off4(); off5 && off5(); off6 && off6(); off7 && off7() }
   }, [toast, client])
 
   // poll status
@@ -176,6 +186,13 @@ export default function App() {
   const updateConfig = async (c: AppConfig) => {
     setConfig(c)
     try { await UpdateConfig({ ...c, host: '0.0.0.0', transferDir: '.' } as AppConfig) } catch {}
+  }
+
+  const onModeExtend = async () => {
+    try { await ExtendDisplay?.(1) } catch {}
+  }
+  const onModeMirror = async () => {
+    try { await MirrorDisplay?.(0, 1) } catch {}
   }
 
   const running = !!serverStatus?.running
@@ -226,6 +243,8 @@ export default function App() {
         client={client}
         mode={mode}
         setMode={setMode}
+        onModeExtend={onModeExtend}
+        onModeMirror={onModeMirror}
         onDisconnect={stop}
         onSendFile={sendFile}
         errorState={errorState}

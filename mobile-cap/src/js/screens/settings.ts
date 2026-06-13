@@ -129,6 +129,8 @@ applyOrient(localStorage.getItem('vior_orient') || 'auto');
     const m = text.match(/(?:https?:\/\/)?([\d.]+)(?::(\d+))?(?:[?&]pair=([0-9A-Z]+))?/i);
     if (!m) { toast('error', 'No URL in clipboard', text.slice(0, 40)); return; }
     const host = m[1], port = parseInt(m[2] || '8080'), code = m[3] || '';
+    const ok = window.confirm(`Connect to ${host}:${port}?${code ? ' Pair code: ' + code : ''}`);
+    if (!ok) return;
     if (code) ($('manual-pair') as HTMLInputElement).value = code.replace(/[^0-9]/g, '');
     ($('settings-sheet') as HTMLElement).classList.add('hidden');
     selectServer(host, port, host, '');

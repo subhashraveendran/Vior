@@ -9,10 +9,11 @@ import (
 )
 
 var (
-	user32         = syscall.NewLazyDLL("user32.dll")
-	enumDisplays   = user32.NewProc("EnumDisplayDevicesW")
-	enumSettings   = user32.NewProc("EnumDisplaySettingsExW")
-	changeSettings = user32.NewProc("ChangeDisplaySettingsExW")
+	configuredDisplayName string
+	user32                = syscall.NewLazyDLL("user32.dll")
+	enumDisplays          = user32.NewProc("EnumDisplayDevicesW")
+	enumSettings          = user32.NewProc("EnumDisplaySettingsExW")
+	changeSettings        = user32.NewProc("ChangeDisplaySettingsExW")
 )
 
 const (
@@ -142,6 +143,7 @@ func Create(width, height uint32, refreshRate float64) (uint32, error) {
 		// Force display refresh.
 		changeSettings.Call(0, 0, 0, 0, 0)
 
+		configuredDisplayName = name
 		return uint32(idx), nil
 	}
 
@@ -160,8 +162,15 @@ func CreateHiDPI(logicalWidth, logicalHeight uint32, refreshRate float64) (uint3
 	return Create(logicalWidth*2, logicalHeight*2, refreshRate)
 }
 
-// Destroy reverts display settings on Windows.
+// Destroy reverts only the display Vior previously configured.
 func Destroy() {
-	// Revert display changes by resetting.
-	changeSettings.Call(0, 0, 0, 0, 0)
+	if configuredDisplayName == "" {
+		return
+	}
+	devName, _ := syscall.UTF16PtrFromString(configuredDisplayName)
+	changeSettings.Call(
+		uintptr(unsafe.Pointer(devName)),
+		0, 0, CDS_RESET, 0,
+	)
+	configuredDisplayName = ""
 }

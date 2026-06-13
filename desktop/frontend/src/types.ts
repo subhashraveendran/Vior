@@ -76,6 +76,8 @@ export interface ConnectedScreenProps {
   client: ClientInfo | null
   mode: Mode
   setMode: (m: Mode) => void
+  onModeExtend: () => void
+  onModeMirror: () => void
   onDisconnect: () => void
   onSendFile: () => void
   errorState: boolean

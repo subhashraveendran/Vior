@@ -44,3 +44,8 @@ func CheckScreenRecordingPermission() error {
 func FindDisplayIndexByID(displayID uint32) int {
 	return -1
 }
+
+// getDisplayName returns a human-readable product name for the display, or "".
+func getDisplayName(displayIndex int) string {
+	return ""
+}

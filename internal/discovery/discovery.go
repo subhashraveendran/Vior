@@ -67,6 +67,11 @@ func (b *Broadcaster) Start() error {
 	b.running = true
 
 	hostname, _ := os.Hostname()
+	// Crop hostname to avoid exceeding the typical 1500-byte MTU
+	// (beacon JSON with long hostnames can trigger IP fragmentation).
+	if len(hostname) > 64 {
+		hostname = hostname[:64]
+	}
 	beacon := Beacon{
 		Magic:    Magic,
 		Version:  ProtocolVersion,

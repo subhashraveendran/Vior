@@ -7,7 +7,6 @@ import (
 	"image"
 	"image/jpeg"
 	"log"
-	"runtime"
 	"sync"
 	"time"
 
@@ -40,9 +39,13 @@ func ListDisplays() ([]Display, error) {
 			w, h = bounds.Dx(), bounds.Dy()
 		}
 		mirrored, _ := IsMirrored(i)
+		name := fmt.Sprintf("Display %d", i)
+		if dn := getDisplayName(i); dn != "" {
+			name = dn
+		}
 		displays[i] = Display{
 			Index:    i,
-			Name:     fmt.Sprintf("Display %d", i),
+			Name:     name,
 			Width:    w,
 			Height:   h,
 			IsMain:   i == 0,
@@ -101,6 +104,15 @@ type Session struct {
 
 // NewSession creates a new capture session.
 func NewSession(displayIndex, quality, fps int) *Session {
+	if quality < 1 {
+		quality = 80
+	}
+	if quality > 100 {
+		quality = 100
+	}
+	if fps < 1 {
+		fps = 30
+	}
 	return &Session{
 		displayIndex: displayIndex,
 		quality:      quality,
@@ -159,12 +171,14 @@ func (s *Session) Stop() {
 		s.running = false
 
 		// Drain FrameCh to unblock any blocked sends.
-		select {
-		case <-s.FrameCh:
-		default:
+		for {
+			select {
+			case <-s.FrameCh:
+			default:
+				goto drained
+			}
 		}
-		// Explicit GC hint after high-volume allocations.
-		runtime.GC()
+	drained:
 	}
 }
 

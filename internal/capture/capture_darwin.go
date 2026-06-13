@@ -4,10 +4,12 @@ package capture
 
 /*
 #cgo CFLAGS: -x objective-c
-#cgo LDFLAGS: -framework CoreGraphics -framework CoreFoundation
+#cgo LDFLAGS: -framework CoreGraphics -framework CoreFoundation -framework AppKit
 
 #include <CoreGraphics/CoreGraphics.h>
 #include <dlfcn.h>
+#include <dispatch/dispatch.h>
+#include <AppKit/AppKit.h>
 
 // Function pointer type for the obsoleted CGDisplayCreateImage.
 typedef CGImageRef (*CGDisplayCreateImageFunc)(CGDirectDisplayID);
@@ -18,9 +20,10 @@ static int capturePixelRect(CGDirectDisplayID displayID, CGRect targetRect,
                             unsigned char *outBuf, size_t outWidth, size_t outHeight, size_t stride) {
 
 	static CGDisplayCreateImageFunc createImage = NULL;
-	if (!createImage) {
+	static dispatch_once_t onceToken;
+	dispatch_once(&onceToken, ^{
 		createImage = (CGDisplayCreateImageFunc)dlsym(RTLD_DEFAULT, "CGDisplayCreateImage");
-	}
+	});
 	if (!createImage) return -1;
 
 	CGImageRef fullImg = createImage(displayID);
@@ -137,9 +140,10 @@ static int isDisplayMirrored(int displayIndex) {
 // Returns 0 if permission granted, -1 if denied.
 static int checkScreenRecordingPermission(void) {
 	static CGDisplayCreateImageFunc createImage = NULL;
-	if (!createImage) {
+	static dispatch_once_t onceToken;
+	dispatch_once(&onceToken, ^{
 		createImage = (CGDisplayCreateImageFunc)dlsym(RTLD_DEFAULT, "CGDisplayCreateImage");
-	}
+	});
 	if (!createImage) return -1;
 	CGImageRef img = createImage(CGMainDisplayID());
 	if (!img) return -1;
@@ -163,6 +167,30 @@ static int findDisplayIndexByID(CGDirectDisplayID targetID) {
 
 	free(ids);
 	return -1;
+}
+
+// getDisplayProductName returns a human-readable product name for a display
+// using NSScreen.localizedName. Falls back to NULL on headless systems.
+static const char * getDisplayProductName(int displayIndex) {
+	CGDirectDisplayID id = getCGDisplayID(displayIndex);
+	if (id == 0) return NULL;
+
+	@autoreleasepool {
+		NSArray *screens = [NSScreen screens];
+		for (NSUInteger i = 0; i < screens.count; i++) {
+			NSScreen *screen = screens[i];
+			NSNumber *displayNumber = screen.deviceDescription[@"NSScreenNumber"];
+			if (displayNumber && [displayNumber unsignedIntValue] == (uint32_t)id) {
+				static char buf[128];
+				const char *name = screen.localizedName.UTF8String;
+				if (name) {
+					strlcpy(buf, name, sizeof(buf));
+					return buf;
+				}
+			}
+		}
+	}
+	return NULL;
 }
 */
 import "C"
@@ -212,7 +240,8 @@ func captureToRGBA(displayID uint32, bounds image.Rectangle) (*image.RGBA, error
 func captureImagePlatform(displayIndex int, bounds image.Rectangle) (*image.RGBA, error) {
 	id := C.getCGDisplayID(C.int(displayIndex))
 	if id == 0 {
-		return screenshot.CaptureRect(bounds)
+		b := screenshot.GetDisplayBounds(displayIndex)
+		return screenshot.CaptureRect(b)
 	}
 	return captureToRGBA(uint32(id), bounds)
 }
@@ -230,6 +259,14 @@ func MirrorDisplay(sourceDisplayIndex, targetDisplayIndex int) error {
 		return fmt.Errorf("mirror failed: display %d → %d", sourceDisplayIndex, targetDisplayIndex)
 	}
 	return nil
+}
+
+func getDisplayName(displayIndex int) string {
+	cstr := C.getDisplayProductName(C.int(displayIndex))
+	if cstr == nil {
+		return ""
+	}
+	return C.GoString(cstr)
 }
 
 // UnmirrorDisplay puts a display back to extend mode.

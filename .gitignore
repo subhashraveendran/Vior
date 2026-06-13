@@ -38,3 +38,46 @@ mobile-cap/www/
 # Mobile TS emit — built by `npm run build` from mobile-cap/src/js/*.ts
 mobile-cap/src/js/*.js
 mobile-cap/src/js/**/*.js
+
+# Stray tsc outputs of vite.config.ts (CJS compiled into wrong dirs)
+mobile-cap/vite.config.js
+mobile-cap/src/vite.config.js
+mobile-cap/src/src/
+
+# Capacitor-regenerated Android scaffolding — CI does `rm -rf android && npx cap add android`
+# and restores only the tracked customs (java/, AndroidManifest.xml, drawable/, mipmap-*, values/).
+mobile-cap/android/.gitignore
+mobile-cap/android/app/.gitignore
+mobile-cap/android/build.gradle
+mobile-cap/android/settings.gradle
+mobile-cap/android/capacitor.settings.gradle
+mobile-cap/android/variables.gradle
+mobile-cap/android/gradle.properties
+mobile-cap/android/gradle/
+mobile-cap/android/gradlew
+mobile-cap/android/gradlew.bat
+mobile-cap/android/app/build.gradle
+mobile-cap/android/app/capacitor.build.gradle
+mobile-cap/android/app/proguard-rules.pro
+mobile-cap/android/app/src/androidTest/
+mobile-cap/android/app/src/test/
+mobile-cap/android/app/src/main/res/drawable-land-hdpi/
+mobile-cap/android/app/src/main/res/drawable-land-mdpi/
+mobile-cap/android/app/src/main/res/drawable-land-xhdpi/
+mobile-cap/android/app/src/main/res/drawable-land-xxhdpi/
+mobile-cap/android/app/src/main/res/drawable-land-xxxhdpi/
+mobile-cap/android/app/src/main/res/drawable-port-hdpi/
+mobile-cap/android/app/src/main/res/drawable-port-mdpi/
+mobile-cap/android/app/src/main/res/drawable-port-xhdpi/
+mobile-cap/android/app/src/main/res/drawable-port-xxhdpi/
+mobile-cap/android/app/src/main/res/drawable-port-xxxhdpi/
+mobile-cap/android/app/src/main/res/drawable-v24/
+mobile-cap/android/app/src/main/res/drawable/ic_launcher_background.xml
+mobile-cap/android/app/src/main/res/drawable/splash.png
+mobile-cap/android/app/src/main/res/layout/
+mobile-cap/android/app/src/main/res/values/strings.xml
+mobile-cap/android/app/src/main/res/values/styles.xml
+mobile-cap/android/app/src/main/res/xml/file_paths.xml
+
+# Editor/tool sidecar caches
+.commandcode/

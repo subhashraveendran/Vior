@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vior — Phone to Mac, Linux, Windows. One app.</title>
+<meta name="description" content="Vior turns your phone into a second display, trackpad, keyboard, and file drop for your Mac, Linux, or Windows computer. One app, no cables, no fuss.">
+<meta name="theme-color" content="#0b0d10">
+
+<link rel="icon" type="image/svg+xml" href="img/icon.svg">
+<link rel="icon" type="image/png" sizes="any" href="img/icon.png">
+<link rel="apple-touch-icon" href="img/icon.png">
+
+<meta property="og:title" content="Vior — Phone to Mac, Linux, Windows">
+<meta property="og:description" content="Extend display, file transfer, trackpad, keyboard, shortcuts. One app.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="img/icon.png">
+<meta property="og:image:width" content="1024">
+<meta property="og:image:height" content="1024">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="stylesheet" href="style.css">
+<script src="https://unpkg.com/@lottiefiles/dotlottie-wc@0.6.2/dist/dotlottie-wc.js" type="module"></script>
+</head>
+<body>
+
+<!-- ── Nav ── -->
+<nav class="nav">
+  <div class="wrap nav-row">
+    <a href="#" class="nav-brand">
+      <span class="glyph">
+        <span class="g-screen"></span>
+        <span class="g-stand"></span>
+        <span class="g-phone"></span>
+      </span>
+      Vior
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#walkthrough">Walkthrough</a>
+      <a href="#usb-flow">USB</a>
+      <a href="#platforms">Platforms</a>
+      <a href="https://github.com/subhashraveendran/Vior">GitHub</a>
+      <a href="https://github.com/subhashraveendran/Vior/releases" class="nav-cta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Hero ── -->
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-copy reveal">
+      <div class="eyebrow">
+        <span class="dot"></span> <span id="release-tag">v0.4 · phase 2 shipped</span>
+      </div>
+
+      <div class="wordmark">
+        <img class="glyph big" src="img/icon.svg" alt="" width="56" height="56" style="border-radius: 14px;">
+        <h1>Vior</h1>
+      </div>
+
+      <p class="tagline">
+        Turn your <strong>phone or tablet</strong> into a real second screen for your
+        <strong>Mac, Linux, or Windows</strong> computer.<br>
+        Send files, control with trackpad &amp; keyboard, all over <strong>Wi-Fi or a USB cable</strong>.
+      </p>
+
+      <div class="hero-ctas">
+        <a id="release-cta" class="btn btn-primary" href="https://github.com/subhashraveendran/Vior/releases">
+          Download
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v14"/><path d="m6 11 6 6 6-6"/><path d="M5 21h14"/></svg>
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/subhashraveendran/Vior">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a11.5 11.5 0 0 0-3.63 22.41c.57.1.79-.25.79-.56v-2c-3.21.7-3.89-1.37-3.89-1.37-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.69 1.25 3.34.96.1-.74.4-1.25.72-1.54-2.57-.29-5.26-1.28-5.26-5.7 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.18 1.84 1.18 3.1 0 4.43-2.69 5.4-5.26 5.69.41.35.78 1.04.78 2.11v3.13c0 .3.21.66.79.55A11.5 11.5 0 0 0 12 .5z"/></svg>
+          GitHub
+        </a>
+      </div>
+
+      <div class="hero-meta">
+        <span><span class="tick">✓</span> macOS</span>
+        <span><span class="tick">✓</span> Linux</span>
+        <span><span class="tick">✓</span> Windows</span>
+        <span><span class="tick">✓</span> Android</span>
+        <span style="color: var(--text-3);">iOS — coming soon</span>
+        <span class="mono">MIT licensed</span>
+      </div>
+    </div>
+
+    <div class="radar">
+      <div class="radar-ring r1"></div>
+      <div class="radar-ring r2"></div>
+      <div class="radar-ring r3"></div>
+      <div class="radar-ping"></div>
+      <div class="radar-ping delay"></div>
+      <div class="radar-tick t1"></div>
+      <div class="radar-tick t2"></div>
+      <div class="radar-tick t3"></div>
+
+      <div class="radar-core">
+        <!-- Minimal radar: 3 rings + sweep arm + center brand glyph. -->
+        <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="rg-sweep" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0%"   stop-color="rgba(255,138,76,0)"/>
+              <stop offset="100%" stop-color="rgba(255,138,76,0.45)"/>
+            </linearGradient>
+          </defs>
+          <g fill="none" stroke="rgba(255,138,76,0.18)" stroke-width="0.8">
+            <circle cx="120" cy="120" r="50"/>
+            <circle cx="120" cy="120" r="85"/>
+            <circle cx="120" cy="120" r="118"/>
+          </g>
+          <g transform-origin="120 120">
+            <path d="M120 120 L120 2 A 118 118 0 0 1 235 100 Z" fill="url(#rg-sweep)" opacity="0.85">
+              <animateTransform attributeName="transform" type="rotate"
+                                from="0 120 120" to="360 120 120" dur="5s"
+                                repeatCount="indefinite"/>
+            </path>
+          </g>
+          <image href="img/icon.svg" x="80" y="80" width="80" height="80"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ── Features ── -->
+<section class="section" id="features">
+  <div class="wrap">
+    <div class="section-label">// what it does</div>
+    <h2 class="section-title reveal">Everything in one app.</h2>
+    <p class="section-sub">No accounts. No cloud. No subscription. Just your phone, your computer, and your network.</p>
+
+    <div class="features reveal-stagger">
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2.5" y="4" width="14" height="10" rx="1.8"/><path d="M6 18h7M9 14v4"/>
+            <rect x="15" y="9" width="6.5" height="11" rx="1.6" fill="var(--accent)" stroke="none"/>
+            <rect x="16.2" y="11" width="4.1" height="6.4" rx="0.7" fill="var(--bg)"/>
+          </svg>
+        </div>
+        <h3>Second screen</h3>
+        <p>Use your phone or tablet as a real extra monitor — drag windows onto it. Or mirror your main screen to share.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 8.5C5 5.8 8.4 4.4 12 4.4s7 1.4 10 4.1"/><path d="M5 11.6c2-1.8 4.4-2.8 7-2.8s5 1 7 2.8"/><path d="M8.3 14.8c1.1-1 2.4-1.5 3.7-1.5s2.6.5 3.7 1.5"/><circle cx="12" cy="18.3" r="1.1" fill="currentColor" stroke="none"/>
+          </svg>
+        </div>
+        <h3>Wi-Fi or USB cable</h3>
+        <p>Same network? Auto-discovery finds your computer. No Wi-Fi? Plug the cable in — works without any router.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/>
+            <path d="M12 12v6M9 15l3 3 3-3" stroke="var(--accent)"/>
+          </svg>
+        </div>
+        <h3>File transfer</h3>
+        <p>Drag a file onto the desktop app, or tap Send on the phone. Goes directly between devices — never touches a cloud.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2.5" y="3.5" width="19" height="11" rx="2"/>
+            <path d="M6.5 7.5h.5M9.5 7.5h.5M12.5 7.5h.5M15.5 7.5h.5M18.5 7.5h-.5"/>
+            <path d="M6.5 11h.5M9.5 11h.5M12.5 11h.5M15.5 11h.5M18.5 11h-.5"/>
+            <rect x="7" y="17" width="10" height="4" rx="1.4" fill="var(--accent)" stroke="none"/>
+          </svg>
+        </div>
+        <h3>Trackpad + keyboard</h3>
+        <p>Phone becomes a wireless trackpad with right-click, scroll, and a full keyboard with 40+ system shortcuts.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2.5l8 3v5.5c0 5-3.4 9.4-8 10.5-4.6-1.1-8-5.5-8-10.5V5.5z"/>
+            <path d="M9.5 12l2 2 3.5-4" stroke="var(--accent)"/>
+          </svg>
+        </div>
+        <h3>Pair-code security</h3>
+        <p>One-time 4-digit code on the desktop. Trusted devices reconnect instantly — no re-pairing.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 7.5l-9-4.5L3 7.5 12 12l9-4.5z"/><path d="M3 7.5v9L12 21l9-4.5v-9"/><path d="M12 12v9"/>
+          </svg>
+        </div>
+        <h3>Single binary</h3>
+        <p>Download one app, double-click to run. No installers, no drivers (Windows has an optional one), no setup wizard.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ── How it works ── -->
+<section class="section" id="how">
+  <div class="wrap">
+    <div class="section-label">// how it works</div>
+    <h2 class="section-title reveal">Connect in 3 steps.</h2>
+    <p class="section-sub">No accounts, no setup wizard, no driver install. Just three taps.</p>
+
+    <div class="steps reveal-stagger">
+      <div class="step">
+        <!-- Step 1: animated server-start power button -->
+        <div class="step-anim">
+          <svg viewBox="0 0 120 120" width="86" height="86" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="60" cy="60" r="44" stroke-opacity="0.18"/>
+            <circle cx="60" cy="60" r="44" stroke-dasharray="276" stroke-dashoffset="276">
+              <animate attributeName="stroke-dashoffset" from="276" to="0" dur="1.4s" begin="0s;4s" fill="freeze"/>
+              <animate attributeName="stroke-dashoffset" from="0" to="276" dur="0.4s" begin="3.6s" fill="freeze"/>
+            </circle>
+            <path d="M60 38 V 60"/>
+            <path d="M44 50 A 22 22 0 1 0 76 50"/>
+          </svg>
+        </div>
+        <h3>1. Start on computer</h3>
+        <p>Open Vior on your Mac, Linux, or Windows machine and click <code>Start Server</code>. You'll see a QR code and a 4-digit pair code.</p>
+      </div>
+      <div class="step">
+        <!-- Step 2: animated QR with scanning bar -->
+        <div class="step-anim">
+          <svg viewBox="0 0 120 120" width="86" height="86" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="14" y="14" width="92" height="92" rx="6" stroke-opacity="0.35"/>
+            <!-- QR finder squares -->
+            <g fill="var(--accent)" stroke="none">
+              <rect x="22" y="22" width="18" height="18" rx="2"/>
+              <rect x="80" y="22" width="18" height="18" rx="2"/>
+              <rect x="22" y="80" width="18" height="18" rx="2"/>
+              <rect x="27" y="27" width="8" height="8" rx="1" fill="var(--bg)"/>
+              <rect x="85" y="27" width="8" height="8" rx="1" fill="var(--bg)"/>
+              <rect x="27" y="85" width="8" height="8" rx="1" fill="var(--bg)"/>
+              <!-- Sparse data dots -->
+              <rect x="50" y="50" width="4" height="4"/><rect x="58" y="50" width="4" height="4"/>
+              <rect x="66" y="58" width="4" height="4"/><rect x="74" y="66" width="4" height="4"/>
+              <rect x="50" y="66" width="4" height="4"/><rect x="58" y="74" width="4" height="4"/>
+            </g>
+            <!-- Scanning bar -->
+            <line x1="14" y1="20" x2="106" y2="20" stroke="#46d39a" stroke-width="2.5" opacity="0.85">
+              <animate attributeName="y1" values="20;100;20" dur="2.2s" repeatCount="indefinite"/>
+              <animate attributeName="y2" values="20;100;20" dur="2.2s" repeatCount="indefinite"/>
+            </line>
+          </svg>
+        </div>
+        <h3>2. Open on phone</h3>
+        <p>Open the Vior Android app (or any browser on iOS). It finds your computer automatically over Wi-Fi, or you can scan the QR code.</p>
+      </div>
+      <div class="step">
+        <!-- Step 3: animated 4-digit pair code + checkmark on success -->
+        <div class="step-anim">
+          <svg viewBox="0 0 120 80" width="110" height="70" fill="none" stroke="var(--text-1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <g font-family="ui-monospace, Menlo, monospace" font-size="24" font-weight="700" fill="var(--accent)" stroke="none" letter-spacing="8">
+              <text x="10" y="38">4</text>
+              <text x="36" y="38">8</text>
+              <text x="62" y="38">2</text>
+              <text x="88" y="38">1
+                <animate attributeName="opacity" values="1;0.3;1" dur="1.6s" repeatCount="indefinite"/>
+              </text>
+            </g>
+            <line x1="10" y1="48" x2="110" y2="48" stroke="var(--accent-line)" stroke-width="1.5"/>
+            <g transform="translate(115,55)" stroke="#46d39a" stroke-width="2.6">
+              <circle cx="10" cy="10" r="11" stroke-opacity="0.3"/>
+              <path d="M5 10 L9 14 L16 7">
+                <animate attributeName="stroke-dasharray" from="0 30" to="30 0" dur="0.6s" begin="0.4s;3s" fill="freeze"/>
+              </path>
+            </g>
+          </svg>
+        </div>
+        <h3>3. Enter pair code · once</h3>
+        <p>Type the 4-digit code shown on the desktop. From then on, that device is trusted — it auto-connects without asking again.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Full user flow ── -->
+<section class="section" id="walkthrough">
+  <div class="wrap">
+    <div class="section-label">// what you'll see</div>
+    <h2 class="section-title reveal">First time? Here's exactly what happens.</h2>
+    <p class="section-sub">No guesswork. Every screen, every button, explained.</p>
+
+    <div class="walkthrough reveal-stagger">
+
+      <div class="walk-step">
+        <h3><span class="walk-num">Desktop</span> Idle → Waiting</h3>
+        <p>Open Vior on your computer. You'll see an amber dot saying "Not broadcasting" and one big orange button: <strong>Start Server</strong>. Click it — the button shows a spinner, says "Starting…", then the screen changes to show a green pulsing dot, a <strong>real scannable QR code</strong>, and a <strong>4-digit pair code</strong> at the bottom. You also get Copy URL and Copy pair code buttons for sharing manually.</p>
+        <p class="walk-note">No loading spinner before? Fixed. No confirmation on stop? Fixed. QR was fake decorative grid before? Fixed — it's real now.</p>
+      </div>
+
+      <div class="walk-step">
+        <h3><span class="walk-num">Phone</span> Launch → Discovery</h3>
+        <p>Open the Vior Android app. First time ever: you pick your intent — <strong>Display</strong> (second screen), <strong>Remote</strong> (trackpad + keyboard), or <strong>Files</strong> (send/receive). Pick once, never asked again. The app scans your local network (254 addresses in parallel, ~1.5 seconds) looking for the desktop. Your computer appears as a row: name, IP, green dot. <strong>Tap the row</strong> — no separate "Connect" button needed.</p>
+        <p class="walk-note">If no server found: a cascade appears — scan QR → type pair code → type IP manually. Each step has an escape hatch. USB cable toggle is just above.</p>
+      </div>
+
+      <div class="walk-step">
+        <h3><span class="walk-num">Pair</span> First time only</h3>
+        <p>If this is your first connection to this computer, the phone shows a modal: "Pair this device — Enter the 4-digit code shown on the desktop." Type the 4 digits, tap Connect. From then on, that device is <strong>trusted forever</strong> — reconnects instantly without re-entering the code. Manage trusted devices in Settings.</p>
+        <p class="walk-note">Rate-limited: 5 wrong attempts per minute per device. Trust store at ~/.vior/trusted.json (0600).</p>
+      </div>
+
+      <div class="walk-step">
+        <h3><span class="walk-num">Connected</span> What you can do</h3>
+        <p>Once connected, the bottom tab bar appears: <strong>Display, Files, Remote</strong>. On the Display tab, tap <strong>View Stream</strong> to see your desktop screen on your phone — touch the screen to control the mouse. The desktop shows <strong>Extend</strong> (phone is a second monitor) or <strong>Mirror</strong> (phone shows the same screen). Both modes are one tap and the desktop immediately reconfigures.</p>
+      </div>
+
+      <div class="walk-step">
+        <h3><span class="walk-num">Files</span> Send anything</h3>
+        <p>On the phone: tap <strong>Send File</strong> or <strong>Send Photo</strong>, pick something, and it transfers over your Wi-Fi in 48KB chunks with <strong>SHA-256 verification</strong> on both ends. Desktop shows an Accept/Decline modal with a preview thumbnail. Trusted devices auto-accept. On desktop: click "Send file to phone" in the Connected screen, pick a file, phone shows Accept/Decline. Files go to ~/Downloads/Vior.</p>
+        <p class="walk-note">2 GB max. Path traversal blocked. Windows reserved names rejected. USB doesn't support file transfer yet.</p>
+      </div>
+
+      <div class="walk-step">
+        <h3><span class="walk-num">Remote</span> Trackpad + Keyboard</h3>
+        <p>Swipe on the trackpad area to move the cursor (sub-linear acceleration so you don't overshoot). Tap = left click. Two-finger tap = right click. Two-finger drag = scroll. Vertical scroll strip on the right edge. Tap Keyboard to pull up the soft keyboard. 40+ shortcut buttons: Copy/Paste/Cut/Undo, Cmd+Tab, Spotlight, F1-F12, arrow keys, modifier chords. A flash pill says "Click sent" on every action.</p>
+        <p class="walk-note">macOS needs Accessibility permission for this. Vior shows a red card on the desktop and sends a warning to the phone too.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── USB cable flow ── -->
+<section class="section" id="usb-flow">
+  <div class="wrap">
+    <div class="section-label">// no wi-fi? no problem</div>
+    <h2 class="section-title reveal">USB cable mode.</h2>
+    <p class="section-sub">Plug your phone into the desktop with any data-capable USB cable. No router, no Wi-Fi password, no ADB, no developer mode. Just plug in.</p>
+
+    <div class="walkthrough reveal-stagger">
+      <div class="walk-step">
+        <h3><span class="walk-num">1</span> Switch to USB</h3>
+        <p>On the phone, tap the <strong>USB</strong> transport pill at the top of the screen (next to Wi-Fi). You'll see a breathing orb that says "Waiting for cable…" along with a checklist: use a data cable, Vior desktop must be running, tap Allow on the prompt.</p>
+      </div>
+
+      <div class="walk-step">
+        <h3><span class="walk-num">2</span> Plug in</h3>
+        <p>Connect the cable. The orb turns amber — "Verifying cable…" — while the desktop and phone perform a magic+version handshake (under 3 seconds). If the desktop isn't running Vior, the orb turns red with a "Try again" button.</p>
+      </div>
+
+      <div class="walk-step">
+        <h3><span class="walk-num">3</span> Connected</h3>
+        <p>The orb turns green. Video streams over the cable automatically. Touch on the phone screen controls the mouse on the desktop. <strong>USB carries display + touch only.</strong> Trackpad, keyboard, and file transfer need Wi-Fi. A toast explains this the first time you try Remote on USB.</p>
+      </div>
+
+      <div class="walk-step">
+        <h3><span class="walk-num">4</span> Wi-Fi back to USB</h3>
+        <p>If Wi-Fi drops while a USB cable is connected, USB takes over smoothly — no race condition, no frozen stream. If the cable is yanked, a 1.5-second debounce prevents a false disconnect flash. In USB-only mode (Settings → Connectivity), unplugging stays on the USB waiting surface instead of dumping you into Wi-Fi discovery.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Reconnect & reliability ── -->
+<section class="section" id="reliability">
+  <div class="wrap">
+    <div class="section-label">// always on</div>
+    <h2 class="section-title reveal">Built to stay connected.</h2>
+    <div class="features reveal-stagger">
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 11a8 8 0 1 0-1.5 5.5"/><path d="M20 5v5h-5"/>
+          </svg>
+        </div>
+        <h3>Auto-reconnect</h3>
+        <p>Wi-Fi blip? Phone backgrounded? Vior retries up to 5 times with exponential backoff (1s → 30s). A yellow banner shows progress. DHCP lease renewed? Vior re-scans the subnet for the same computer and reconnects transparently.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>
+          </svg>
+        </div>
+        <h3>Heartbeat detection</h3>
+        <p>Desktop polls server status every 3 seconds. If 3 polls fail, the UI transitions to "Server stopped unexpectedly" with a restart option — no more frozen "Server ready" for hours after a crash.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="M9 12l2 2 4-4" stroke="var(--accent)"/>
+          </svg>
+        </div>
+        <h3>SHA-256 integrity</h3>
+        <p>Every file transfer is verified end-to-end. The sender computes a SHA-256 hash incrementally. The receiver computes its own and compares — rejects on mismatch. Silent corruption caught, not ignored.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Platforms ── -->
+<section class="section" id="platforms">
+  <div class="wrap">
+    <div class="section-label">// runs on</div>
+    <h2 class="section-title reveal">Cross-platform from day one.</h2>
+    <p class="section-sub">Server runs natively on macOS, Linux, and Windows. Mobile client is an Android APK — iOS app is coming soon (Wi-Fi today via Safari + Add to Home Screen).</p>
+
+    <div class="platforms reveal">
+      <table>
+        <thead>
+          <tr>
+            <th>Platform</th>
+            <th>Server</th>
+            <th>Mobile client</th>
+            <th>Build</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="os">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16.36 1.43a4.16 4.16 0 0 0-2.83 1.5 3.86 3.86 0 0 0-1 2.97 3.51 3.51 0 0 0 2.74-1.43 4.13 4.13 0 0 0 1.09-3.04zM20.5 17.36a9.83 9.83 0 0 1-.97 1.74c-.6.86-1.42 2.02-2.55 2.03-1 .01-1.28-.66-2.65-.66s-1.68.65-2.65.67c-1.1.04-1.93-.93-2.53-1.78-1.65-2.41-2.92-6.8-1.22-9.78a4.6 4.6 0 0 1 3.87-2.36c1.04-.02 2.02.7 2.65.7s1.82-.87 3.07-.74a4.4 4.4 0 0 1 3.45 1.87 4.27 4.27 0 0 0-2.05 3.58 4.16 4.16 0 0 0 2.58 3.81z"/></svg>
+              macOS 13+
+            </td>
+            <td><span class="tick">✓ CGVirtualDisplay</span></td>
+            <td><span class="tick">✓ Web + Android</span></td>
+            <td class="ver">universal binary</td>
+          </tr>
+          <tr>
+            <td class="os">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18c-2 0-3-1-3-3V8a6 6 0 0 1 12 0v7c0 2-1 3-3 3"/><path d="M9 18c0 2 1 3 3 3s3-1 3-3"/><circle cx="10" cy="9" r=".5" fill="currentColor"/><circle cx="14" cy="9" r=".5" fill="currentColor"/></svg>
+              Linux (X11)
+            </td>
+            <td><span class="tick">✓ xrandr + dummy</span></td>
+            <td><span class="tick">✓ Web + Android</span></td>
+            <td class="ver">amd64 · arm64</td>
+          </tr>
+          <tr>
+            <td class="os">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.7 10.5 4.6v7.4H3V5.7zM11.5 4.5 21 3v9.1h-9.5V4.5zM3 13h7.5v7.4L3 19.3V13zm8.5 0H21V21l-9.5-1.4V13z"/></svg>
+              Windows 10+
+            </td>
+            <td><span class="tick">✓ IDD driver</span></td>
+            <td><span class="tick">✓ Web + Android</span></td>
+            <td class="ver">amd64</td>
+          </tr>
+          <tr>
+            <td class="os">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 12.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm-11 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm10.7-6.4 1.4-2.4a.3.3 0 0 0-.5-.3l-1.4 2.4a8.6 8.6 0 0 0-7.4 0L7.9 3.4a.3.3 0 0 0-.5.3l1.4 2.4A7.6 7.6 0 0 0 4 12h16a7.6 7.6 0 0 0-4.8-5.9zM4 13v5a2 2 0 0 0 2 2h1v2a1 1 0 1 0 2 0v-2h6v2a1 1 0 1 0 2 0v-2h1a2 2 0 0 0 2-2v-5H4z"/></svg>
+              Android 9+
+            </td>
+            <td class="ver">—</td>
+            <td><span class="tick">✓ Capacitor APK</span></td>
+            <td class="ver">aarch64</td>
+          </tr>
+          <tr style="opacity: .72;">
+            <td class="os">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.43 12.91c-.03-3.07 2.5-4.55 2.62-4.62-1.43-2.09-3.66-2.38-4.45-2.41-1.9-.19-3.7 1.12-4.66 1.12-.97 0-2.45-1.09-4.03-1.06-2.07.03-3.98 1.2-5.05 3.06-2.16 3.74-.55 9.27 1.54 12.31 1.04 1.49 2.27 3.16 3.87 3.1 1.55-.06 2.13-1 4-1 1.86 0 2.39 1 4.02.97 1.66-.03 2.71-1.5 3.72-3 1.18-1.72 1.66-3.39 1.69-3.48-.04-.02-3.24-1.24-3.27-4.93zM14.34 3.95C15.2 2.92 15.78 1.49 15.62 0c-1.28.05-2.83.86-3.71 1.88-.79.9-1.49 2.37-1.3 3.77 1.42.11 2.87-.72 3.73-1.7z"/></svg>
+              iOS 16+
+            </td>
+            <td class="ver">—</td>
+            <td><span style="color: var(--text-3);">⏳ Coming soon</span></td>
+            <td class="ver">today: Safari PWA</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ── Tech stack ── -->
+<section class="section">
+  <div class="wrap">
+    <div class="section-label">// stack</div>
+    <h2 class="section-title reveal">Built with boring, durable tools.</h2>
+    <p class="section-sub">No frameworks-of-the-week. Everything below has been in production for years.</p>
+
+    <div class="chips">
+      <span class="chip"><span class="chip-dot"></span>Go 1.25</span>
+      <span class="chip"><span class="chip-dot"></span>Wails v2</span>
+      <span class="chip"><span class="chip-dot"></span>Capacitor 7</span>
+      <span class="chip"><span class="chip-dot"></span>React 19</span>
+      <span class="chip"><span class="chip-dot"></span>WebSocket</span>
+      <span class="chip"><span class="chip-dot"></span>MJPEG over HTTP</span>
+      <span class="chip"><span class="chip-dot"></span>mDNS / UDP discovery</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ── -->
+<footer>
+  <div class="wrap">
+    <div class="foot-row">
+      <div class="foot-brand">
+        <span class="wm">
+          <span class="glyph">
+            <span class="g-screen"></span>
+            <span class="g-stand"></span>
+            <span class="g-phone"></span>
+          </span>
+          Vior
+        </span>
+        <span>One app to make your phone and computer work together. MIT licensed, open source, no telemetry.</span>
+      </div>
+      <div class="foot-links">
+        <div class="foot-col">
+          <h4>Product</h4>
+          <a href="https://github.com/subhashraveendran/Vior/releases">Download</a>
+          <a href="#walkthrough">Walkthrough</a>
+          <a href="#usb-flow">USB cable</a>
+          <a href="#platforms">Platforms</a>
+        </div>
+        <div class="foot-col">
+          <h4>Docs</h4>
+          <a href="https://github.com/subhashraveendran/Vior/blob/main/docs/master-plan.md">Master plan</a>
+          <a href="https://github.com/subhashraveendran/Vior/blob/main/docs/phase-2.md">Phase 2</a>
+          <a href="https://github.com/subhashraveendran/Vior#readme">README</a>
+        </div>
+        <div class="foot-col">
+          <h4>Source</h4>
+          <a href="https://github.com/subhashraveendran/Vior">GitHub</a>
+          <a href="https://github.com/subhashraveendran/Vior/issues">Issues</a>
+          <a href="https://github.com/subhashraveendran/Vior/blob/main/LICENSE">MIT License</a>
+        </div>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 Subhash Raveendran</span>
+      <span>built with Go, Wails, Capacitor</span>
+    </div>
+  </div>
+</footer>
+
+<script src="parallax.js" defer></script>
+</body>
+</html>

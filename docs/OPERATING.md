@@ -71,7 +71,7 @@ adb install ~/Downloads/vior-latest.apk
 
 ## 4. Pair phone ↔ Mac (Wi-Fi mode)
 
-1. Launch `vior-app` on Mac. Main screen shows the **pair code** (default `9801`; override in Settings).
+1. Launch `vior-app` on Mac. Main screen shows the **pair code** (a 4-digit number derived from your Mac's hardware ID; override in Settings).
 2. Both devices on the same Wi-Fi subnet.
 3. On phone: open Vior → Discovery screen auto-lists the Mac.
 4. Tap the Mac entry → enter pair code → connected.

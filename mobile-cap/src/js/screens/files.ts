@@ -45,6 +45,12 @@ function genID(): string { const a = new Uint8Array(8); crypto.getRandomValues(a
 function fmtSize(b: number): string { if (b < 1024) return b + ' B'; if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'; return (b / 1048576).toFixed(1) + ' MB'; }
 
 function sendFile(file: File): void {
+  // USB transport doesn't support file transfer (AOA carries video+touch only).
+  const transport = (window as unknown as { viorTransport?: () => string }).viorTransport;
+  if (typeof transport === 'function' && transport() === 'usb') {
+    toast('warning', 'Unavailable over USB', 'File transfer needs a Wi-Fi connection.');
+    return;
+  }
   const id = genID();
   const reader = new FileReader();
   reader.onload = function (): void {
@@ -129,6 +135,8 @@ function handleFileMessage(msg: FileMessage): void {
 (window as unknown as { _saveFile: (id: string) => void })._saveFile = function (id: string): void {
   const t = fileTransfers[id]; if (!t || !t.blobUrl) return;
   const a = document.createElement('a'); a.href = t.blobUrl; a.download = t.name; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  // Revoke after save to prevent unbounded blob memory growth.
+  URL.revokeObjectURL(t.blobUrl); t.blobUrl = undefined;
   toast('success', 'Saved', t.name);
 };
 function statusMeta(t: FileTransfer): { color: string; text: string } {
@@ -350,3 +358,16 @@ function renderTransfers(): void {
   list.innerHTML = html;
   empty.classList.toggle('hidden', count > 0);
 }
+
+// Called from connect.ts on WS disconnect — clears stale transfers
+// whose chunks will never arrive, and revokes any blob URLs to prevent
+// unbounded memory growth across session cycles.
+function clearFileTransfers(): void {
+  Object.keys(fileTransfers).forEach(function (id) {
+    const t = fileTransfers[id];
+    if (t?.blobUrl) URL.revokeObjectURL(t.blobUrl);
+  });
+  for (const k in fileTransfers) delete fileTransfers[k];
+  renderTransfers(); renderIncoming();
+}
+(window as unknown as { clearFileTransfers: () => void }).clearFileTransfers = clearFileTransfers;

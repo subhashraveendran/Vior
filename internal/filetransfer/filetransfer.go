@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"hash"
 	"image"
 	"image/jpeg"
 	"io"
@@ -63,6 +64,7 @@ type Transfer struct {
 	// Receive buffer.
 	file *os.File
 	mu   sync.Mutex
+	hash hash.Hash // incremental SHA-256 for receiver-side integrity
 
 	// Cancellation for sending goroutines.
 	ctx    context.Context
@@ -357,6 +359,7 @@ func (m *Manager) AcceptFile(id string) error {
 	t.mu.Lock()
 	t.Path = destPath
 	t.file = f
+	t.hash = sha256.New()
 	t.mu.Unlock()
 
 	return m.Send(protocol.MsgFileAccept, &protocol.FileAcceptMessage{ID: id})
@@ -403,6 +406,13 @@ func (m *Manager) HandleChunk(msg *protocol.FileChunkMessage) {
 	}
 
 	t.file.Write(data)
+	if _, err := t.file.Write(data); err != nil {
+		log.Printf("filetransfer: write error for %s: %v", t.ID, err)
+		t.file.Close()
+		t.file = nil
+		return
+	}
+	t.hash.Write(data)
 	t.Transferred += int64(len(data))
 
 	// Coalesced progress callback — fires at most once per
@@ -447,6 +457,16 @@ func (m *Manager) HandleComplete(msg *protocol.FileCompleteMessage) {
 		t.file.Close()
 		t.file = nil
 	}
+
+	// Verify integrity: compare sender's claimed hash against the
+	// incremental hash we've been computing as chunks arrived.
+	got := hex.EncodeToString(t.hash.Sum(nil))
+	if got != msg.Hash {
+		log.Printf("filetransfer: SHA-256 mismatch for %s (got %s, want %s)", t.ID, got, msg.Hash)
+		t.mu.Unlock()
+		return
+	}
+
 	t.Complete = true
 	t.Hash = msg.Hash
 	t.mu.Unlock()
@@ -668,6 +688,9 @@ func imagePreview(path string) string {
 	// Resize to thumbnail.
 	bounds := img.Bounds()
 	w, h := bounds.Dx(), bounds.Dy()
+	if w <= 0 || h <= 0 {
+		return ""
+	}
 	if w > MaxPreviewSize || h > MaxPreviewSize {
 		scale := float64(MaxPreviewSize) / float64(max(w, h))
 		w = int(float64(w) * scale)

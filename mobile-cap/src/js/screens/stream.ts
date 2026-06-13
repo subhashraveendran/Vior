@@ -43,7 +43,10 @@ function startFramePolling(): void {
   }, 1000);
   pollFrame();
 }
-function stopFramePolling(): void { framePolling = false; }
+function stopFramePolling(): void {
+  framePolling = false;
+  if (fpsTimer) { clearInterval(fpsTimer); fpsTimer = null; }
+}
 function cleanupBlob(): void { if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; } }
 function pollFrame(): void {
   if (!framePolling) return;

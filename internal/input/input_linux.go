@@ -96,6 +96,7 @@ static void pressKey(Display *dpy, const char *key) {
 }
 */
 import "C"
+import "unsafe"
 
 type linuxController struct {
 	dpy *C.Display
@@ -128,7 +129,9 @@ func (c *linuxController) Click(button MouseButton) error {
 }
 
 func (c *linuxController) TypeKey(key string) error {
-	C.pressKey(c.dpy, C.CString(key))
+	cs := C.CString(key)
+	defer C.free(unsafe.Pointer(cs))
+	C.pressKey(c.dpy, cs)
 	return nil
 }
 

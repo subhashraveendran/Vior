@@ -63,7 +63,10 @@ static void postMouseClick(int button) {
 	CGEventType downType, upType;
 	CGMouseButton cgButton;
 	getMouseEventTypes(button, &downType, &upType, &cgButton);
-	CGPoint loc = CGEventGetLocation(CGEventCreate(NULL));
+
+	CGEventRef tmp = CGEventCreate(NULL);
+	CGPoint loc = CGEventGetLocation(tmp);
+	CFRelease(tmp);
 
 	CGEventRef down = CGEventCreateMouseEvent(NULL, downType, loc, cgButton);
 	CGEventPost(kCGHIDEventTap, down);

@@ -11,6 +11,7 @@ let transportMode: 'wifi' | 'usb' = 'wifi';
 
 // ── Inbound video frame from the cable ────────────────────────────
 window.onUsbFrame = function (b64: string): void {
+  if (transportMode !== 'usb') return;
   if (!streamVisible) { openStream(); }
   if (streamImg) {
     streamImg.src = 'data:image/jpeg;base64,' + b64;
@@ -42,6 +43,15 @@ window.onUsbConnected = function (): void {
   const wifiBadge = document.getElementById('transport-wifi-badge');
   if (wifiBadge) wifiBadge.classList.remove('hidden');
 
+  // JS-side safety net: if the Java bridge never calls onUsbHelloAck or
+  // onUsbHelloTimeout, this fires after 5s and moves us to failed state.
+  usbSafetyTimer = setTimeout(function () {
+    usbSafetyTimer = null;
+    console.log('usb: JS-side hello-ack safety timeout — forcing failed state');
+    const setStage = (window as unknown as { setUsbStage?: (s: 'waiting' | 'verifying' | 'connected' | 'failed') => void }).setUsbStage;
+    if (typeof setStage === 'function') setStage('failed');
+  }, 5000);
+
   // Show "Verifying cable…" on the orb regardless of which surface is
   // visible. If the user is on the Wi-Fi cascade they'll see the badge
   // and can swap to USB to watch the handshake.
@@ -54,10 +64,13 @@ window.onUsbConnected = function (): void {
 // (closing any Wi-Fi WS, flipping the view, etc.). Until this fires
 // the cable is "wired but unverified".
 window.onUsbHelloAck = function (): void {
-  // Policy when both transports are alive: USB wins for video (low
-  // latency, no Wi-Fi dependency). Close any active WS so we don't
-  // have two competing video sources writing to the same <img>, two
-  // file-transfer paths, and two sets of input forwarding.
+  // Cancel JS-side safety timeout — Java bridge came through.
+  if (usbSafetyTimer) { clearTimeout(usbSafetyTimer); usbSafetyTimer = null; }
+  // If we close first, onclose schedules another doConnect() before we
+  // can flip transportMode — both transports write to streamImg.
+  reconnectAttempts = maxReconnect;
+  if (typeof stopWsKeepalive === 'function') stopWsKeepalive();
+
   if (transportMode === 'wifi' && ws) {
     console.log('usb: cable verified during Wi-Fi session — closing WS so USB owns the transport');
     try { ws.close(); } catch (_) { /* ignore */ }
@@ -110,6 +123,7 @@ window.onUsbHelloAck = function (): void {
 // cause: desktop app isn't running. Show the recovery surface with a
 // "Try again" button (calls Android.usbRetryHello via the JS bridge).
 window.onUsbHelloTimeout = function (): void {
+  if (usbSafetyTimer) { clearTimeout(usbSafetyTimer); usbSafetyTimer = null; }
   console.log('usb: hello-ack timeout — desktop probably not running Vior');
   // Don't tear down the cable — the user might launch Vior and retry.
   // Just flip the orb into a failed state with recovery copy.
@@ -124,6 +138,7 @@ window.onUsbHelloTimeout = function (): void {
 // state intact. Without this the connected card flashed away and back
 // every time the user shifted the tablet on the desk.
 let usbTeardownTimer: ReturnType<typeof setTimeout> | null = null;
+let usbSafetyTimer: ReturnType<typeof setTimeout> | null = null;
 function cancelPendingUsbTeardown(): void {
   if (usbTeardownTimer) {
     clearTimeout(usbTeardownTimer);

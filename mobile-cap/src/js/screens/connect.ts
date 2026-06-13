@@ -290,6 +290,10 @@ function doConnect(): void {
       // Display intent stays put (user already wants to see the connected card).
       if (intentNow === 'files') switchTab('files');
       else if (intentNow === 'remote') switchTab('remote');
+
+      // Resume MJPEG polling if the stream was visible before reconnect.
+      // Without this a Wi-Fi blip freezes the stream on the last frame.
+      if (streamVisible) { startFramePolling(); }
       const successMsg = intentNow === 'remote' ? 'Remote control ready'
         : intentNow === 'files' ? 'Ready for file transfer'
         : (selectedMode === 'mirror' ? 'Mirroring' : 'Extended display');
@@ -384,6 +388,9 @@ function doConnect(): void {
 
   ws.onclose = function () {
     stopFramePolling();
+    // Clear stale file transfers — chunks from the previous session
+    // will never complete. Without this, progress bars freeze forever.
+    clearFileTransfers();
     // Always stop the keepalive before we either reconnect or give up
     // — the timers belong to the dead socket. doConnect re-creates a
     // fresh instance on the next 'ready'.

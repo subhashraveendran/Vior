@@ -5,18 +5,20 @@ Thanks for your interest in contributing to Vior! This guide will help you get s
 ## Prerequisites
 
 - [Go 1.25+](https://go.dev/dl/)
-- [Bun](https://bun.sh/) (for desktop frontend)
-- [Wails](https://wails.io/) (for desktop app)
-- [gogio](https://gioui.org/doc/install) (for mobile app)
+- [Node.js 22+](https://nodejs.org/) (for desktop frontend and mobile)
+- [Wails v2](https://wails.io/) (for desktop app)
+- [Android SDK](https://developer.android.com/studio) (for mobile APK builds)
 
 ## Project Structure
 
 ```
-cmd/vior/       CLI entry point (Cobra)
-desktop/        Wails desktop app (Go + Svelte frontend)
-mobile/         Gio mobile app
-internal/       Shared packages (capture, stream, server, etc.)
-docs/           Documentation and assets
+cmd/vior/          CLI entry point (Cobra)
+desktop/           Wails desktop app (Go + React/Vite frontend)
+desktop/app.go     Wails bridge: all UI-callable backend methods
+desktop/frontend/  React 19 + TypeScript frontend
+internal/          Shared packages (capture, stream, protocol, etc.)
+mobile-cap/        Capacitor 7 Android app (TypeScript in WebView)
+docs/              Documentation and site assets
 ```
 
 ## Setup
@@ -27,10 +29,16 @@ cd Vior
 go mod download
 ```
 
-For the desktop app, install frontend dependencies:
+For the desktop frontend:
 
 ```bash
-cd desktop/frontend && bun install
+cd desktop/frontend && npm install
+```
+
+For the mobile app:
+
+```bash
+cd mobile-cap && npm install
 ```
 
 ## Building
@@ -42,8 +50,8 @@ make build
 # Desktop app (requires Wails)
 make desktop
 
-# Mobile app (requires gogio)
-cd mobile && go run .
+# Mobile APK (requires Android SDK)
+cd mobile-cap && npm run build && npx cap sync && cd android && ./gradlew assembleDebug
 ```
 
 ## Running Tests

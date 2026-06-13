@@ -69,6 +69,9 @@ func (t *TouchMapper) HandleScroll(dx, dy float64) error {
 // HandleMouse processes a relative-mouse event from the Remote tab.
 // Supports: action "move" (dx/dy relative), "click", "rightclick", "middleclick".
 func (t *TouchMapper) HandleMouse(action string, dx, dy float64) error {
+	if math.IsNaN(dx) || math.IsNaN(dy) || math.IsInf(dx, 0) || math.IsInf(dy, 0) {
+		return nil
+	}
 	switch action {
 	case "move":
 		t.mouseMu.Lock()

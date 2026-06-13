@@ -12,6 +12,8 @@ export {
   ListTrustedDevices, ForgetTrustedDevice, ClearAllTrustedDevices,
   SetPairCode,
   MirrorDisplay, ExtendDisplay,
+  SetAutoDiscovery, GetAutoDiscovery,
+  SetUSBAutoAccept, GetUSBAutoAccept,
 } from '../../wailsjs/go/main/App'
 
 export { EventsOn, EventsEmit } from '../../wailsjs/runtime/runtime'

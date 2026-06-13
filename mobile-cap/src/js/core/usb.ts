@@ -180,33 +180,42 @@ window.onUsbDisconnected = function (): void {
 
 function doUsbTeardown(): void {
   console.log('usb: cable disconnected, tearing down USB transport');
-  transportMode = 'wifi';
   connected = false;
 
   if (streamVisible) hideStream();
   setConnState('offline');
-  // Cable yanked → back to scanning so the user has a useful pre-connect
-  // surface (matches the spec: USB disconnect returns to last Wi-Fi
-  // state or scanning).
+
+  const usbOnly = localStorage.getItem('vior_usb_only') === '1';
+
   if (typeof viorState !== 'undefined') viorState.set({ state: 'disconnected' });
 
   // Reset orb back to its breathing "waiting" state.
   const setStage = (window as unknown as { setUsbStage?: (s: 'waiting' | 'verifying' | 'connected' | 'failed') => void }).setUsbStage;
   if (typeof setStage === 'function') setStage('waiting');
 
-  // Flip back to discovery view; reset card + tabs.
-  const showFn = (window as unknown as { showView?: (n: string) => void }).showView;
-  if (typeof showFn === 'function') showFn('disc');
-  const sync = (window as unknown as { syncEntryMode?: () => void }).syncEntryMode;
-  if (typeof sync === 'function') sync();
-  $('files-offline')?.classList.remove('hidden');
-  $('files-active')?.classList.add('hidden');
-  $('remote-offline')?.classList.remove('hidden');
-  $('remote-active')?.classList.add('hidden');
-
-  toast('warning', 'USB disconnected', 'Cable unplugged — re-plug or use Wi-Fi.');
-  // Resume Wi-Fi discovery so the user has something to tap on.
-  setTimeout(function () { try { startDiscovery(); } catch (_) {} }, 300);
+  // If USB-only mode is on, stay on the USB surface — don't flip to Wi-Fi.
+  if (usbOnly) {
+    transportMode = 'usb';
+    applyEntryMode('usb');
+    $('files-offline')?.classList.remove('hidden');
+    $('files-active')?.classList.add('hidden');
+    $('remote-offline')?.classList.remove('hidden');
+    $('remote-active')?.classList.add('hidden');
+    toast('warning', 'USB disconnected', 'Re-plug the cable and verify it is a data-capable cable.');
+  } else {
+    transportMode = 'wifi';
+    const showFn = (window as unknown as { showView?: (n: string) => void }).showView;
+    if (typeof showFn === 'function') showFn('disc');
+    const sync = (window as unknown as { syncEntryMode?: () => void }).syncEntryMode;
+    if (typeof sync === 'function') sync();
+    $('files-offline')?.classList.remove('hidden');
+    $('files-active')?.classList.add('hidden');
+    $('remote-offline')?.classList.remove('hidden');
+    $('remote-active')?.classList.add('hidden');
+    toast('warning', 'USB disconnected', 'Cable unplugged — re-plug or use Wi-Fi.');
+    // Resume Wi-Fi discovery so the user has something to tap on.
+    setTimeout(function () { try { startDiscovery(); } catch (_) {} }, 300);
+  }
 }
 
 // ── Resolution handshake from the desktop ─────────────────────────

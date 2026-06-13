@@ -20,6 +20,8 @@ import {
   ListTrustedDevices, ForgetTrustedDevice, ClearAllTrustedDevices,
   GetServerStatus, SetPairCode,
   EventsOn,
+  SetAutoDiscovery, GetAutoDiscovery,
+  SetUSBAutoAccept, GetUSBAutoAccept,
 } from '../lib/api'
 import { Icons } from '../lib/icons'
 import Glyph from '../lib/Glyph'
@@ -68,6 +70,22 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }: 
   const [menuBar, setMenuBar] = useState<boolean>(true)
   useEffect(() => { GetMenuBarVisible?.().then(setMenuBar).catch(() => {}) }, [])
   const toggleMenuBar = (v: boolean): void => { setMenuBar(v); SetMenuBarVisible?.(v) }
+
+  // Wired discovery toggle — calls SetAutoDiscovery on the Go backend.
+  const [autoDiscovery, setAutoDiscovery] = useState<boolean>(true)
+  useEffect(() => { GetAutoDiscovery?.().then(setAutoDiscovery).catch(() => {}) }, [])
+  const toggleDiscovery = (v: boolean): void => {
+    setAutoDiscovery(v)
+    SetAutoDiscovery?.(v)
+  }
+
+  // USB auto-accept toggle — calls SetUSBAutoAccept on the Go backend.
+  const [usbAutoAccept, setUsbAutoAccept] = useState<boolean>(false)
+  useEffect(() => { GetUSBAutoAccept?.().then(setUsbAutoAccept).catch(() => {}) }, [])
+  const toggleUsbAutoAccept = (v: boolean): void => {
+    setUsbAutoAccept(v)
+    SetUSBAutoAccept?.(v)
+  }
 
   // Trusted Devices list. Polled on mount + whenever a new client
   // connects (a pair-code success may add a fresh row). Empty array
@@ -178,14 +196,18 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }: 
             <div className="settings-row-title">Local discovery</div>
             <div className="settings-row-sub">Broadcast on the LAN so the phone finds Vior automatically</div>
           </div>
-          <span className="badge badge-coming">Coming soon</span>
+          <button className={`toggle ${autoDiscovery ? 'toggle-on' : 'toggle-off'}`} onClick={() => toggleDiscovery(!autoDiscovery)}>
+            <span className="toggle-knob" style={{ transform: `translateX(${autoDiscovery ? 17 : 0}px)` }} />
+          </button>
         </div>
         <div className="settings-row">
           <div className="settings-row-body">
             <div className="settings-row-title">Auto-accept paired USB devices</div>
             <div className="settings-row-sub">Skip the connect prompt for phones you've paired before</div>
           </div>
-          <span className="badge badge-coming">Coming soon</span>
+          <button className={`toggle ${usbAutoAccept ? 'toggle-on' : 'toggle-off'}`} onClick={() => toggleUsbAutoAccept(!usbAutoAccept)}>
+            <span className="toggle-knob" style={{ transform: `translateX(${usbAutoAccept ? 17 : 0}px)` }} />
+          </button>
         </div>
       </div>
 

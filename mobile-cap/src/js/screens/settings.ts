@@ -71,8 +71,19 @@ document.querySelectorAll<HTMLElement>('.vior-toggle').forEach(function (t: HTML
     t.classList.toggle('off', !on);
     localStorage.setItem(key, on ? '1' : '0');
     if (key === 'vior_wifi' || key === 'vior_usb_only') {
-      // Restart discovery to apply.
-      if (on || key === 'vior_usb_only') startDiscovery();
+      if (connected) {
+        toast('warning', 'Disconnect first', 'Toggle this setting before connecting.');
+        return;
+      }
+      // When USB-only flips ON: switch transport toggle to USB, show USB surface.
+      if (key === 'vior_usb_only' && on) {
+        applyEntryMode('usb');
+      }
+      // When USB-only flips OFF: switch back to Wi-Fi surface.
+      if (key === 'vior_usb_only' && !on) {
+        applyEntryMode('wifi');
+      }
+      startDiscovery();
       const prev = t.previousElementSibling;
       const label = prev ? prev.querySelector('div') : null;
       toast('info', 'Updated', (label ? label.textContent : '') + ' ' + (on ? 'enabled' : 'disabled'));

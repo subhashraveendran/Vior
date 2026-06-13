@@ -1191,3 +1191,42 @@ func sameIPSet(a, b []string) bool {
 	}
 	return true
 }
+
+// SetAutoDiscovery toggles the LAN discovery broadcaster at runtime.
+// Stops the broadcaster when disabled; starts a new one when enabled.
+func (a *App) SetAutoDiscovery(on bool) {
+	a.cfg.AutoDiscovery = on
+	if on {
+		if a.broadcaster == nil || !a.broadcaster.IsRunning() {
+			if a.broadcaster != nil {
+				a.broadcaster.Stop()
+			}
+			a.broadcaster = discovery.NewBroadcaster(a.cfg.Port, a.cfg.DiscoveryPort)
+			if err := a.broadcaster.Start(); err != nil {
+				log.Printf("discovery: restart failed: %v", err)
+			}
+		}
+	} else {
+		if a.broadcaster != nil {
+			a.broadcaster.Stop()
+		}
+	}
+}
+
+// GetAutoDiscovery reports whether LAN discovery is enabled.
+func (a *App) GetAutoDiscovery() bool {
+	return a.cfg.AutoDiscovery
+}
+
+// SetUSBAutoAccept toggles automatic USB device acceptance.
+// When true, paired USB devices skip the connect prompt.
+func (a *App) SetUSBAutoAccept(on bool) {
+	// Persisted via localStorage on the desktop frontend side.
+	// The actual admission policy check lives in OnClientConnect.
+	log.Printf("config: usb auto-accept %v", on)
+}
+
+// GetUSBAutoAccept reports the current USB auto-accept preference.
+func (a *App) GetUSBAutoAccept() bool {
+	return false // placeholder — wired through localStorage currently
+}

@@ -103,7 +103,14 @@ export default function WaitingScreen({ status, onStop, onCopy, onCopyPair, disc
       </div>
 
       <div className="waiting-foot">
-        <button className="btn btn-ghost" onClick={onStop}>
+        <button
+          className="btn btn-ghost"
+          onClick={() => {
+            if (window.confirm('Stop the server? Your phone will be disconnected.')) {
+              onStop()
+            }
+          }}
+        >
           {Icons.power(19)} Stop Server
         </button>
       </div>

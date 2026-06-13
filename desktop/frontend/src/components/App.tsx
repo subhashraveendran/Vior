@@ -68,6 +68,8 @@ export default function App() {
   // for ~3 seconds after a client drops, then auto-clears back to the
   // bare Waiting screen.
   const [disconnectBanner, setDisconnectBanner] = useState<string | null>(null)
+  const [starting, setStarting] = useState<boolean>(false)
+  const [startError, setStartError] = useState<string | null>(null)
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- accent applies
   // once at boot; subsequent changes flow through Appearance → applyAccent
@@ -164,10 +166,19 @@ export default function App() {
   }, [client])
 
   const start = async () => {
-    try { await StartServer(); const s = await GetServerStatus(); setServerStatus(s) }
-    catch (e) { toast('error', 'Failed to start', String(e)) }
+    setStarting(true); setStartError(null)
+    try {
+      await StartServer(); const s = await GetServerStatus(); setServerStatus(s)
+      setStarting(false)
+    } catch (e) {
+      setStarting(false)
+      const msg = String(e)
+      setStartError(msg)
+      toast('error', 'Failed to start', msg)
+    }
   }
   const stop = async () => {
+    setStarting(false); setStartError(null)
     try { await StopServer() } catch {}
     setServerStatus(null); setClient(null); setErrorState(false); setDisconnectBanner(null); setNav('server')
   }
@@ -225,7 +236,7 @@ export default function App() {
   if (nav === 'settings') {
     body = <SettingsScreen config={config} onChange={updateConfig} accent={accent} setAccent={setAccent} />
   } else if (state === 'ready') {
-    body = <IdleScreen onStart={start} showUpdate={showUpdate} onUpdate={() => setShowUpdate(false)} onDismiss={() => setShowUpdate(false)} />
+    body = <IdleScreen onStart={start} showUpdate={showUpdate} onUpdate={() => setShowUpdate(false)} onDismiss={() => setShowUpdate(false)} starting={starting} startError={startError} />
   } else if (state === 'waiting') {
     body = (
       <WaitingScreen

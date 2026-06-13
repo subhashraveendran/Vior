@@ -8,9 +8,11 @@ interface IdleScreenProps {
   showUpdate?: boolean
   onUpdate: () => void
   onDismiss: () => void
+  starting?: boolean
+  startError?: string | null
 }
 
-export default function IdleScreen({ onStart, showUpdate, onUpdate, onDismiss }: IdleScreenProps) {
+export default function IdleScreen({ onStart, showUpdate, onUpdate, onDismiss, starting, startError }: IdleScreenProps) {
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       {showUpdate && (
@@ -39,8 +41,26 @@ export default function IdleScreen({ onStart, showUpdate, onUpdate, onDismiss }:
         </div>
         <div className="idle-title">Ready when you are</div>
         <div className="idle-sub">Start the server and Vior on your phone discovers this Mac automatically — over your local network, no setup.</div>
-        <button className="btn btn-primary idle-cta-btn" onClick={onStart}>
-          {Icons.power(20)} Start Server
+        {startError && (
+          <div className="perm-card perm-card-bad" style={{ maxWidth: 370, margin: '0 auto 12px' }}>
+            <div className="perm-card-icon">{Icons.alert(20)}</div>
+            <div className="perm-card-body">
+              <div className="perm-card-title">Server failed to start</div>
+              <div className="perm-card-sub">{startError}</div>
+            </div>
+          </div>
+        )}
+        <button
+          className="btn btn-primary idle-cta-btn"
+          onClick={starting ? undefined : onStart}
+          disabled={starting}
+          style={{ opacity: starting ? 0.7 : undefined }}
+        >
+          {starting ? (
+            <><span className="spin" style={{ width: 17, height: 17, border: '2.4px solid var(--surface-3)', borderTopColor: 'var(--on-accent)', borderRadius: '50%', display: 'inline-block', marginRight: 8 }} /> Starting…</>
+          ) : (
+            <>{Icons.power(20)} Start Server</>
+          )}
         </button>
         <p className="idle-sub" style={{ textAlign: 'center', marginTop: 12, color: 'var(--text-3)' }}>
           Once started, your phone discovers this Mac over Wi-Fi — open the Vior mobile app and scan the QR.

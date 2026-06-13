@@ -94,6 +94,18 @@ export function OnClientDisconnect(arg1) {
   return window['go']['main']['App']['OnClientDisconnect'](arg1);
 }
 
+export function OnClientDownloadAccept(arg1, arg2) {
+  return window['go']['main']['App']['OnClientDownloadAccept'](arg1, arg2);
+}
+
+export function OnClientDownloadComplete(arg1, arg2) {
+  return window['go']['main']['App']['OnClientDownloadComplete'](arg1, arg2);
+}
+
+export function OnClientDownloadReject(arg1, arg2) {
+  return window['go']['main']['App']['OnClientDownloadReject'](arg1, arg2);
+}
+
 export function OnClientFileAccept(arg1, arg2) {
   return window['go']['main']['App']['OnClientFileAccept'](arg1, arg2);
 }
@@ -112,18 +124,6 @@ export function OnClientFileOffer(arg1, arg2) {
 
 export function OnClientFileReject(arg1, arg2) {
   return window['go']['main']['App']['OnClientFileReject'](arg1, arg2);
-}
-
-export function OnClientDownloadAccept(arg1, arg2) {
-  return window['go']['main']['App']['OnClientDownloadAccept'](arg1, arg2);
-}
-
-export function OnClientDownloadReject(arg1, arg2) {
-  return window['go']['main']['App']['OnClientDownloadReject'](arg1, arg2);
-}
-
-export function OnClientDownloadComplete(arg1, arg2) {
-  return window['go']['main']['App']['OnClientDownloadComplete'](arg1, arg2);
 }
 
 export function OnClientInput(arg1, arg2) {
@@ -152,6 +152,10 @@ export function SendFile(arg1) {
 
 export function SendFileToPhone(arg1) {
   return window['go']['main']['App']['SendFileToPhone'](arg1);
+}
+
+export function ServeDownload(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ServeDownload'](arg1, arg2, arg3);
 }
 
 export function SetMenuBarVisible(arg1) {

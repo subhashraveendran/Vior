@@ -3,6 +3,7 @@
 import {main} from '../models';
 import {adb} from '../models';
 import {protocol} from '../models';
+import {http} from '../models';
 
 export function AcceptIncomingFile(arg1:string):Promise<void>;
 
@@ -50,6 +51,12 @@ export function OnClientConnect(arg1:protocol.Session,arg2:protocol.HelloMessage
 
 export function OnClientDisconnect(arg1:protocol.Session):Promise<void>;
 
+export function OnClientDownloadAccept(arg1:protocol.Session,arg2:protocol.DownloadAcceptMessage):Promise<void>;
+
+export function OnClientDownloadComplete(arg1:protocol.Session,arg2:protocol.DownloadCompleteMessage):Promise<void>;
+
+export function OnClientDownloadReject(arg1:protocol.Session,arg2:protocol.DownloadRejectMessage):Promise<void>;
+
 export function OnClientFileAccept(arg1:protocol.Session,arg2:protocol.FileAcceptMessage):Promise<void>;
 
 export function OnClientFileChunk(arg1:protocol.Session,arg2:protocol.FileChunkMessage):Promise<void>;
@@ -59,12 +66,6 @@ export function OnClientFileComplete(arg1:protocol.Session,arg2:protocol.FileCom
 export function OnClientFileOffer(arg1:protocol.Session,arg2:protocol.FileOfferMessage):Promise<void>;
 
 export function OnClientFileReject(arg1:protocol.Session,arg2:protocol.FileRejectMessage):Promise<void>;
-
-export function OnClientDownloadAccept(arg1:protocol.Session,arg2:protocol.DownloadAcceptMessage):Promise<void>;
-
-export function OnClientDownloadReject(arg1:protocol.Session,arg2:protocol.DownloadRejectMessage):Promise<void>;
-
-export function OnClientDownloadComplete(arg1:protocol.Session,arg2:protocol.DownloadCompleteMessage):Promise<void>;
 
 export function OnClientInput(arg1:protocol.Session,arg2:protocol.InputMessage):Promise<void>;
 
@@ -79,6 +80,8 @@ export function ResetConfig():Promise<void>;
 export function SendFile(arg1:string):Promise<void>;
 
 export function SendFileToPhone(arg1:string):Promise<void>;
+
+export function ServeDownload(arg1:http.ResponseWriter,arg2:http.Request,arg3:string):Promise<void>;
 
 export function SetMenuBarVisible(arg1:boolean):Promise<void>;
 

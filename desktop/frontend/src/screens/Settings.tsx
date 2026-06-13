@@ -64,18 +64,10 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }: 
   const cur: string = presets.find(p => p.q === config.quality && p.f === config.frameRate)?.id || 'balanced'
 
   // Settings persisted in localStorage. The backend doesn't wire these
-  // yet (autoLaunch needs a Login Item plist; discovery needs a config
-  // toggle to plumb through); the UI keeps state stable so the user's
-  // choice survives reloads when the backend lands.
-  const [autoLaunch, setAutoLaunch] = useState<boolean>(localStorage.getItem('vior_autolaunch') === '1')
-  const [usbAccept, setUsbAccept] = useState<boolean>(localStorage.getItem('vior_usb_accept') !== '0')
-  const [discovery, setDiscovery] = useState<boolean>(localStorage.getItem('vior_discovery') !== '0')
+  // yet — toggles are marked "Coming soon" until the backend lands.
   const [menuBar, setMenuBar] = useState<boolean>(true)
   useEffect(() => { GetMenuBarVisible?.().then(setMenuBar).catch(() => {}) }, [])
   const toggleMenuBar = (v: boolean): void => { setMenuBar(v); SetMenuBarVisible?.(v) }
-  const toggleAutoLaunch = (v: boolean): void => { setAutoLaunch(v); localStorage.setItem('vior_autolaunch', v ? '1' : '0') }
-  const toggleUsbAccept = (v: boolean): void => { setUsbAccept(v); localStorage.setItem('vior_usb_accept', v ? '1' : '0') }
-  const toggleDiscovery = (v: boolean): void => { setDiscovery(v); localStorage.setItem('vior_discovery', v ? '1' : '0') }
 
   // Trusted Devices list. Polled on mount + whenever a new client
   // connects (a pair-code success may add a fresh row). Empty array
@@ -166,9 +158,7 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }: 
             <div className="settings-row-title">Launch Vior at login</div>
             <div className="settings-row-sub">Server starts in the background, ready for the phone</div>
           </div>
-          <button className={`toggle ${autoLaunch ? 'toggle-on' : 'toggle-off'}`} onClick={() => toggleAutoLaunch(!autoLaunch)}>
-            <span className="toggle-knob" style={{ transform: `translateX(${autoLaunch ? 17 : 0}px)` }} />
-          </button>
+          <span className="badge badge-coming">Coming soon</span>
         </div>
         <div className="settings-row">
           <div className="settings-row-body">
@@ -188,18 +178,14 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }: 
             <div className="settings-row-title">Local discovery</div>
             <div className="settings-row-sub">Broadcast on the LAN so the phone finds Vior automatically</div>
           </div>
-          <button className={`toggle ${discovery ? 'toggle-on' : 'toggle-off'}`} onClick={() => toggleDiscovery(!discovery)}>
-            <span className="toggle-knob" style={{ transform: `translateX(${discovery ? 17 : 0}px)` }} />
-          </button>
+          <span className="badge badge-coming">Coming soon</span>
         </div>
         <div className="settings-row">
           <div className="settings-row-body">
             <div className="settings-row-title">Auto-accept paired USB devices</div>
             <div className="settings-row-sub">Skip the connect prompt for phones you've paired before</div>
           </div>
-          <button className={`toggle ${usbAccept ? 'toggle-on' : 'toggle-off'}`} onClick={() => toggleUsbAccept(!usbAccept)}>
-            <span className="toggle-knob" style={{ transform: `translateX(${usbAccept ? 17 : 0}px)` }} />
-          </button>
+          <span className="badge badge-coming">Coming soon</span>
         </div>
       </div>
 

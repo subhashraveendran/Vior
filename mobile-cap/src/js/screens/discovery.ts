@@ -32,16 +32,19 @@ function startDiscovery(): void {
   showView('disc');
 
   const last = localStorage.getItem('vior_last');
-  if (last) { const p = last.split(':'); probeServer(p[0], parseInt(p[1])); }
+  if (last) { const p = last.split(':'); probeServer(p[0], parseInt(p[1] || '8080')); }
 
   getLocalIP(function (ip: string | null) {
     if (!ip) { setTimeout(showEmpty, 2500); return; }
     const base = ip.split('.').slice(0, 3).join('.');
-    // Parallel /24 sweep — fire all 254 probes at once; AbortController
-    // inside probeServer enforces a 1.5s per-probe timeout. Total wall
-    // time ≈ 1.5s instead of ~5s for sequential 13×300ms batching.
+    // Parallel /24 sweep — fire all probes at once across common ports.
+    // The UDP beacon carries the real port, but this HTTP fallback helps
+    // when UDP is filtered. Tries 8080 and 8081 to catch auto-selected ports.
+    const commonPorts = [8080, 8081]
     const probes: Promise<void>[] = [];
-    for (let i = 1; i < 255; i++) probes.push(probeServer(base + '.' + i, 8080));
+    for (let pi = 0; pi < commonPorts.length; pi++) {
+      for (let i = 1; i < 255; i++) probes.push(probeServer(base + '.' + i, commonPorts[pi]));
+    }
     Promise.allSettled(probes).then(function () {
       scanning = false;
       if (!selectedServer && Object.keys(foundServers).length === 0) showEmpty();

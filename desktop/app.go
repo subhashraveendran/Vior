@@ -280,6 +280,13 @@ func (a *App) OnClientConnect(sess *protocol.Session, hello *protocol.HelloMessa
 
 	log.Printf("session: client connected: %s %dx%d @%.1fx mode=%s", hello.Name, hello.Width, hello.Height, hello.DPR, hello.Mode)
 
+	// Check Screen Recording permission so the desktop UI can show a
+	// warning card if the stream will be black. Do this before virtual
+	// display creation so the card appears alongside the Connected state.
+	if err := capture.CheckScreenRecordingPermission(); err != nil {
+		runtime.EventsEmit(a.ctx, "permission:screen-recording-missing", err.Error())
+	}
+
 	// Tear down previous capture before reconfiguring.
 	if a.session != nil {
 		a.session.Stop()
@@ -387,6 +394,15 @@ func (a *App) OnClientInput(_ *protocol.Session, msg *protocol.InputMessage) err
 		a.inputPermChecked = true
 		if !input.HasAccessibility(false) {
 			runtime.EventsEmit(a.ctx, "permission:accessibility-missing", nil)
+			// Also tell the phone — user is looking at phone, not desktop.
+			a.clientMu.Lock()
+			if a.client != nil {
+				_ = a.client.Send(protocol.MsgError, &protocol.ErrorMessage{
+					Code:    "permission_accessibility",
+					Message: "Desktop needs Accessibility permission for Remote tab to work. Check your computer screen.",
+				})
+			}
+			a.clientMu.Unlock()
 		}
 	}
 	// Key events don't need a touchMapper, so route them first. This

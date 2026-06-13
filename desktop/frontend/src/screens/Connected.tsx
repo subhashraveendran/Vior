@@ -132,11 +132,11 @@ export default function ConnectedScreen({
             </div>
             <div className="vdisp-cell">
               <div className="vdisp-val">{DEFAULT_REFRESH_HZ}<span className="vdisp-unit"> Hz</span></div>
-              <div className="vdisp-label">Refresh</div>
+              <div className="vdisp-label">Target refresh</div>
             </div>
             <div className="vdisp-cell">
               <div className="vdisp-val">{status?.frameRate || 30}<span className="vdisp-unit"> fps</span></div>
-              <div className="vdisp-label">Stream</div>
+              <div className="vdisp-label">Target fps</div>
             </div>
             <div className="vdisp-cell">
               <div className="vdisp-val" style={{ textTransform: 'capitalize' }}>{mode}</div>

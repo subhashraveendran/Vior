@@ -126,6 +126,10 @@ export default function App() {
       setAccessibilityOk(false)
       toast('error', 'Remote needs Accessibility', 'System Settings → Privacy & Security → Accessibility → enable Vior.')
     })
+    const off8 = EventsOn('permission:screen-recording-missing', () => {
+      setShowPerms(true)
+      toast('error', 'Screen Recording needed', 'macOS must grant permission or the phone stream will be black.')
+    })
     // Incoming file from mobile (untrusted device path). Trusted devices
     // never raise this event — desktop/app.go skips emit when trusted.
     const off4 = EventsOn('file:offer', (o: { id: string; name: string; size: number; mimeType: string; preview?: string }) => {
@@ -143,14 +147,27 @@ export default function App() {
       // Trigger a fresh poll so the Waiting screen refreshes URLs/QR.
       GetServerStatus().then(setServerStatus).catch(() => {})
     })
-    return () => { off1 && off1(); off2 && off2(); off3 && off3(); off4 && off4(); off5 && off5(); off6 && off6(); off7 && off7() }
+    return () => { off1 && off1(); off2 && off2(); off3 && off3(); off4 && off4(); off5 && off5(); off6 && off6(); off7 && off7(); off8 && off8() }
   }, [toast, client])
 
   // poll status
   useEffect(() => {
     if (!serverStatus?.running) return
+    let failCount = 0
     const id = setInterval(async () => {
-      try { const s = await GetServerStatus(); setServerStatus(s); if (!s.running) { setClient(null) } } catch {}
+      try {
+        const s = await GetServerStatus()
+        setServerStatus(s)
+        failCount = 0
+        if (!s.running) { setClient(null) }
+      } catch {
+        failCount++
+        if (failCount >= 3) {
+          setServerStatus(prev => prev ? { ...prev, running: false } : null)
+          setClient(null)
+          toast('error', 'Server stopped', 'The server stopped responding. Check if Vior is still running.')
+        }
+      }
     }, 3000)
     return () => clearInterval(id)
   }, [serverStatus?.running])

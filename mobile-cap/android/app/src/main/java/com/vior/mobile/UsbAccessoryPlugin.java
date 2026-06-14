@@ -106,21 +106,34 @@ public class UsbAccessoryPlugin {
     }
 
     private void openAccessory(UsbAccessory acc) {
-        fileDescriptor = usbManager.openAccessory(acc);
-        if (fileDescriptor == null) {
-            Log.e(TAG, "Failed to open accessory");
-            return;
+        // Reached from checkIntent(), scan(), and the permission
+        // BroadcastReceiver — all on different threads. Without this
+        // gate the second caller overwrote fileDescriptor/inputStream/
+        // outputStream while the first call's readLoop was still
+        // holding references to the originals, leaking the original
+        // FD (never closed) and silently corrupting the reader.
+        synchronized (ioLock) {
+            if (connected) {
+                Log.i(TAG, "openAccessory: already connected, skipping");
+                return;
+            }
+            ParcelFileDescriptor fd = usbManager.openAccessory(acc);
+            if (fd == null) {
+                Log.e(TAG, "Failed to open accessory");
+                return;
+            }
+            fileDescriptor = fd;
+            accessory = acc;
+            inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
+            outputStream = new FileOutputStream(fileDescriptor.getFileDescriptor());
+            connected = true;
+            Log.i(TAG, "USB Accessory connected: " + acc.getManufacturer() + " " + acc.getModel());
+
+            if (listener != null) listener.onConnected();
+
+            // Start reading in background.
+            new Thread(this::readLoop).start();
         }
-        accessory = acc;
-        inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
-        outputStream = new FileOutputStream(fileDescriptor.getFileDescriptor());
-        connected = true;
-        Log.i(TAG, "USB Accessory connected: " + acc.getManufacturer() + " " + acc.getModel());
-
-        if (listener != null) listener.onConnected();
-
-        // Start reading in background.
-        new Thread(this::readLoop).start();
     }
 
     private void readLoop() {

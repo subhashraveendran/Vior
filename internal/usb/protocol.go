@@ -84,16 +84,17 @@ func EncodeVideoFrame(jpeg []byte) []byte {
 
 // DecodeFrameHeader reads frame type and length from first 5 bytes.
 // Length is clamped to MaxFrameSize so a corrupt or malicious header
-// can't trigger an OOM via make([]byte, len).
+// can't trigger an OOM via make([]byte, len). Also guards against
+// signed overflow in the length field.
 func DecodeFrameHeader(header []byte) (frameType byte, length uint32) {
 	if len(header) < 5 {
 		return 0, 0
 	}
-	l := binary.BigEndian.Uint32(header[1:5])
-	if l > MaxFrameSize {
+	l := int64(binary.BigEndian.Uint32(header[1:5]))
+	if l < 0 || l > int64(MaxFrameSize) {
 		l = 0
 	}
-	return header[0], l
+	return header[0], uint32(l)
 }
 
 // EncodePing / EncodePong build single-byte liveness frames.

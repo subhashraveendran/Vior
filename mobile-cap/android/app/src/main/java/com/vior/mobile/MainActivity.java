@@ -126,6 +126,10 @@ public class MainActivity extends BridgeActivity {
                         evaluateJs("window.onUsbFrame && window.onUsbFrame('" + b64 + "')");
                     });
                 } else if (frameType == FRAME_READY) {
+                    if (length < 9) {
+                        Log.w(TAG, "usb: short ready frame (len=" + length + ")");
+                        return;
+                    }
                     int w = ((data[1] & 0xFF) << 24) | ((data[2] & 0xFF) << 16) |
                             ((data[3] & 0xFF) << 8) | (data[4] & 0xFF);
                     int h = ((data[5] & 0xFF) << 24) | ((data[6] & 0xFF) << 16) |

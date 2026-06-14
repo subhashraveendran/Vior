@@ -177,8 +177,8 @@ function renderIncoming(): void {
           '</div>' +
         '</div>' +
         '<div class="incoming-buttons">' +
-          '<button class="btn btn-ghost btn-block" onclick="window._rejectFile(\'' + id + '\')">Decline</button>' +
-          '<button class="btn btn-primary btn-block" onclick="window._acceptFile(\'' + id + '\')">' +
+          '<button class="btn btn-ghost btn-block" onclick="window._rejectFile(\'' + esc(id) + '\')">Decline</button>' +
+          '<button class="btn btn-primary btn-block" onclick="window._acceptFile(\'' + esc(id) + '\')">' +
             '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>' +
             'Accept' +
           '</button>' +

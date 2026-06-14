@@ -47,7 +47,9 @@ Example:
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var idx int
-		fmt.Sscanf(args[0], "%d", &idx)
+		if _, err := fmt.Sscanf(args[0], "%d", &idx); err != nil || idx < 0 {
+			return fmt.Errorf("invalid display index: %q", args[0])
+		}
 		if err := capture.UnmirrorDisplay(idx); err != nil {
 			return err
 		}

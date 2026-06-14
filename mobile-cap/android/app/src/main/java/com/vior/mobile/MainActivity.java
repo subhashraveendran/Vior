@@ -33,7 +33,15 @@ public class MainActivity extends BridgeActivity {
     // Magic + version mirror internal/usb/protocol.go on the desktop.
     // Both sides verify each other before honouring any subsequent
     // touch / video frames so a stray AOA accessory can't drive us.
-    private static final byte[] HELLO_MAGIC = new byte[] { 'V', 'I', 'O', 'R' };
+    private static final byte[] HELLO_MAGIC = new byte[] { 'V', 'I', 'O', 'R'     @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (usbPlugin != null) {
+            try { usbPlugin.cleanup(); } catch (Exception e) {}
+            usbPlugin = null;
+        }
+    }
+};
     private static final byte PROTOCOL_VERSION = 1;
     // Frame types — keep in lock-step with internal/usb/protocol.go.
     private static final byte FRAME_VIDEO = 0x01;

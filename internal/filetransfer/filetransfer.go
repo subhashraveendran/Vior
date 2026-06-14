@@ -609,6 +609,20 @@ func (m *Manager) ServeDownload(w http.ResponseWriter, r *http.Request, id strin
 	}
 	defer f.Close()
 
+	// Resolve symlinks so a crafted path through a symlink inside
+	// ReceiveDir can't reach files outside it.
+	realPath, err := filepath.EvalSymlinks(p.Path)
+	if err != nil {
+		http.Error(w, "resolve failed", http.StatusInternalServerError)
+		return
+	}
+	absRoot, _ := filepath.Abs(m.ReceiveDir)
+	absReal, _ := filepath.Abs(realPath)
+	if rel, err := filepath.Rel(absRoot, absReal); err != nil || strings.HasPrefix(rel, "..") || rel == ".." {
+		http.Error(w, "path blocked", http.StatusForbidden)
+		return
+	}
+
 	fi, err := f.Stat()
 	if err != nil {
 		http.Error(w, "stat failed", http.StatusInternalServerError)

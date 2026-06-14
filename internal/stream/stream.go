@@ -780,25 +780,26 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("stream: client hello: %s %dx%d @%.1fx [%s]", hello.Name, hello.Width, hello.Height, hello.DPR, session.ID)
 
-	// Admission policy:
-	//   1. Already-trusted deviceID (paired before on this server)  → admit
-	//   2. Correct pair code present                                → admit + add to trust store
-	//   3. Otherwise                                                → reject
-	// This way the user only enters the code once per physical device.
+	// Admission policy: the pair code is the only authority. A
+	// previously-trusted deviceID by itself is NOT enough — an
+	// attacker who learns a legitimate deviceID (from logs, screen
+	// shares, LAN sniffing of an unprotected ws) could otherwise
+	// impersonate that device and skip authentication entirely.
+	// Mobile clients already cache and resend the pair code on every
+	// connect (see connect.ts), so this only costs UX in the rare
+	// case of a tampered-mobile cache.
+	//
+	// The trust store is retained as informational metadata (LastSeen,
+	// Settings UI list, pair history) but no longer short-circuits
+	// admission.
 	ip := remoteIP(r.RemoteAddr)
 	switch {
-	case trustedDevices.IsTrusted(hello.DeviceID):
-		log.Printf("stream: admitted trusted device [%s] id=%s", session.ID, hello.DeviceID)
-		// Touch LastSeen + refresh name/platform so the Settings UI
-		// reflects the latest device label even between repairs.
-		_ = trustedDevices.Touch(hello.DeviceID, hello.Name, hello.Platform)
-		clearPairAttempts(ip)
 	case strings.TrimSpace(hello.PairCode) == PairCode():
 		if hello.DeviceID != "" {
 			if err := trustedDevices.Touch(hello.DeviceID, hello.Name, hello.Platform); err != nil {
 				log.Printf("trust: store add failed [%s]: %v", session.ID, err)
 			} else {
-				log.Printf("trust: paired new device [%s] id=%s name=%q platform=%q",
+				log.Printf("trust: paired device [%s] id=%s name=%q platform=%q",
 					session.ID, hello.DeviceID, hello.Name, hello.Platform)
 			}
 		}

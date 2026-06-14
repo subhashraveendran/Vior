@@ -1,0 +1,22 @@
+{
+  "name": "vior",
+  "version": "0.2.0",
+  "description": "Phone as second display — CLI server for macOS, Linux, Windows",
+  "bin": {
+    "vior": "./vior.js"
+  },
+  "files": [
+    "vior.js",
+    "install.js"
+  ],
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "repository": "github:subhashraveendran/Vior",
+  "license": "MIT",
+  "keywords": ["second-screen", "display", "mirror", "extend", "trackpad", "file-transfer"],
+  "os": ["darwin", "linux", "win32"],
+  "engines": {
+    "node": ">=18"
+  }
+}

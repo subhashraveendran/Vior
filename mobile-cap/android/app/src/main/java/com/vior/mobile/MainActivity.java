@@ -126,10 +126,27 @@ public class MainActivity extends BridgeActivity {
                 if (length < 5) return;
 
                 if (frameType == FRAME_VIDEO) {
-                    int jpegLen = ((data[1] & 0xFF) << 24) | ((data[2] & 0xFF) << 16) |
-                                  ((data[3] & 0xFF) << 8) | (data[4] & 0xFF);
-                    if (length < 5 + jpegLen) return;
-                    String b64 = Base64.encodeToString(data, 5, jpegLen, Base64.NO_WRAP);
+                    // Parse as long so the high bit doesn't turn the
+                    // length into a negative int. With the old signed
+                    // int parse, 0xFFFFFFFF decoded to -1 and the
+                    // length check below evaluated as `length < 4`,
+                    // which passes for any frame ≥5 bytes — then
+                    // Base64.encodeToString(data, 5, -1, …) threw
+                    // ArrayIndexOutOfBoundsException and crashed the
+                    // app on every malicious-USB frame.
+                    long jpegLen = ((long)(data[1] & 0xFF) << 24)
+                                 | ((long)(data[2] & 0xFF) << 16)
+                                 | ((long)(data[3] & 0xFF) << 8)
+                                 | (long)(data[4] & 0xFF);
+                    // 8 MiB matches the desktop's MaxFrameSize. Reject
+                    // before the bounds-check so a wildly-oversized
+                    // length never reaches Base64 allocation.
+                    if (jpegLen <= 0 || jpegLen > 8L * 1024 * 1024) {
+                        Log.w(TAG, "usb: bad jpeg length " + jpegLen);
+                        return;
+                    }
+                    if ((long) length < 5L + jpegLen) return;
+                    String b64 = Base64.encodeToString(data, 5, (int) jpegLen, Base64.NO_WRAP);
                     runOnUiThread(() -> {
                         evaluateJs("window.onUsbFrame && window.onUsbFrame('" + b64 + "')");
                     });

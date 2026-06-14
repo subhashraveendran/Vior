@@ -821,47 +821,56 @@ footer {
   .radar { max-width: 320px; min-height: 240px; }
 }
 
-/* ── Walkthrough (user flow steps) ── */
-.walkthrough {
-  display: flex; flex-direction: column; gap: 16px;
-  max-width: 780px;
+/* ── Walkthrough (user flow cards) ── */
+.walk-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  max-width: 900px;
 }
-.walk-step {
+@media (max-width: 720px) { .walk-grid { grid-template-columns: 1fr; } }
+
+.walk-card {
+  position: relative;
   background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  padding: 24px 28px;
+  border-radius: var(--r-lg);
+  padding: 28px;
+  transition: transform .25s var(--ease), border-color .25s, background .25s;
 }
-.walk-step h3 {
-  font-size: 17px; font-weight: 600;
+.walk-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+.walk-icon {
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  border-radius: var(--r);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  margin-bottom: 22px;
+}
+.walk-icon svg { width: 22px; height: 22px; display: block; }
+.walk-card h3 {
+  font-size: 18px;
+  font-weight: 600;
   letter-spacing: -0.015em;
-  margin: 0 0 10px;
-  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 8px;
 }
-.walk-num {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 28px; height: 28px;
-  background: var(--accent-weak);
-  color: var(--accent);
-  border-radius: 8px;
-  font-family: var(--font-mono);
-  font-size: 13px; font-weight: 600;
-}
-.walk-step p {
-  font-size: 14.5px; color: var(--text-2);
+.walk-card p {
+  font-size: 14.5px;
+  color: var(--text-2);
   line-height: 1.55;
   margin: 0;
 }
-.walk-step p + p { margin-top: 10px; }
-.walk-note {
-  font-size: 12.5px !important;
+.walk-card p + p { margin-top: 10px; }
+.walk-hint {
+  font-size: 13px !important;
   color: var(--text-3) !important;
-  background: var(--surface-2);
-  padding: 10px 14px;
-  border-radius: 8px;
-  border-left: 3px solid var(--accent-line);
-}
-@media (max-width: 640px) {
-  .walk-step { padding: 18px 20px; }
+  margin-top: 10px !important;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
 }
 

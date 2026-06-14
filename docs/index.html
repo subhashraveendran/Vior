@@ -284,44 +284,79 @@
   <div class="wrap">
     <div class="section-label">// what you'll see</div>
     <h2 class="section-title reveal">First time? Here's exactly what happens.</h2>
-    <p class="section-sub">No guesswork. Every screen, every button, explained.</p>
+    <p class="section-sub">Every screen, every step — from opening the app to mirroring your display.</p>
 
-    <div class="walkthrough reveal-stagger">
+    <div class="walk-grid reveal-stagger">
 
-      <div class="walk-step">
-        <h3><span class="walk-num">Desktop</span> Idle → Waiting</h3>
-        <p>Open Vior on your computer. You'll see an amber dot saying "Not broadcasting" and one big orange button: <strong>Start Server</strong>. Click it — the button shows a spinner, says "Starting…", then the screen changes to show a green pulsing dot, a <strong>real scannable QR code</strong>, and a <strong>4-digit pair code</strong> at the bottom. You also get Copy URL and Copy pair code buttons for sharing manually.</p>
-        <p class="walk-note">No loading spinner before? Fixed. No confirmation on stop? Fixed. QR was fake decorative grid before? Fixed — it's real now.</p>
+      <div class="walk-card">
+        <div class="walk-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2.5" y="3.5" width="19" height="14.5" rx="1.6"/><path d="M8 21h8"/><path d="M12 17.5v3.5"/>
+            <circle cx="12" cy="8" r="1.2" fill="var(--accent)" stroke="none"/>
+          </svg>
+        </div>
+        <h3>Desktop — Idle → Waiting</h3>
+        <p>Open Vior on your computer. You'll see an amber dot and one button: <strong>Start Server</strong>. Click it — a spinner confirms it's starting — then a green dot appears with a <strong>real scannable QR code</strong> and a 4-digit pair code. Copy URL and Copy pair code buttons let you share manually.</p>
       </div>
 
-      <div class="walk-step">
-        <h3><span class="walk-num">Phone</span> Launch → Discovery</h3>
-        <p>Open the Vior Android app. First time ever: you pick your intent — <strong>Display</strong> (second screen), <strong>Remote</strong> (trackpad + keyboard), or <strong>Files</strong> (send/receive). Pick once, never asked again. The app scans your local network (254 addresses in parallel, ~1.5 seconds) looking for the desktop. Your computer appears as a row: name, IP, green dot. <strong>Tap the row</strong> — no separate "Connect" button needed.</p>
-        <p class="walk-note">If no server found: a cascade appears — scan QR → type pair code → type IP manually. Each step has an escape hatch. USB cable toggle is just above.</p>
+      <div class="walk-card">
+        <div class="walk-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2.5" y="2.5" width="19" height="19" rx="4"/>
+            <path d="M8 12h8M8 16h4" stroke="var(--accent)"/>
+          </svg>
+        </div>
+        <h3>Phone — Launch → Discovery</h3>
+        <p>Open the Vior app on your phone. First time ever: pick your intent — <strong>Display</strong>, <strong>Remote</strong>, or <strong>Files</strong>. Pick once, never asked again. The app scans your network and shows your computer as a tappable row with name and IP. <strong>Tap the row to connect.</strong></p>
+        <p class="walk-hint">If no server found: scan the QR, type the pair code, or enter the IP manually. USB cable toggle is right above.</p>
       </div>
 
-      <div class="walk-step">
-        <h3><span class="walk-num">Pair</span> First time only</h3>
-        <p>If this is your first connection to this computer, the phone shows a modal: "Pair this device — Enter the 4-digit code shown on the desktop." Type the 4 digits, tap Connect. From then on, that device is <strong>trusted forever</strong> — reconnects instantly without re-entering the code. Manage trusted devices in Settings.</p>
-        <p class="walk-note">Rate-limited: 5 wrong attempts per minute per device. Trust store at ~/.vior/trusted.json (0600).</p>
+      <div class="walk-card">
+        <div class="walk-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2.5l8 3v5.5c0 5-3.4 9.4-8 10.5-4.6-1.1-8-5.5-8-10.5V5.5z"/>
+            <path d="M9.5 12l2 2 3.5-4" stroke="var(--accent)"/>
+          </svg>
+        </div>
+        <h3>Pair — First time only</h3>
+        <p>Type the 4-digit code shown on your desktop. From then on, that device is <strong>trusted forever</strong> — reconnects instantly, no re-pairing. Five wrong attempts per minute, then a short timeout. Manage trusted devices in Settings.</p>
       </div>
 
-      <div class="walk-step">
-        <h3><span class="walk-num">Connected</span> What you can do</h3>
-        <p>Once connected, the bottom tab bar appears: <strong>Display, Files, Remote</strong>. On the Display tab, tap <strong>View Stream</strong> to see your desktop screen on your phone — touch the screen to control the mouse. The desktop shows <strong>Extend</strong> (phone is a second monitor) or <strong>Mirror</strong> (phone shows the same screen). Both modes are one tap and the desktop immediately reconfigures.</p>
+      <div class="walk-card">
+        <div class="walk-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2.5" y="4" width="14" height="10" rx="1.8"/><path d="M6 18h7M9 14v4"/>
+            <rect x="15" y="9" width="6.5" height="11" rx="1.6" fill="var(--accent)" stroke="none"/>
+          </svg>
+        </div>
+        <h3>Connected — What you can do</h3>
+        <p>The bottom tab bar unlocks: <strong>Display, Files, Remote</strong>. Tap <strong>View Stream</strong> to see your desktop on your phone — touch the screen to control the mouse. Toggle <strong>Extend</strong> (phone becomes a second monitor) or <strong>Mirror</strong> (phone shows the same screen). One tap reconfigures the display.</p>
       </div>
 
-      <div class="walk-step">
-        <h3><span class="walk-num">Files</span> Send anything</h3>
-        <p>On the phone: tap <strong>Send File</strong> or <strong>Send Photo</strong>, pick something, and it transfers over your Wi-Fi in 48KB chunks with <strong>SHA-256 verification</strong> on both ends. Desktop shows an Accept/Decline modal with a preview thumbnail. Trusted devices auto-accept. On desktop: click "Send file to phone" in the Connected screen, pick a file, phone shows Accept/Decline. Files go to ~/Downloads/Vior.</p>
-        <p class="walk-note">2 GB max. Path traversal blocked. Windows reserved names rejected. USB doesn't support file transfer yet.</p>
+      <div class="walk-card">
+        <div class="walk-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/>
+            <path d="M12 12v6M9 15l3 3 3-3" stroke="var(--accent)"/>
+          </svg>
+        </div>
+        <h3>Files — Send anything</h3>
+        <p>Tap <strong>Send File</strong> or <strong>Send Photo</strong> on your phone. Files transfer in 48KB chunks with <strong>SHA-256 verification</strong> on both ends. Trusted devices auto-accept without a prompt. On desktop, click <em>Send file to phone</em> to push files the other way. Everything lands in ~/Downloads/Vior.</p>
       </div>
 
-      <div class="walk-step">
-        <h3><span class="walk-num">Remote</span> Trackpad + Keyboard</h3>
-        <p>Swipe on the trackpad area to move the cursor (sub-linear acceleration so you don't overshoot). Tap = left click. Two-finger tap = right click. Two-finger drag = scroll. Vertical scroll strip on the right edge. Tap Keyboard to pull up the soft keyboard. 40+ shortcut buttons: Copy/Paste/Cut/Undo, Cmd+Tab, Spotlight, F1-F12, arrow keys, modifier chords. A flash pill says "Click sent" on every action.</p>
-        <p class="walk-note">macOS needs Accessibility permission for this. Vior shows a red card on the desktop and sends a warning to the phone too.</p>
+      <div class="walk-card">
+        <div class="walk-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2.5" y="3.5" width="19" height="11" rx="2"/>
+            <path d="M6.5 7.5h.5M9.5 7.5h.5M12.5 7.5h.5M6.5 11h.5M9.5 11h.5M12.5 11h.5"/>
+            <rect x="7" y="17" width="10" height="4" rx="1.4" fill="var(--accent)" stroke="none"/>
+          </svg>
+        </div>
+        <h3>Remote — Trackpad + Keyboard</h3>
+        <p>Swipe to move the cursor with sub-linear acceleration. Tap = left click. Two-finger tap = right click. Two-finger drag = scroll. Tap Keyboard for the soft keyboard, 40+ shortcut buttons, and F-keys. A flash pill confirms every action.</p>
+        <p class="walk-hint">macOS needs Accessibility permission for Remote. Vior shows a red card on the desktop and warns the phone too.</p>
       </div>
+
     </div>
   </div>
 </section>
@@ -331,33 +366,53 @@
   <div class="wrap">
     <div class="section-label">// no wi-fi? no problem</div>
     <h2 class="section-title reveal">USB cable mode.</h2>
-    <p class="section-sub">Plug your phone into the desktop with any data-capable USB cable. No router, no Wi-Fi password, no ADB, no developer mode. Just plug in.</p>
+    <p class="section-sub">Plug your phone into the desktop with any data-capable USB cable. No router, no Wi-Fi password, no ADB, no developer mode.</p>
 
-    <div class="walkthrough reveal-stagger">
-      <div class="walk-step">
-        <h3><span class="walk-num">1</span> Switch to USB</h3>
-        <p>On the phone, tap the <strong>USB</strong> transport pill at the top of the screen (next to Wi-Fi). You'll see a breathing orb that says "Waiting for cable…" along with a checklist: use a data cable, Vior desktop must be running, tap Allow on the prompt.</p>
+    <div class="walk-grid reveal-stagger">
+
+      <div class="walk-card">
+        <div class="walk-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v14"/><path d="M8 6l4-4 4 4"/><circle cx="12" cy="20" r="2"/>
+          </svg>
+        </div>
+        <h3>Switch to USB</h3>
+        <p>Tap the <strong>USB</strong> transport pill at the top of the screen. You'll see a breathing orb — <em>"Waiting for cable…"</em> — with a checklist: use a data cable, desktop must be running, tap Allow on the prompt.</p>
       </div>
 
-      <div class="walk-step">
-        <h3><span class="walk-num">2</span> Plug in</h3>
-        <p>Connect the cable. The orb turns amber — "Verifying cable…" — while the desktop and phone perform a magic+version handshake (under 3 seconds). If the desktop isn't running Vior, the orb turns red with a "Try again" button.</p>
+      <div class="walk-card">
+        <div class="walk-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/>
+          </svg>
+        </div>
+        <h3>Plug in</h3>
+        <p>Connect the cable. The orb turns amber — <em>"Verifying cable…"</em> — while desktop and phone handshake (under 3 seconds). If the desktop isn't running Vior, the orb turns red with a <strong>Try again</strong> button.</p>
       </div>
 
-      <div class="walk-step">
-        <h3><span class="walk-num">3</span> Connected</h3>
-        <p>The orb turns green. Video streams over the cable automatically. Touch on the phone screen controls the mouse on the desktop. <strong>USB carries display + touch only.</strong> Trackpad, keyboard, and file transfer need Wi-Fi. A toast explains this the first time you try Remote on USB.</p>
+      <div class="walk-card">
+        <div class="walk-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 8.5C5 5.8 8.4 4.4 12 4.4s7 1.4 10 4.1"/><path d="M12 18.3a1.1 1.1 0 1 0 0-2.2 1.1 1.1 0 0 0 0 2.2z"/>
+          </svg>
+        </div>
+        <h3>Connected</h3>
+        <p>The orb turns green. Video streams over the cable — touch controls the mouse. <strong>USB carries display + touch only.</strong> Trackpad &amp; keyboard need Wi-Fi. A toast explains this on first Remote use.</p>
       </div>
 
-      <div class="walk-step">
-        <h3><span class="walk-num">4</span> Wi-Fi back to USB</h3>
-        <p>If Wi-Fi drops while a USB cable is connected, USB takes over smoothly — no race condition, no frozen stream. If the cable is yanked, a 1.5-second debounce prevents a false disconnect flash. In USB-only mode (Settings → Connectivity), unplugging stays on the USB waiting surface instead of dumping you into Wi-Fi discovery.</p>
+      <div class="walk-card">
+        <div class="walk-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 11a8 8 0 1 0-1.5 5.5"/><path d="M20 5v5h-5"/>
+          </svg>
+        </div>
+        <h3>Seamless switching</h3>
+        <p>Wi-Fi drops while USB is plugged? USB takes over cleanly. Cable yanked? A 1.5-second debounce prevents accidental disconnect. In USB-only mode (Settings), unplugging keeps you on USB — no Wi-Fi fallback.</p>
       </div>
+
     </div>
   </div>
 </section>
-
-<!-- ── Reconnect & reliability ── -->
 <section class="section" id="reliability">
   <div class="wrap">
     <div class="section-label">// always on</div>

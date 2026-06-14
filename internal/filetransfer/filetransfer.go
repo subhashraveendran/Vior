@@ -362,7 +362,16 @@ func (m *Manager) AcceptFile(id string) error {
 	t.hash = sha256.New()
 	t.mu.Unlock()
 
-	return m.Send(protocol.MsgFileAccept, &protocol.FileAcceptMessage{ID: id})
+	if err := m.Send(protocol.MsgFileAccept, &protocol.FileAcceptMessage{ID: id}); err != nil {
+		t.mu.Lock()
+		if t.file != nil {
+			t.file.Close()
+			t.file = nil
+		}
+		t.mu.Unlock()
+		return fmt.Errorf("send accept: %w", err)
+	}
+	return nil
 }
 
 // RejectFile rejects an incoming file offer.

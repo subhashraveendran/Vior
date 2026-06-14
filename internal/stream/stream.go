@@ -12,6 +12,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -370,7 +371,7 @@ func NewMJPEGServer(host string, port int, frameCh <-chan []byte, handler Sessio
 		clients: make(map[chan []byte]struct{}),
 		handler: handler,
 		upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool { return true },
+			CheckOrigin: checkWSOrigin,
 		},
 		stopDistribute: make(chan struct{}),
 		distDone:       make(chan struct{}),
@@ -864,6 +865,39 @@ func (a *wsMessageAdapter) OnDownloadReject(session *protocol.Session, msg *prot
 
 func (a *wsMessageAdapter) OnDownloadComplete(session *protocol.Session, msg *protocol.DownloadCompleteMessage) error {
 	return a.handler.OnClientDownloadComplete(session, msg)
+}
+
+// checkWSOrigin restricts WebSocket upgrades to clients that either
+// (a) sent no Origin header (native mobile / desktop clients that open a
+// raw WS), or (b) sent an Origin whose host resolves to a loopback,
+// link-local, or RFC1918 private IP. A LAN-only relay must not accept
+// upgrades initiated by a public web page — that page could otherwise
+// ride a victim's pre-validated pair-code session to inject input or
+// scrape frames from a phone that visits a malicious URL.
+func checkWSOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	if host == "" {
+		return false
+	}
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsPrivate() {
+		return true
+	}
+	return false
 }
 
 // corsHandler wraps an http.Handler with permissive CORS headers.

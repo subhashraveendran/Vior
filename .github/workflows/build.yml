@@ -26,7 +26,7 @@ jobs:
           - os: ubuntu-latest
             artifact: vior-cli-Linux
             binary: vior
-          - os: windows-latest
+          - os: windows-2025
             artifact: vior-cli-Windows
             binary: vior.exe
     runs-on: ${{ matrix.os }}
@@ -103,7 +103,7 @@ jobs:
             artifact: vior-desktop-macOS
           - os: ubuntu-22.04
             artifact: vior-desktop-Linux
-          - os: windows-latest
+          - os: windows-2025
             artifact: vior-desktop-Windows
     runs-on: ${{ matrix.os }}
 

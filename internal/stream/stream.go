@@ -178,8 +178,13 @@ func loadOrCreateServerID() string {
 	path := filepath.Join(dir, "server-id")
 	if b, err := os.ReadFile(path); err == nil {
 		id := strings.TrimSpace(string(b))
-		if id != "" {
-			return id
+		// Validate: must be "srv-" prefix + 16 hex chars (8 bytes).
+		// Reject anything that's not a valid server ID to prevent
+		// injection via a tampered server-id file.
+		if strings.HasPrefix(id, "srv-") && len(id) == 20 {
+			if _, err := hex.DecodeString(id[4:]); err == nil {
+				return id
+			}
 		}
 	}
 	_ = os.MkdirAll(dir, 0o700)

@@ -865,3 +865,42 @@ footer {
   .walk-step { padding: 18px 20px; }
 }
 
+/* Sub-group divider inside the unified walkthrough (Wi-Fi flow / USB flow). */
+.walk-group-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 780px;
+  margin: 8px 0 14px;
+  scroll-margin-top: 80px; /* nav offset for #usb-flow anchor */
+}
+.walk-group-head + .walkthrough { margin-top: 0; }
+.walk-group-tag {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-weak);
+  padding: 5px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.walk-group-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border), transparent);
+}
+.walk-group-sub {
+  font-size: 14px;
+  color: var(--text-3);
+  max-width: 780px;
+  margin: -4px 0 16px;
+  line-height: 1.55;
+}
+/* Visual breathing room between the two flows inside the section. */
+.walkthrough + .walk-group-head { margin-top: 40px; }
+@media (max-width: 640px) {
+  .walkthrough + .walk-group-head { margin-top: 28px; }
+}
+

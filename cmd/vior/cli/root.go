@@ -37,7 +37,6 @@ func Execute() error {
 
 func init() {
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
-	rootCmd.Flags().BoolP("version", "V", false, "print version")
 
 	rootCmd.AddCommand(startCmd)
 	rootCmd.AddCommand(stopCmd)

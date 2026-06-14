@@ -92,9 +92,10 @@ func runWebSocketMode(cfg *config.Config) error {
 		return fmt.Errorf("server failed: %w", err)
 	}
 
-	fmt.Printf("Vior server running on port %d\n", cfg.Port)
-	fmt.Println("Waiting for client to connect...")
-	fmt.Println()
+	fmt.Printf("\n══════════════════════════════════════════\n")
+	fmt.Printf("  Vior server — port %d\n", cfg.Port)
+	fmt.Printf("  Pair code:  %s\n", stream.PairCode())
+	fmt.Printf("══════════════════════════════════════════\n\n")
 	printURLs(cfg.Port)
 	fmt.Println()
 	printQR(cfg.Port)
@@ -208,8 +209,8 @@ func runLegacyMode(cfg *config.Config) error {
 
 func init() {
 	startCmd.Flags().IntVarP(&displayIndex, "display", "d", 0, "display index to stream (see 'vior displays')")
-	startCmd.Flags().IntVarP(&port, "port", "p", 8080, "port to serve stream on")
-	startCmd.Flags().IntVarP(&quality, "quality", "q", 80, "JPEG quality (1-100)")
+	startCmd.Flags().IntVarP(&port, "port", "p", 0, "port to serve on (0 = auto-select free port)")
+	startCmd.Flags().IntVarP(&quality, "quality", "q", 80, "JPEG quality 1-100")
 	startCmd.Flags().IntVarP(&fps, "fps", "f", 30, "frames per second")
 	startCmd.Flags().IntVar(&virtualWidth, "virtual-width", 0, "create virtual display with this pixel width (macOS)")
 	startCmd.Flags().IntVar(&virtualHeight, "virtual-height", 0, "create virtual display with this pixel height (macOS)")

@@ -83,26 +83,38 @@ func (a *Accessory) Stop() {
 
 // SendFrame sends a JPEG frame to the connected phone.
 func (a *Accessory) SendFrame(jpeg []byte) error {
-	if a.outEP == nil {
-		return fmt.Errorf("not connected")
-	}
-	packet := EncodeVideoFrame(jpeg)
-	_, err := a.outEP.Write(packet)
-	return err
+	return a.writeOutLocked(EncodeVideoFrame(jpeg))
 }
 
 // SendReady sends ready notification after display creation.
 func (a *Accessory) SendReady(width, height int) error {
-	if a.outEP == nil {
-		return fmt.Errorf("not connected")
-	}
-	_, err := a.outEP.Write(EncodeReady(width, height))
-	return err
+	return a.writeOutLocked(EncodeReady(width, height))
 }
 
 // IsConnected reports if a phone is connected via USB.
 func (a *Accessory) IsConnected() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	return a.outEP != nil
+}
+
+// writeOutLocked is the single safe path for writing to the USB bulk
+// OUT endpoint from any goroutine other than the owning scanLoop /
+// readInput. The endpoint can be cleared by cleanup() at any moment;
+// callers that grabbed a stale a.outEP pointer would otherwise nil-
+// dereference. We cache the pointer under the mutex, release the
+// mutex before issuing the (potentially slow) Write, and accept that
+// a Close() in the cleanup window produces a Write error rather than
+// a panic.
+func (a *Accessory) writeOutLocked(packet []byte) error {
+	a.mu.Lock()
+	outEP := a.outEP
+	a.mu.Unlock()
+	if outEP == nil {
+		return fmt.Errorf("not connected")
+	}
+	_, err := outEP.Write(packet)
+	return err
 }
 
 func (a *Accessory) scanLoop() {
@@ -185,7 +197,10 @@ func (a *Accessory) heartbeatLoop() {
 				a.handleDisconnect()
 				return
 			}
-			if _, err := a.outEP.Write(EncodePing()); err != nil {
+			// Use the cached local — a.outEP is racy after the unlock
+			// above and cleanup() can nil it between the check and
+			// the Write below, causing a nil-pointer panic.
+			if _, err := outEP.Write(EncodePing()); err != nil {
 				// A write failure usually means the kernel already
 				// noticed the cable yank; readInput will see EOF
 				// momentarily. Log and let that path handle teardown.
@@ -361,7 +376,9 @@ func (a *Accessory) readInput() {
 			log.Printf("usb: hello %dx%d @%.1fx (proto v%d, verified)", w, h, dpr, ver)
 			// Reply with our matching magic+version so the phone can
 			// flip transportMode='usb' (it stays "verifying" until ack).
-			if _, err := a.outEP.Write(EncodeHelloAck()); err != nil {
+			// Goes through writeOutLocked so a concurrent cleanup() can't
+			// nil a.outEP between the check and the Write.
+			if err := a.writeOutLocked(EncodeHelloAck()); err != nil {
 				log.Printf("usb: hello-ack write failed: %v", err)
 			}
 			if a.OnConnect != nil {
@@ -391,8 +408,9 @@ func (a *Accessory) readInput() {
 
 		case FramePing:
 			// Cheap liveness: echo immediately so the peer knows we're
-			// still draining its bulk endpoint.
-			_, _ = a.outEP.Write(EncodePong())
+			// still draining its bulk endpoint. writeOutLocked guards
+			// against a concurrent cleanup() niling a.outEP.
+			_ = a.writeOutLocked(EncodePong())
 
 		case FramePong:
 			// Phone is alive. Refresh the watchdog so the heartbeat

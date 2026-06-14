@@ -69,7 +69,7 @@ window.onUsbHelloAck = function (): void {
   // If we close first, onclose schedules another doConnect() before we
   // can flip transportMode — both transports write to streamImg.
   reconnectAttempts = maxReconnect;
-  if (typeof stopWsKeepalive === 'function') stopWsKeepalive();
+  if (typeof cleanupKeepalive === 'function') cleanupKeepalive();
 
   if (transportMode === 'wifi' && ws) {
     console.log('usb: cable verified during Wi-Fi session — closing WS so USB owns the transport');

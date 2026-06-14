@@ -5,7 +5,10 @@
 // Desktop = USB host, Phone = USB accessory device.
 package usb
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"math"
+)
 
 // Frame types sent over USB.
 const (
@@ -103,12 +106,16 @@ func EncodePong() []byte { return []byte{FramePong} }
 
 // EncodeTouchEvent creates a touch frame.
 // Format: [0x02][action 1B][x float32 4B][y float32 4B]
+// The float32 fields are IEEE 754 bit patterns (math.Float32bits), not
+// value-cast integers — the older value-cast lost the fractional part
+// of sub-pixel coords and produced platform-defined garbage for any
+// negative value.
 func EncodeTouchEvent(action byte, x, y float32) []byte {
 	buf := make([]byte, 10)
 	buf[0] = FrameTouch
 	buf[1] = action
-	binary.BigEndian.PutUint32(buf[2:6], uint32(x))
-	binary.BigEndian.PutUint32(buf[6:10], uint32(y))
+	binary.BigEndian.PutUint32(buf[2:6], math.Float32bits(x))
+	binary.BigEndian.PutUint32(buf[6:10], math.Float32bits(y))
 	return buf
 }
 
@@ -117,7 +124,9 @@ func DecodeTouchEvent(data []byte) (action byte, x, y float32) {
 	if len(data) < 9 {
 		return 0, 0, 0
 	}
-	return data[0], float32(binary.BigEndian.Uint32(data[1:5])), float32(binary.BigEndian.Uint32(data[5:9]))
+	return data[0],
+		math.Float32frombits(binary.BigEndian.Uint32(data[1:5])),
+		math.Float32frombits(binary.BigEndian.Uint32(data[5:9]))
 }
 
 // EncodeHello creates a hello frame with magic + version + screen

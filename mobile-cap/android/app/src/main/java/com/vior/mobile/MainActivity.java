@@ -338,12 +338,16 @@ public class MainActivity extends BridgeActivity {
             int sh = getResources().getDisplayMetrics().heightPixels;
             if (x < 0) x = 0; else if (x > sw) x = sw;
             if (y < 0) y = 0; else if (y > sh) y = sh;
-            // FrameTouch: [0x02][action 1B][x 4B][y 4B]
+            // FrameTouch: [0x02][action 1B][x float32 4B][y float32 4B]
+            // The float32 fields carry the IEEE 754 bit pattern so the
+            // desktop's math.Float32frombits() reconstructs the value
+            // exactly. The old code value-cast to int, losing sub-pixel
+            // precision and producing undefined results for negatives.
             byte[] touch = new byte[10];
             touch[0] = FRAME_TOUCH;
             touch[1] = (byte) action;
-            putInt(touch, 2, (int) x);
-            putInt(touch, 6, (int) y);
+            putInt(touch, 2, Float.floatToIntBits(x));
+            putInt(touch, 6, Float.floatToIntBits(y));
             usbPlugin.send(touch);
         } catch (Exception e) {
             Log.e(TAG, "sendTouch failed: " + e.getMessage());

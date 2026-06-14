@@ -267,7 +267,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onDestroy() {
+    public void onDestroy() {
         // UsbAccessoryPlugin registers a BroadcastReceiver for
         // ACTION_USB_PERMISSION inside scan(). Without disconnect()
         // here, an Activity destroyed while permission was still

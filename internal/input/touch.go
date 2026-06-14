@@ -63,6 +63,21 @@ func (t *TouchMapper) HandleTouch(action string, x, y float64) error {
 
 // HandleScroll processes a scroll event from the web client.
 func (t *TouchMapper) HandleScroll(dx, dy float64) error {
+	// Clamp scroll deltas to a reasonable magnitude so a malicious
+	// or buggy client can't flood the desktop with thousands of
+	// scroll events in a single message. Real scroll gestures
+	// produce single-digit deltas; 200 covers edge-case flings.
+	const maxScrollDelta = 200
+	if dx < -maxScrollDelta {
+		dx = -maxScrollDelta
+	} else if dx > maxScrollDelta {
+		dx = maxScrollDelta
+	}
+	if dy < -maxScrollDelta {
+		dy = -maxScrollDelta
+	} else if dy > maxScrollDelta {
+		dy = maxScrollDelta
+	}
 	return t.controller.Scroll(int(dx), int(dy))
 }
 

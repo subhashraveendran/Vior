@@ -175,7 +175,7 @@ export default function ConnectedScreen({
           <button
             className="btn btn-danger btn-block"
             onClick={() => {
-              if (window.confirm(`Disconnect ${client?.name || 'device'} and stop the server? All active transfers will be cancelled.`)) {
+              if (window.confirm(`Disconnect '${client?.name || 'device'}' and stop the server? All active transfers will be cancelled.`)) {
                 onDisconnect()
               }
             }}

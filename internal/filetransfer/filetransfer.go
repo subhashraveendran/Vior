@@ -405,7 +405,6 @@ func (m *Manager) HandleChunk(msg *protocol.FileChunkMessage) {
 		return
 	}
 
-	t.file.Write(data)
 	if _, err := t.file.Write(data); err != nil {
 		log.Printf("filetransfer: write error for %s: %v", t.ID, err)
 		t.file.Close()

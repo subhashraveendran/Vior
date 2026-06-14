@@ -49,12 +49,20 @@ var (
 	pairCode   = derivePair()
 )
 
-// derivePair returns the stable 4-digit pair code for this machine.
-// Strategy: SHA-256("vior-pair:" + machineID), walk the lower-case hex
-// digest collecting decimal digits 0-9 until we have 4. SHA-256 hex is
-// 64 chars long and on average ~25 of them are decimal digits, so the
-// "<4 collected" branch is statistically impossible — but the fallback
-// (Uint32 of the first 4 bytes mod 10000) is there for defence in depth.
+// pairCodeDigits is the number of decimal digits in the derived pair
+// code. 6 digits = 1 000 000 combinations: at the existing per-IP
+// throttle (5/min) a single attacker needs ~138 days to enumerate;
+// the global throttle adds another order of magnitude when the
+// attacker fans out across IPs. 4 digits (10 000 combos) was the
+// previous value and was brute-forced in ~13 minutes from 256 IPs.
+const pairCodeDigits = 6
+
+// derivePair returns the stable per-machine pair code. Strategy:
+// SHA-256("vior-pair:" + machineID), walk the lower-case hex digest
+// collecting decimal digits 0–9 until we have pairCodeDigits. SHA-256
+// hex is 64 chars long and on average ~25 of them are decimal digits,
+// so collecting 6 succeeds almost always; the fallback (Uint32 of the
+// first 4 bytes mod 10^pairCodeDigits) is defence in depth.
 func derivePair() string {
 	id := machineid.ID()
 	sum := sha256.Sum256([]byte("vior-pair:" + id))
@@ -63,13 +71,16 @@ func derivePair() string {
 	for _, c := range hexed {
 		if c >= '0' && c <= '9' {
 			b.WriteByte(byte(c))
-			if b.Len() == 4 {
+			if b.Len() == pairCodeDigits {
 				return b.String()
 			}
 		}
 	}
-	// Fallback: take the first 4 bytes as a uint32, mod 10000, zero-pad.
-	return fmt.Sprintf("%04d", binary.BigEndian.Uint32(sum[:4])%10000)
+	mod := uint32(1)
+	for i := 0; i < pairCodeDigits; i++ {
+		mod *= 10
+	}
+	return fmt.Sprintf("%0*d", pairCodeDigits, binary.BigEndian.Uint32(sum[:4])%mod)
 }
 
 // pairFilePath returns ~/.vior/pair.txt or "" if no home directory.
@@ -201,13 +212,16 @@ func loadOrCreateServerID() string {
 // ServerID returns the stable per-install server identifier.
 func ServerID() string { return serverID }
 
-// pairAttempts tracks failed pair-code submissions per remote IP. With
-// the 4-digit numeric pair (10000 combos) brute force is ~33 hours at
-// the throttle below — acceptable for LAN use. Throttle each IP to
-// maxPairAttempts every pairAttemptWindow.
+// pairAttempts tracks failed pair-code submissions per remote IP. The
+// per-IP throttle was always there; the global throttle is the new
+// belt against a distributed brute force where each source IP only
+// burns ≤maxPairAttempts before rotating. 6-digit codes plus a global
+// 60-burst/min ceiling push enumeration beyond practical attack
+// windows for LAN-only auth.
 const (
-	maxPairAttempts   = 5
-	pairAttemptWindow = time.Minute
+	maxPairAttempts        = 5
+	maxGlobalPairAttempts  = 60
+	pairAttemptWindow      = time.Minute
 )
 
 type pairAttemptBucket struct {
@@ -215,8 +229,9 @@ type pairAttemptBucket struct {
 }
 
 var (
-	pairAttemptsMu sync.Mutex
-	pairAttempts   = map[string]*pairAttemptBucket{}
+	pairAttemptsMu     sync.Mutex
+	pairAttempts       = map[string]*pairAttemptBucket{}
+	globalPairAttempts = &pairAttemptBucket{}
 )
 
 func init() {
@@ -245,30 +260,46 @@ func init() {
 }
 
 // recordPairAttempt registers a failed attempt from ip. Returns true if
-// the IP is now over the limit and should be refused.
+// the IP is now over the per-IP limit OR the global server-wide limit.
+// The global bucket catches a distributed brute force that would slip
+// past per-IP throttling by rotating source IPs.
 func recordPairAttempt(ip string) bool {
-	if ip == "" {
-		return false
-	}
 	now := time.Now()
 	cutoff := now.Add(-pairAttemptWindow)
 	pairAttemptsMu.Lock()
 	defer pairAttemptsMu.Unlock()
+
+	// Global ceiling: record every failed attempt regardless of source.
+	globalPairAttempts.times = pruneBefore(globalPairAttempts.times, cutoff)
+	globalPairAttempts.times = append(globalPairAttempts.times, now)
+	overGlobal := len(globalPairAttempts.times) > maxGlobalPairAttempts
+
+	// Per-IP bucket only when we have an IP — empty source still counts
+	// against the global ceiling above so a missing client header can't
+	// be used to fly under the radar.
+	if ip == "" {
+		return overGlobal
+	}
 	b := pairAttempts[ip]
 	if b == nil {
 		b = &pairAttemptBucket{}
 		pairAttempts[ip] = b
 	}
-	// Drop expired entries.
-	pruned := b.times[:0]
-	for _, t := range b.times {
-		if t.After(cutoff) {
-			pruned = append(pruned, t)
+	b.times = pruneBefore(b.times, cutoff)
+	b.times = append(b.times, now)
+	return overGlobal || len(b.times) > maxPairAttempts
+}
+
+// pruneBefore returns t with every entry before cutoff dropped, reusing
+// the input slice's backing array.
+func pruneBefore(t []time.Time, cutoff time.Time) []time.Time {
+	pruned := t[:0]
+	for _, x := range t {
+		if x.After(cutoff) {
+			pruned = append(pruned, x)
 		}
 	}
-	pruned = append(pruned, now)
-	b.times = pruned
-	return len(b.times) > maxPairAttempts
+	return pruned
 }
 
 // clearPairAttempts drops the bucket for ip — called after a successful

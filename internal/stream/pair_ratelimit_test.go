@@ -8,8 +8,13 @@ import (
 // pair-code handshake: maxPairAttempts wrong codes / minute / IP fire
 // pair_mismatch, after that the IP is over the limit.
 func TestPairRateLimit(t *testing.T) {
-	// Drain any state from previous tests.
+	// Drain any state from previous tests — including the new global
+	// bucket, which is shared across IPs and would otherwise carry
+	// counts from TestPairGlobalRateLimit into here.
 	clearPairAttempts("198.51.100.7")
+	pairAttemptsMu.Lock()
+	globalPairAttempts.times = globalPairAttempts.times[:0]
+	pairAttemptsMu.Unlock()
 
 	for i := 1; i <= maxPairAttempts; i++ {
 		if over := recordPairAttempt("198.51.100.7"); over {

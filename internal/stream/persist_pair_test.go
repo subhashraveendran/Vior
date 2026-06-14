@@ -187,8 +187,8 @@ func TestDerivePairIsStable(t *testing.T) {
 	if a != b {
 		t.Fatalf("derivePair drifted: %q vs %q", a, b)
 	}
-	if len(a) != 4 {
-		t.Fatalf("derivePair length = %d want 4", len(a))
+	if len(a) != pairCodeDigits {
+		t.Fatalf("derivePair length = %d want %d", len(a), pairCodeDigits)
 	}
 	for _, c := range a {
 		if c < '0' || c > '9' {

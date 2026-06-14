@@ -900,17 +900,51 @@ func checkWSOrigin(r *http.Request) bool {
 	return false
 }
 
-// corsHandler wraps an http.Handler with permissive CORS headers.
-// Required for Capacitor WebView to load MJPEG/snapshot from local server.
+// corsHandler wraps an http.Handler with a same-network CORS policy.
+// Capacitor WebView, the desktop Wails shell and the optional Vite dev
+// server all need to load /stream, /snapshot and /download/* from the
+// local server, but the previous "Access-Control-Allow-Origin: *"
+// echo let any web page on the open internet fetch the same endpoints
+// once a victim had ever paired — leaking screen frames, the /info
+// pair code, and (with a guessed/sniffed id) downloadable files.
+//
+// New policy: echo back only origins that pass checkWSOrigin
+// (loopback, link-local, RFC1918, capacitor://, file://). Native
+// clients with no Origin header skip CORS entirely.
 func corsHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(204)
+		if origin := r.Header.Get("Origin"); origin != "" {
+			if isAllowedHTTPOrigin(origin) {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Vary", "Origin")
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			}
+			// Disallowed origins: no CORS headers; the browser will
+			// reject the response — without leaking that the endpoint
+			// exists.
+		}
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 		h.ServeHTTP(w, r)
 	})
+}
+
+// isAllowedHTTPOrigin extends checkWSOrigin with the two non-network
+// schemes the Capacitor WebView uses on Android (capacitor://) and
+// older builds use on file system load (file://).
+func isAllowedHTTPOrigin(origin string) bool {
+	u, err := url.Parse(origin)
+	if err != nil || u == nil {
+		return false
+	}
+	switch u.Scheme {
+	case "capacitor", "file":
+		return true
+	}
+	r := &http.Request{Header: http.Header{}}
+	r.Header.Set("Origin", origin)
+	return checkWSOrigin(r)
 }

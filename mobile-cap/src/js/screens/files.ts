@@ -234,6 +234,20 @@ function handleIncomingFile(msg: { type: 'incoming-file'; data: unknown }): void
 async function fetchDownload(id: string): Promise<void> {
   const t = fileTransfers[id];
   if (!t) return;
+  // Clamp to MaxDownloadSize so a malicious server offering a huge file
+  // can't OOM the phone. The desktop enforces this too — this is belt-
+  // and-suspenders on the receiving side.
+  if (t.size > 2 * 1024 * 1024 * 1024 || t.size < 0) {
+    t.status = 'failed';
+    toast('error', 'File too large', fmtSize(t.size));
+    if (ws && ws.readyState === 1) {
+      try { ws.send(JSON.stringify({ type: 'download-reject', data: { id: id, reason: 'file too large' } })); }
+      catch (_) {}
+    }
+    delete fileTransfers[id];
+    renderTransfers(); renderIncoming();
+    return;
+  }
   const url = (t as unknown as { url?: string }).url;
   if (!url || !frameBaseUrl) {
     t.status = 'failed';

@@ -296,7 +296,9 @@ func (m *Manager) HandleOffer(msg *protocol.FileOfferMessage) {
 	// Enforce the same upper bound the desktop→mobile path uses
 	// (MaxDownloadSize / 2 GiB). Without this the WS-chunked path is
 	// happy to write multi-terabyte garbage to ~/Downloads/Vior.
-	if msg.Size < 0 || msg.Size > MaxDownloadSize {
+	// Also reject Size==0 — an empty file is a protocol anomaly,
+	// not a legitimate transfer (mobile sends empty data chunks).
+	if msg.Size <= 0 || msg.Size > MaxDownloadSize {
 		log.Printf("filetransfer: rejecting offer %s (%d bytes > max %d)", msg.ID, msg.Size, MaxDownloadSize)
 		if m.Send != nil {
 			_ = m.Send(protocol.MsgFileReject, &protocol.FileRejectMessage{
@@ -404,6 +406,14 @@ func (m *Manager) HandleChunk(msg *protocol.FileChunkMessage) {
 		return
 	}
 
+	// Verify chunk arrives at the expected sequential offset. TCP
+	// guarantees in-order delivery over a single WS, so out-of-order
+	// chunks indicate a protocol bug or a malicious sender.
+	if msg.Offset != t.Transferred {
+		log.Printf("filetransfer: out-of-order chunk for %s (got offset %d, expected %d)", t.ID, msg.Offset, t.Transferred)
+		return
+	}
+
 	// Guard against a misbehaving sender that keeps streaming past the
 	// advertised Size — without this the receive file would grow
 	// without bound on an unauthenticated socket.
@@ -471,7 +481,14 @@ func (m *Manager) HandleComplete(msg *protocol.FileCompleteMessage) {
 	got := hex.EncodeToString(t.hash.Sum(nil))
 	if got != msg.Hash {
 		log.Printf("filetransfer: SHA-256 mismatch for %s (got %s, want %s)", t.ID, got, msg.Hash)
+		// Clean up the corrupt file so a stale entry doesn't survive.
+		if t.Path != "" {
+			_ = os.Remove(t.Path)
+		}
 		t.mu.Unlock()
+		m.mu.Lock()
+		delete(m.transfers, msg.ID)
+		m.mu.Unlock()
 		return
 	}
 

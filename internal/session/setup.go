@@ -37,6 +37,16 @@ type Setup struct {
 //
 // Caller is responsible for stopping the previous capture session before calling.
 func Configure(hello *protocol.HelloMessage) (*Setup, error) {
+	// Reject negative or zero dimensions before they reach the virtual
+	// display layer — a negative width cast to uint32 becomes ~4 GB,
+	// triggering an OOM allocation or kernel rejection.
+	if hello.Width <= 0 || hello.Height <= 0 {
+		return nil, fmt.Errorf("invalid client dimensions: %dx%d", hello.Width, hello.Height)
+	}
+	if hello.DPR <= 0 {
+		hello.DPR = 1.0
+	}
+
 	// Resolve skip from explicit flag OR derive from intent. Keeps
 	// older clients (no intent field) working as before.
 	skip := hello.SkipDisplay || hello.Intent == "remote" || hello.Intent == "files"

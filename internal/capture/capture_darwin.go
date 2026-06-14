@@ -176,16 +176,22 @@ static const char * getDisplayProductName(int displayIndex) {
 	if (id == 0) return NULL;
 
 	@autoreleasepool {
-		NSArray *screens = [NSScreen screens];
+		NSArray *screens = nil;
+		if (@available(macOS 10.15, *)) {
+			screens = [NSScreen screens];
+		}
+		if (!screens) return NULL;
 		for (NSUInteger i = 0; i < screens.count; i++) {
 			NSScreen *screen = screens[i];
 			NSNumber *displayNumber = screen.deviceDescription[@"NSScreenNumber"];
 			if (displayNumber && [displayNumber unsignedIntValue] == (uint32_t)id) {
 				static char buf[128];
-				const char *name = screen.localizedName.UTF8String;
-				if (name) {
-					strlcpy(buf, name, sizeof(buf));
-					return buf;
+				if (@available(macOS 10.15, *)) {
+					const char *name = screen.localizedName.UTF8String;
+					if (name) {
+						strlcpy(buf, name, sizeof(buf));
+						return buf;
+					}
 				}
 			}
 		}

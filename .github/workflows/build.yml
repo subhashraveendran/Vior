@@ -172,7 +172,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: desktop/build/bin/*
+          path: |
+            desktop/build/bin/*
+            desktop/build/install-macos.sh
 
       - name: Upload Linux app
         if: runner.os == 'Linux'

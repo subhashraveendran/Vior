@@ -113,7 +113,10 @@ func (a *Accessory) scanLoop() {
 		default:
 		}
 
-		if a.dev != nil {
+		a.mu.Lock()
+		dev := a.dev
+		a.mu.Unlock()
+		if dev != nil {
 			// Already connected — read input.
 			a.readInput()
 			continue
@@ -168,7 +171,10 @@ func (a *Accessory) heartbeatLoop() {
 			// Endpoint cleared → cable went away or accessory was
 			// torn down. handleDisconnect already fired or will fire
 			// — exit cleanly.
-			if a.outEP == nil {
+			a.mu.Lock()
+			outEP := a.outEP
+			a.mu.Unlock()
+			if outEP == nil {
 				return
 			}
 			a.lastPongMu.Lock()
@@ -411,6 +417,8 @@ func (a *Accessory) handleDisconnect() {
 }
 
 func (a *Accessory) cleanup() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	if a.done != nil {
 		a.done()
 		a.done = nil

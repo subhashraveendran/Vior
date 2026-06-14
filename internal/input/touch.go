@@ -46,6 +46,30 @@ func NewTouchMapper(ctrl Controller, displayBounds image.Rectangle) *TouchMapper
 // HandleTouch processes a touch event from the web client.
 // x and y are pixel coordinates relative to the virtual display (0,0 = top-left of display).
 func (t *TouchMapper) HandleTouch(action string, x, y float64) error {
+	// Reject NaN/Inf — all NaN comparisons are false, so without this
+	// guard a malformed message would fall through to int(NaN) which
+	// silently returns 0, teleporting the cursor on every bad event.
+	if math.IsNaN(x) || math.IsNaN(y) || math.IsInf(x, 0) || math.IsInf(y, 0) {
+		return fmt.Errorf("invalid touch coords: x=%v y=%v", x, y)
+	}
+	// Clamp into the captured display rect so an attacker with a
+	// valid pair-code session can't drive the cursor off-screen via
+	// huge or negative values (e.g. x=1e10 → int(x) = INT_MAX-ish on
+	// 64-bit, but undefined-ish on 32-bit OS APIs).
+	w, h := t.displayBounds.Dx(), t.displayBounds.Dy()
+	if w <= 0 || h <= 0 {
+		return fmt.Errorf("display bounds empty: %v", t.displayBounds)
+	}
+	if x < 0 {
+		x = 0
+	} else if x > float64(w-1) {
+		x = float64(w - 1)
+	}
+	if y < 0 {
+		y = 0
+	} else if y > float64(h-1) {
+		y = float64(h - 1)
+	}
 	absX := t.displayBounds.Min.X + int(x)
 	absY := t.displayBounds.Min.Y + int(y)
 

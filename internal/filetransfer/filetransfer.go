@@ -545,7 +545,27 @@ func (m *Manager) Cleanup() {
 // over HTTP. Returns the entry so the caller can push an
 // IncomingFileMessage over the WS to the mobile.
 func (m *Manager) OfferDownload(path string) (*PendingDownload, error) {
-	fi, err := os.Stat(path)
+	// Resolve symlinks before any further checks so a compromised or
+	// tricked frontend can't aim the download at /etc/shadow by
+	// registering a symlink in a user-writeable dir. The resolved
+	// path is what ServeDownload opens; the displayed Name still uses
+	// the original basename so the UI doesn't suddenly show a system
+	// path the user wasn't expecting.
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return nil, fmt.Errorf("resolve symlink: %w", err)
+	}
+	// EvalSymlinks resolves the *whole* chain; the result is the real
+	// file. Reject if it changed type along the way to a directory or
+	// a special file (device, socket, named pipe).
+	li, err := os.Lstat(resolved)
+	if err != nil {
+		return nil, fmt.Errorf("lstat resolved: %w", err)
+	}
+	if !li.Mode().IsRegular() {
+		return nil, fmt.Errorf("not a regular file after symlink resolution: %s", resolved)
+	}
+	fi, err := os.Stat(resolved)
 	if err != nil {
 		return nil, fmt.Errorf("stat: %w", err)
 	}
@@ -555,14 +575,14 @@ func (m *Manager) OfferDownload(path string) (*PendingDownload, error) {
 	if fi.Size() > MaxDownloadSize {
 		return nil, fmt.Errorf("file too large (%d bytes, max %d)", fi.Size(), MaxDownloadSize)
 	}
-	mimeType := detectMimeType(path)
+	mimeType := detectMimeType(resolved)
 	p := &PendingDownload{
 		ID:       generateID(),
 		Name:     filepath.Base(path),
 		Size:     fi.Size(),
 		MimeType: mimeType,
-		Path:     path,
-		Preview:  generatePreview(path, mimeType),
+		Path:     resolved,
+		Preview:  generatePreview(resolved, mimeType),
 	}
 	m.pendingMu.Lock()
 	m.pending[p.ID] = p

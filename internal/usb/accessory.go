@@ -213,7 +213,13 @@ func (a *Accessory) heartbeatLoop() {
 
 // findAccessory looks for device already in accessory mode.
 func (a *Accessory) findAccessory() (*gousb.Device, error) {
-	devs, err := a.ctx.OpenDevices(func(desc *gousb.DeviceDesc) bool {
+	a.mu.Lock()
+	ctx := a.ctx
+	a.mu.Unlock()
+	if ctx == nil {
+		return nil, fmt.Errorf("usb context closed")
+	}
+	devs, err := ctx.OpenDevices(func(desc *gousb.DeviceDesc) bool {
 		return desc.Vendor == gousb.ID(AOAVendorID) &&
 			(desc.Product == gousb.ID(AOAProductID) || desc.Product == gousb.ID(AOAProdNoADB))
 	})
@@ -233,7 +239,13 @@ func (a *Accessory) findAccessory() (*gousb.Device, error) {
 
 // findAndSwitch finds an Android device and switches it to accessory mode.
 func (a *Accessory) findAndSwitch() (*gousb.Device, error) {
-	devs, err := a.ctx.OpenDevices(func(desc *gousb.DeviceDesc) bool {
+	a.mu.Lock()
+	ctx := a.ctx
+	a.mu.Unlock()
+	if ctx == nil {
+		return nil, fmt.Errorf("usb context closed")
+	}
+	devs, err := ctx.OpenDevices(func(desc *gousb.DeviceDesc) bool {
 		// Try all USB devices — filter by attempting AOA protocol.
 		return true
 	})

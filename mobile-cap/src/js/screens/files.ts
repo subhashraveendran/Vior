@@ -93,8 +93,22 @@ function sendChunks(t: FileTransfer): void {
   }
   next();
 }
+// A file id is a server-supplied opaque string used as both an object
+// key on fileTransfers and as text interpolated into HTML onclick
+// handlers. Without this strict filter, ids like '__proto__' polluted
+// the object prototype, and ids containing quote characters broke out
+// of the onclick attribute and executed arbitrary JS. Hex-only and
+// 8-64 chars covers every legitimate desktop-generated id format.
+const VALID_ID = /^[a-f0-9]{8,64}$/;
+function validId(id: unknown): id is string {
+  return typeof id === 'string' && VALID_ID.test(id);
+}
+
 function handleFileMessage(msg: FileMessage): void {
   const d = msg.data;
+  if (!validId(d.id)) {
+    return;
+  }
   if (msg.type === 'file-offer') {
     fileTransfers[d.id] = { id: d.id, name: d.name || '', size: d.size || 0, mimeType: d.mimeType || '', preview: d.preview || '', transferred: 0, complete: false, chunks: [], direction: 'in', pending: true, status: 'incoming' };
     renderIncoming();

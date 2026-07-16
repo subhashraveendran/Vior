@@ -33,7 +33,7 @@ from `cmd/vior/main.go`, the Wails `App` binding surface
 
 | File | Symbol | Why kept |
 |------|--------|----------|
-| internal/usb/protocol.go | `DecodeFrameHeader`, `EncodeTouchEvent`, `EncodeHello` | Used inside `internal/usb/accessory.go` (e.g. inside callback-driven read loops); spec instructed to leave them. |
+| internal/usb/protocol.go | `DecodeFrameHeader`, `EncodeTouchEvent`, `EncodeHello` | Phone-side codec mirrors of the desktop encode/decode pair. `accessory.go` uses the complementary `DecodeHello`/`EncodeHelloAck`/`DecodeTouchEvent`; these three are exercised only by `protocol_test.go`/`protocol_touch_test.go` and kept as the documented wire spec. |
 | desktop/app.go | `CreateVirtualDisplay`, `DestroyVirtualDisplay`, `ListDisplays`, `MirrorDisplay`, `ExtendDisplay`, `IsMirrored`, `StartStream`, `StopStream`, `GetStreamStatus`, `TakeSnapshot`, `GetUSBStatus`, `SetupUSB`, `TeardownUSB`, `DownloadADB`, `ResetConfig`, `AcceptIncomingFile`, `RejectIncomingFile`, `GetActiveTransfers`, plus all `OnClient*` message handlers | Wails-bound methods exposed in `wailsjs/go/main/App.d.ts`; reachable from the frontend even if `App.jsx` currently does not import them. Removing breaks the binding contract. |
 | internal/protocol/protocol.go | All `MsgFile*`, `MsgResize`, `MsgStatus`, `MsgError`, `MsgBye` constants and matching `*Message` structs | Wire protocol. JSON-tag-only fields with no Go caller still need to round-trip across the WebSocket. |
 | internal/virtual/display_other.go | stub `Create`/`CreateHiDPI` | Build-tag-gated fallback for non-darwin/linux/windows. |

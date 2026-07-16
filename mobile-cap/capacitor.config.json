@@ -3,7 +3,6 @@
   "appName": "Vior",
   "webDir": "src",
   "server": {
-    "allowNavigation": ["*"],
     "cleartext": true,
     "androidScheme": "https"
   },

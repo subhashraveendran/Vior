@@ -115,7 +115,7 @@ npm run build               ✓ clean
 ## Sub-agent 3 (added during run) — Site revamp
 
 **Branch merged:** `feat/site-revamp`
-**Commit:** `ac11286` (`--no-ff` merge)
+**Commit:** `8f0002b` (`--no-ff` merge)
 
 - `docs/site/index.html` rewritten with orange accent + Geist + cool dark
 - `docs/site/style.css` (660 LOC)
@@ -130,7 +130,7 @@ npm run build               ✓ clean
 |---|---|
 | 1. Merge `fix/camera-acquisition` → main | ✓ `b51f315` |
 | 1. Merge `chore/dead-code-sweep` → main | ✓ `e007ef5` |
-| 1. Merge `feat/site-revamp` → main | ✓ `ac11286` |
+| 1. Merge `feat/site-revamp` → main | ✓ `8f0002b` |
 | 2. `git push origin main` | ✓ → `8f0002b` |
 | 2. CI 7/7 green | ✓ run 26973791723 |
 | 3. Wails build + install `/Applications/Vior.app` | ✓ rebuilt + Dock refreshed |

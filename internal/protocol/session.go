@@ -94,6 +94,12 @@ func (s *Session) FireDisconnect(fn func()) {
 // NewSession creates a session from an upgraded WebSocket connection.
 func NewSession(conn *websocket.Conn) *Session {
 	now := time.Now()
+	// Bound reads from the very first frame. WaitForHello reads the
+	// hello before ReadLoop runs, so without this the pre-auth hello
+	// would be unbounded — an unauthenticated LAN peer could push an
+	// oversized message before ever proving the pair code. ReadLoop
+	// re-asserts the same limit defensively.
+	conn.SetReadLimit(maxMessageSize)
 	return &Session{
 		ID:         generateID(),
 		Conn:       conn,

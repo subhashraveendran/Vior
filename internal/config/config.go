@@ -7,8 +7,10 @@ import (
 )
 
 const (
-	// Version is the current Vior version string.
-	Version = "v0.1.0-dev"
+	// Version is the current Vior version string. Keep in sync with the
+	// tag the npm shim downloads (npm/cli/vior.js VERSION) and the
+	// GitHub release tag.
+	Version = "v0.2.0"
 
 	// DefaultRefreshRate is the default virtual display refresh rate in Hz.
 	DefaultRefreshRate = 60.0

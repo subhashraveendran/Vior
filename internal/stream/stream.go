@@ -41,7 +41,7 @@ var trustedDevices = trust.Default()
 // forget devices from the UI (e.g. Settings → Trusted devices).
 func TrustedDevices() *trust.Store { return trustedDevices }
 
-// pairCode is the 4-digit numeric "phone number" for this Vior install.
+// pairCode is the 6-digit numeric "phone number" for this Vior install.
 // It is derived deterministically from the machine UUID — the user can
 // memorise it once and it survives reinstalls + ~/.vior/pair.txt wipes.
 // A user-set override (SetPairCode) is read from ~/.vior/pair.txt if
@@ -931,7 +931,10 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// admission.
 	ip := remoteIP(r.RemoteAddr)
 	switch {
-	case strings.TrimSpace(hello.PairCode) == PairCode():
+	// Constant-time compare of the admission secret, matching the
+	// /info?probe= path (handleInfo). A plain == here would leak the
+	// pair code one byte at a time via response-timing to a LAN peer.
+	case subtle.ConstantTimeCompare([]byte(strings.TrimSpace(hello.PairCode)), []byte(PairCode())) == 1:
 		if hello.DeviceID != "" {
 			if err := trustedDevices.Touch(hello.DeviceID, hello.Name, hello.Platform); err != nil {
 				log.Printf("trust: store add failed [%s]: %v", session.ID, err)
@@ -944,7 +947,7 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	default:
 		// Brute-force throttle: 5 wrong codes / minute / IP → 429 +
 		// close. Without this a script on the LAN could enumerate the
-		// 16M-combo hex pair code in roughly a day.
+		// 1M-combo (6-digit decimal) pair code in roughly a day.
 		over := recordPairAttempt(ip)
 		// Never log the real pair code (the admission secret). Log only
 		// the length of the rejected guess — enough to debug a "wrong

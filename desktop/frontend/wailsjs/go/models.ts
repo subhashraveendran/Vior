@@ -230,6 +230,7 @@ export namespace main {
 	    usbConnected: boolean;
 	    uptime: number;
 	    pairCode: string;
+	    frameRate: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new ServerStatus(source);
@@ -248,6 +249,7 @@ export namespace main {
 	        this.usbConnected = source["usbConnected"];
 	        this.uptime = source["uptime"];
 	        this.pairCode = source["pairCode"];
+	        this.frameRate = source["frameRate"];
 	    }
 	}
 	export class StreamConfig {

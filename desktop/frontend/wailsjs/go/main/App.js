@@ -38,6 +38,10 @@ export function GetActiveTransfers() {
   return window['go']['main']['App']['GetActiveTransfers']();
 }
 
+export function GetAutoDiscovery() {
+  return window['go']['main']['App']['GetAutoDiscovery']();
+}
+
 export function GetConfig() {
   return window['go']['main']['App']['GetConfig']();
 }
@@ -56,6 +60,10 @@ export function GetServerStatus() {
 
 export function GetStreamStatus() {
   return window['go']['main']['App']['GetStreamStatus']();
+}
+
+export function GetUSBAutoAccept() {
+  return window['go']['main']['App']['GetUSBAutoAccept']();
 }
 
 export function GetUSBStatus() {
@@ -158,12 +166,20 @@ export function ServeDownload(arg1, arg2, arg3) {
   return window['go']['main']['App']['ServeDownload'](arg1, arg2, arg3);
 }
 
+export function SetAutoDiscovery(arg1) {
+  return window['go']['main']['App']['SetAutoDiscovery'](arg1);
+}
+
 export function SetMenuBarVisible(arg1) {
   return window['go']['main']['App']['SetMenuBarVisible'](arg1);
 }
 
 export function SetPairCode(arg1) {
   return window['go']['main']['App']['SetPairCode'](arg1);
+}
+
+export function SetUSBAutoAccept(arg1) {
+  return window['go']['main']['App']['SetUSBAutoAccept'](arg1);
 }
 
 export function SetupUSB() {

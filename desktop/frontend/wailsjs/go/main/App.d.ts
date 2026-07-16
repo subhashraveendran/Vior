@@ -23,6 +23,8 @@ export function ForgetTrustedDevice(arg1:string):Promise<void>;
 
 export function GetActiveTransfers():Promise<Array<Record<string, any>>>;
 
+export function GetAutoDiscovery():Promise<boolean>;
+
 export function GetConfig():Promise<main.AppConfig>;
 
 export function GetConnectedClients():Promise<Array<main.ClientInfo>>;
@@ -32,6 +34,8 @@ export function GetMenuBarVisible():Promise<boolean>;
 export function GetServerStatus():Promise<main.ServerStatus>;
 
 export function GetStreamStatus():Promise<main.StreamStatus>;
+
+export function GetUSBAutoAccept():Promise<boolean>;
 
 export function GetUSBStatus():Promise<adb.Status>;
 
@@ -83,9 +87,13 @@ export function SendFileToPhone(arg1:string):Promise<void>;
 
 export function ServeDownload(arg1:http.ResponseWriter,arg2:http.Request,arg3:string):Promise<void>;
 
+export function SetAutoDiscovery(arg1:boolean):Promise<void>;
+
 export function SetMenuBarVisible(arg1:boolean):Promise<void>;
 
 export function SetPairCode(arg1:string):Promise<void>;
+
+export function SetUSBAutoAccept(arg1:boolean):Promise<void>;
 
 export function SetupUSB():Promise<void>;
 

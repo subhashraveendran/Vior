@@ -115,25 +115,40 @@
             </div>
           </div>
 
-          <!-- Step B — no servers, prominent Scan QR -->
+          <!-- Step B — first-choice moment. QR and pair code are presented
+               as two CO-EQUAL primary paths so a first-time user sees both
+               up front. IP entry stays a tertiary "having trouble?" link. -->
           <div class="cascade-step hidden" id="cascade-b" data-step="b">
             <div class="empty">
               <span class="empty-icon">
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2M20 14v6M14 20h2"/></svg>
               </span>
-              <div class="empty-title">No servers found nearby</div>
-              <div class="empty-body">Scan the QR code shown on the desktop's Waiting screen — easiest path.</div>
+              <div class="empty-title">Let's pair with your desktop</div>
+              <div class="empty-body">Open Vior on your computer to see its Waiting screen, then pick how you'd like to connect.</div>
             </div>
-            <button class="btn btn-primary btn-block cascade-primary" id="cascade-b-scan">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2M20 14v6M14 20h2"/></svg>
-              Scan QR Code
-            </button>
+            <!-- Two co-equal choices — same visual weight, side by side. -->
+            <div class="cascade-choices">
+              <button class="cascade-choice" id="cascade-b-scan">
+                <span class="cascade-choice-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2M20 14v6M14 20h2"/></svg>
+                </span>
+                <span class="cascade-choice-title">Scan QR</span>
+                <span class="cascade-choice-sub">Point at the desktop</span>
+              </button>
+              <button class="cascade-choice" id="cascade-b-code">
+                <span class="cascade-choice-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>
+                </span>
+                <span class="cascade-choice-title">Enter code</span>
+                <span class="cascade-choice-sub">Type the pair code</span>
+              </button>
+            </div>
             <div class="cascade-row">
               <button class="cascade-refresh" id="cascade-b-refresh">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-1.5 5.5"/><path d="M20 5v5h-5"/></svg>
                 Refresh
               </button>
-              <button class="cascade-escape" id="cascade-b-next">Don't have QR? Type pair code <span aria-hidden="true">→</span></button>
+              <button class="cascade-escape" id="cascade-b-next">Having trouble? Enter IP <span aria-hidden="true">→</span></button>
             </div>
           </div>
 
@@ -143,21 +158,18 @@
               <span class="empty-icon">
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>
               </span>
-              <div class="empty-title">Enter pair code</div>
-              <div class="empty-body">Numeric code shown on the desktop's Waiting screen.</div>
+              <div class="empty-title">Enter the pair code</div>
+              <div class="empty-body">Type the numeric code shown on your desktop's Waiting screen — we'll find it on your Wi-Fi.</div>
             </div>
             <input id="cascade-c-input" type="tel" maxlength="8" autocomplete="off" spellcheck="false"
                    placeholder="000000" inputmode="numeric" pattern="[0-9]{4,8}"
-                   style="width: 100%; padding: 18px 16px; margin-top: 6px; border-radius: var(--r); border: 1px solid var(--border); background: var(--surface-1); color: var(--text-1); font-family: var(--font-mono); font-size: 28px; text-align: center; box-sizing: border-box;">
+                   style="width: 100%; padding: 18px 16px; margin-top: 6px; border-radius: var(--r); border: 1px solid var(--border); background: var(--surface-1); color: var(--text-1); font-family: var(--font-mono); font-size: 28px; text-align: center; letter-spacing: 0.18em; box-sizing: border-box;">
             <button class="btn btn-primary btn-block cascade-primary" id="cascade-c-go" style="margin-top: 14px;" disabled>
               <span>Connect</span>
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
             </button>
             <div class="cascade-row">
-              <button class="cascade-refresh" id="cascade-c-refresh">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-1.5 5.5"/><path d="M20 5v5h-5"/></svg>
-                Refresh
-              </button>
+              <button class="cascade-escape" id="cascade-c-back"><span aria-hidden="true">←</span> Scan QR instead</button>
               <button class="cascade-escape" id="cascade-c-next">Discovery failing? Enter IP <span aria-hidden="true">→</span></button>
             </div>
           </div>
@@ -449,6 +461,14 @@
       </div>
       <div class="conn-title" id="conn-title">Connecting</div>
       <div class="conn-sub" id="conn-sub">Establishing session</div>
+      <!-- Mutual-match chip: shows the pair code we're presenting so the
+           user can visually confirm it against the digits the desktop
+           displays. Hidden when the code is unknown (trusted auto-
+           reconnect). Digits are spaced + mono for legibility. -->
+      <div class="conn-match hidden" id="conn-match">
+        <span class="conn-match-label">Confirm this matches your desktop</span>
+        <span class="conn-match-code mono" id="conn-match-code">—</span>
+      </div>
       <div style="width: 100%; max-width: 240px; margin-top: 24px;">
         <div class="bar bar-indef" id="conn-bar"></div>
         <button class="btn btn-quiet btn-block" id="conn-cancel" style="margin-top: 18px;">Cancel</button>

@@ -61,6 +61,37 @@
     min-height: 54px;
     font-size: 15px; font-weight: 600;
   }
+  /* ── Two co-equal first-choice tiles (Scan QR · Enter code) ──
+     Same visual weight, side by side, so a first-time user reads both
+     as primary rather than QR feeling dominant and code buried. */
+  .cascade-choices {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .cascade-choice {
+    appearance: none; font-family: inherit; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 20px 12px 18px;
+    border-radius: var(--r-lg);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    color: var(--text-1);
+    text-align: center;
+    transition: background .14s ease, border-color .14s ease, transform .12s var(--ease);
+  }
+  .cascade-choice:active {
+    transform: translateY(1px) scale(0.99);
+    background: var(--surface-2);
+    border-color: var(--accent-line);
+  }
+  .cascade-choice-icon {
+    width: 48px; height: 48px; border-radius: var(--r);
+    display: grid; place-items: center;
+    background: var(--accent-weak); color: var(--accent);
+  }
+  .cascade-choice-title { font-size: 15px; font-weight: 600; color: var(--text-1); }
+  .cascade-choice-sub { font-size: 12px; color: var(--text-3); line-height: 1.35; }
   .cascade-row {
     display: flex; align-items: center; justify-content: space-between;
     gap: 12px; margin-top: 14px;

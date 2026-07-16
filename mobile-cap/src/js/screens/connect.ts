@@ -70,7 +70,10 @@ async function pairOnlyConnect(pair: string): Promise<void> {
   setConnState('connecting');
   ($('connecting-overlay') as HTMLElement).classList.remove('hidden');
   ($('conn-title') as HTMLElement).textContent = 'Finding Vior server';
-  ($('conn-sub') as HTMLElement).innerHTML = 'Scanning Wi-Fi for pair code <b>' + esc(pair) + '</b>…';
+  ($('conn-sub') as HTMLElement).innerHTML = 'Scanning Wi-Fi for the desktop with this code…';
+  // Show the code we're hunting for in the match chip so the user can
+  // confirm it against the desktop while the sweep runs.
+  showConnMatch(pair);
 
   // Use the same getLocalIP helper discovery.ts uses. Inline-call here.
   const localIP: string | null = await new Promise(function (resolve) {
@@ -175,13 +178,44 @@ let lastReadyAt = 0;
 // the UI on the spinner for 15s with no retry.
 let connecting = false;
 
+// Populate the connecting-overlay's mutual-match chip. Shows the pair
+// code we're about to present (spaced + mono) so the user can eyeball
+// it against the digits the desktop displays — the client half of a
+// "does this match?" gesture. Hidden when the code is unknown (trusted
+// auto-reconnect / DHCP fallback), where there's nothing to match.
+function showConnMatch(pair: string): void {
+  const wrap = document.getElementById('conn-match');
+  const code = document.getElementById('conn-match-code');
+  if (!wrap || !code) return;
+  const digits = (pair || '').replace(/[^0-9]/g, '');
+  if (digits.length >= PAIR_CODE_MIN) {
+    // Space every digit so it reads as discrete numerals, matching how
+    // the desktop presents the code. Letter-spacing (CSS) adds the gaps;
+    // the raw digits stay copy-friendly.
+    code.textContent = digits;
+    wrap.classList.remove('hidden');
+  } else {
+    code.textContent = '';
+    wrap.classList.add('hidden');
+  }
+}
+
 function doConnect(): void {
   connecting = true;
   setConnState('connecting');
   viorState.set({ state: 'connecting', transport: 'wifi' });
   $('connecting-overlay').classList.remove('hidden');
   $('conn-title').textContent = 'Connecting';
-  $('conn-sub').innerHTML = 'Establishing ' + selectedMode + ' session with<br><b>' + esc(serverName) + '</b>';
+  // Lead with WHAT we're connecting to — the host name — so the user can
+  // confirm the target at a glance. The pair code (if any) is shown
+  // separately in the match chip below.
+  $('conn-sub').innerHTML = 'Establishing ' + esc(selectedMode) + ' session with<br><b>' + esc(serverName) + '</b>';
+  // The pair code being presented lives on #manual-pair during the
+  // connect flow (written by the cascade/pair-prompt/QR paths). Surface
+  // it so the user can visually match it against the desktop.
+  const pairForMatch = (($('manual-pair') as HTMLInputElement | null) && ($('manual-pair') as HTMLInputElement).value || '')
+    .replace(/[^0-9]/g, '').trim();
+  showConnMatch(pairForMatch);
   $('conn-bar').classList.remove('hidden');
   $('conn-spin-ring').style.display = '';
   $('conn-spin-core').classList.remove('failed');
@@ -796,8 +830,20 @@ if (cascadeBScan) cascadeBScan.addEventListener('click', function () {
     else toast('warning', 'QR scanner unavailable', 'Use Pair code or IP instead.');
   }
 });
+// "Enter code" — co-equal primary choice → pair-code entry (step C).
+const cascadeBCode = document.getElementById('cascade-b-code');
+if (cascadeBCode) cascadeBCode.addEventListener('click', function () {
+  setCascadeStep('c');
+  // Focus the pair input so the keyboard opens straight away.
+  setTimeout(function () {
+    const inp = document.getElementById('cascade-c-input') as HTMLInputElement | null;
+    if (inp) { try { inp.focus(); } catch (_) { /* ignore */ } }
+  }, 60);
+});
+// Now that pair-code is a co-equal primary on step B, the tiny escape
+// drops straight to the IP path (step D) — the "having trouble?" tier.
 const cascadeBNext = document.getElementById('cascade-b-next');
-if (cascadeBNext) cascadeBNext.addEventListener('click', function () { setCascadeStep('c'); });
+if (cascadeBNext) cascadeBNext.addEventListener('click', function () { setCascadeStep('d'); });
 const cascadeBRefresh = document.getElementById('cascade-b-refresh');
 if (cascadeBRefresh) cascadeBRefresh.addEventListener('click', function () {
   clearCascadeMemory(); setCascadeStep('a', { persist: false });
@@ -823,11 +869,10 @@ if (cascadeCGo) cascadeCGo.addEventListener('click', function () {
 });
 const cascadeCNext = document.getElementById('cascade-c-next');
 if (cascadeCNext) cascadeCNext.addEventListener('click', function () { setCascadeStep('d'); });
-const cascadeCRefresh = document.getElementById('cascade-c-refresh');
-if (cascadeCRefresh) cascadeCRefresh.addEventListener('click', function () {
-  clearCascadeMemory(); setCascadeStep('a', { persist: false });
-  try { startDiscovery(); } catch (_) {}
-});
+// Back to the first-choice moment (QR / code) so a user who tapped
+// "Enter code" can switch to scanning without a dead-end.
+const cascadeCBack = document.getElementById('cascade-c-back');
+if (cascadeCBack) cascadeCBack.addEventListener('click', function () { setCascadeStep('b'); });
 
 const cascadeDInput = document.getElementById('cascade-d-input') as HTMLInputElement | null;
 const cascadeDGo = document.getElementById('cascade-d-go') as HTMLButtonElement | null;

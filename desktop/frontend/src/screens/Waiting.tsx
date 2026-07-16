@@ -29,10 +29,19 @@ function formatPair(code: string | undefined): string {
   return code
 }
 
+// pairDigits splits the code into individual characters so each digit
+// can render in its own chip — the value the user reads off and MATCHES
+// against the code shown on their phone.
+function pairDigits(code: string | undefined): string[] {
+  if (!code) return []
+  return code.split('')
+}
+
 export default function WaitingScreen({ status, onStop, onCopy, onCopyPair, disconnectBanner }: WaitingScreenProps): React.JSX.Element {
   const s: ServerStatus | null = status
   const url = s?.url || ''
   const pairDisplay = formatPair(s?.pairCode)
+  const digits = pairDigits(s?.pairCode)
 
   const [confirmStop, setConfirmStop] = useState(false)
   // Tracks which copy button last succeeded so we can flash "Copied!" for
@@ -57,63 +66,69 @@ export default function WaitingScreen({ status, onStop, onCopy, onCopyPair, disc
           <span className="dot dot-ok dot-pulse" role="img" aria-label="Status: Server ready, waiting for a device" />
           <span>Server ready · waiting for a device</span>
         </div>
-        <div className="waiting-headline">Scan to connect</div>
-        <div className="waiting-sub">
-          Open the Vior mobile app on your phone and scan this QR with the
-          in-app scanner, or enter the pair code shown below. Both devices must
-          be on the same Wi-Fi network.
-        </div>
 
+        {/* QR is the hero — large, high-contrast, the primary path. */}
         <div className="waiting-qr-wrap">
           {s?.qrCodeDataUrl ? (
             <img
               src={s.qrCodeDataUrl}
               alt={url ? `QR code to connect to ${url} — scan with the Vior mobile app` : 'QR code — scan with the Vior mobile app to connect'}
-              style={{ width: 280, height: 280, borderRadius: 14, border: '1px solid var(--border)' }}
+              style={{ width: 236, height: 236, borderRadius: 12, display: 'block' }}
             />
           ) : (
-            <div className="waiting-qr-wrap" style={{ width: 280, height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)' }}>QR loading…</div>
+            <div style={{ width: 236, height: 236, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', background: 'var(--surface-1)', borderRadius: 12 }}>QR loading…</div>
           )}
         </div>
 
-        <div className="waiting-actions">
-          <button className="btn btn-ghost btn-sm" onClick={() => { onCopy(); flashCopied('url') }} disabled={!url}>
-            {copied === 'url' ? <>{Icons.check(15)} Copied!</> : <>{Icons.copy(15)} Copy URL</>}
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={() => { onCopyPair(); flashCopied('pair') }} disabled={!pairDisplay}>
-            {copied === 'pair' ? <>{Icons.check(15)} Copied!</> : <>{Icons.copy(15)} Copy pair code</>}
-          </button>
+        <div className="waiting-headline">Scan to connect</div>
+        <div className="waiting-sub">
+          Open Vior on your phone and scan this QR with the in-app scanner.
+          Both devices must be on the same Wi-Fi network.
         </div>
 
-        {(url || pairDisplay) && (
-          <div className="waiting-creds">
-            {url && (
-              <div className="waiting-cred-row">
-                <span className="waiting-cred-label">Address</span>
-                <span className="mono waiting-cred-val">{url}</span>
-              </div>
-            )}
-            {pairDisplay && (
-              <div className="waiting-cred-row">
-                <span className="waiting-cred-label">Pair code</span>
-                <span className="mono waiting-cred-val waiting-cred-pair">{pairDisplay}</span>
-              </div>
-            )}
+        {/* Pair code — the value the user MATCHES against their phone.
+            Spaced mono digits, visually distinct from the QR fallback. */}
+        {pairDisplay && (
+          <div className="waiting-pair">
+            <div className="waiting-pair-label">or enter code</div>
+            <div className="waiting-pair-digits" aria-label={`Pair code: ${digits.join(' ')}`}>
+              {digits.map((d, i) => (
+                <span className="waiting-pair-digit" key={i}>{d}</span>
+              ))}
+            </div>
+            <button className="btn btn-quiet btn-sm waiting-pair-copy" onClick={() => { onCopyPair(); flashCopied('pair') }}>
+              {copied === 'pair' ? <>{Icons.check(14)} Copied!</> : <>{Icons.copy(14)} Copy code</>}
+            </button>
           </div>
         )}
 
-        {s?.urls && s.urls.length > 1 && (
-          <details className="waiting-other-ifs">
-            <summary>Other network addresses ({s.urls.length})</summary>
-            <ul>
-              {s.urls.map(u => (
-                <li key={u}>
-                  <span className="mono">{u}</span>
-                  <button className="btn btn-quiet btn-sm" onClick={() => navigator.clipboard?.writeText(u)}>{Icons.copy(13)}</button>
-                </li>
-              ))}
-            </ul>
-          </details>
+        {/* Secondary — raw connection URL + other interfaces, tucked below. */}
+        {(url || (s?.urls && s.urls.length > 1)) && (
+          <div className="waiting-secondary">
+            {url && (
+              <div className="waiting-url-row">
+                <span className="waiting-cred-label">Address</span>
+                <span className="mono waiting-url-val">{url}</span>
+                <button className="btn btn-quiet btn-sm" onClick={() => { onCopy(); flashCopied('url') }} disabled={!url} aria-label="Copy connection URL">
+                  {copied === 'url' ? <>{Icons.check(14)} Copied!</> : Icons.copy(14)}
+                </button>
+              </div>
+            )}
+
+            {s?.urls && s.urls.length > 1 && (
+              <details className="waiting-other-ifs">
+                <summary>Other network addresses ({s.urls.length})</summary>
+                <ul>
+                  {s.urls.map(u => (
+                    <li key={u}>
+                      <span className="mono">{u}</span>
+                      <button className="btn btn-quiet btn-sm" onClick={() => navigator.clipboard?.writeText(u)} aria-label={`Copy ${u}`}>{Icons.copy(13)}</button>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
         )}
       </div>
 

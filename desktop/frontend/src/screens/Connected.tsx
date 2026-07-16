@@ -77,6 +77,11 @@ export default function ConnectedScreen({
   const connectedFor = elapsedSince(client?.connectedAt)
   const transport = (client?.connectionType || 'wifi').toUpperCase()
 
+  // Identity line — platform / peer IP are present for network peers and
+  // empty for USB, so filter falsy parts before joining. Yields e.g.
+  // "Android 14 · 192.168.1.5", or nothing at all for USB.
+  const identityParts = [client?.platform, client?.remoteAddr].filter(Boolean) as string[]
+
   if (showFilesTab) {
     return (
       <div className="connected-v2">
@@ -94,6 +99,23 @@ export default function ConnectedScreen({
       <ConnectedHeader client={client} transport={transport} connectedFor={connectedFor} errorState={errorState} />
 
       <div className="connected-scroll">
+        {/* Trust confirmation — reassure the user WHO connected before they
+            do anything else. The existing Disconnect button below is the
+            reject path (no new backend call); we just point at it. */}
+        <div className="trust-card">
+          <span className="trust-icon">{Icons.check(20)}</span>
+          <div className="trust-body">
+            <div className="trust-title">Connected — is this your device?</div>
+            <div className="trust-name">{client?.name || 'Connected device'}</div>
+            {identityParts.length > 0 && (
+              <div className="trust-meta mono">{identityParts.join(' · ')}</div>
+            )}
+            <div className="trust-hint">
+              If you don't recognise this device, disconnect below.
+            </div>
+          </div>
+        </div>
+
         {/* Permissions block — only render when something needs attention.
             When accessibility is granted the card disappears with the
             checkmark animation (handled by the .perm-card-ok keyframe). */}
@@ -205,13 +227,16 @@ export default function ConnectedScreen({
 }
 
 function ConnectedHeader({ client, transport, connectedFor, errorState }: { client: ClientInfo | null; transport: string; connectedFor: string; errorState: boolean }): React.JSX.Element {
+  // Platform (e.g. "Android 14", "Web · Chrome") is only present for
+  // network peers; USB clients report an empty string, so we omit it.
+  const platform = client?.platform
   return (
     <div className="dev-head dev-head-v2">
       <span className="dev-icon">{Icons.remote2(20)}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="dev-name">{client?.name || 'Connected device'}</div>
         <div className="dev-meta">
-          {client?.width}×{client?.height} · {transport} · connected {connectedFor}
+          {client?.width}×{client?.height} · {transport}{platform ? ` · ${platform}` : ''} · connected {connectedFor}
         </div>
       </div>
       <span className="conn-chip">

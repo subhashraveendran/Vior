@@ -243,7 +243,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .waiting-hero {
   display: flex; flex-direction: column; align-items: center;
-  text-align: center; max-width: 460px; gap: 14px; flex: 1;
+  text-align: center; max-width: 460px; gap: 12px; flex: 1;
 }
 .waiting-eyebrow {
   display: inline-flex; align-items: center; gap: 8px;
@@ -251,30 +251,57 @@ button { font-family: inherit; cursor: pointer; }
   background: var(--surface-1); border: 1px solid var(--border);
   font-size: 12px; font-weight: 600; color: var(--text-2);
 }
-.waiting-headline { font-size: 26px; font-weight: 600; color: var(--text-1); letter-spacing: -0.02em; margin-top: 4px; }
-.waiting-sub { font-size: 14px; color: var(--text-2); line-height: 1.55; max-width: 420px; }
+.waiting-headline { font-size: 26px; font-weight: 600; color: var(--text-1); letter-spacing: -0.02em; margin-top: 8px; }
+.waiting-sub { font-size: 14px; color: var(--text-2); line-height: 1.55; max-width: 400px; }
+
+/* QR hero — white card, generous glow, the primary connection path. */
 .waiting-qr-wrap {
   margin-top: 6px;
-  background: #fff; padding: 14px; border-radius: var(--r-lg);
+  background: #fff; padding: 16px; border-radius: var(--r-lg);
   box-shadow: 0 18px 48px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04);
+  line-height: 0;
 }
 .waiting-qr-wrap .qr-box { box-shadow: none; padding: 0; }
-.waiting-actions { display: flex; gap: 10px; margin-top: 4px; }
-.waiting-creds {
+
+/* Pair code — the value the user reads and MATCHES on their phone.
+   Spaced mono digit chips, accent-tinted so it's instantly the thing
+   to type in if the scan path isn't handy. */
+.waiting-pair {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
   margin-top: 6px;
-  background: var(--surface-1); border: 1px solid var(--border);
-  border-radius: var(--r); padding: 12px 16px;
-  display: flex; flex-direction: column; gap: 8px;
-  width: 100%; max-width: 360px;
 }
-.waiting-cred-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.waiting-pair-label {
+  font-size: 11px; font-weight: 600; color: var(--text-3);
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.waiting-pair-digits { display: flex; gap: 8px; }
+.waiting-pair-digit {
+  min-width: 42px; padding: 8px 4px;
+  display: grid; place-items: center;
+  font-family: var(--font-mono); font-size: 26px; font-weight: 600;
+  color: var(--accent); letter-spacing: 0;
+  background: var(--accent-weak); border: 1px solid var(--accent-line);
+  border-radius: var(--r-sm);
+}
+.waiting-pair-copy { color: var(--text-3); }
+.waiting-pair-copy:hover { color: var(--text-1); }
+
+/* Secondary — raw URL + other interfaces, deliberately quiet & below. */
+.waiting-secondary {
+  margin-top: 8px; width: 100%; max-width: 380px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.waiting-url-row {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 8px 8px 8px 14px;
+}
 .waiting-cred-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; flex: none; }
-.waiting-cred-val { font-size: 13px; color: var(--text-1); font-weight: 500; overflow-wrap: anywhere; text-align: right; }
-.waiting-cred-pair { font-size: 18px; color: var(--accent); font-weight: 600; letter-spacing: 0.12em; }
+.waiting-url-val { font-size: 12.5px; color: var(--text-2); font-weight: 500; overflow-wrap: anywhere; text-align: left; flex: 1; min-width: 0; }
 .waiting-other-ifs {
   font-size: 12px; color: var(--text-3);
   background: var(--surface-1); border: 1px solid var(--border);
-  border-radius: var(--r); padding: 10px 14px; width: 100%; max-width: 360px;
+  border-radius: var(--r); padding: 10px 14px; width: 100%; text-align: left;
 }
 .waiting-other-ifs summary { cursor: pointer; color: var(--text-2); font-weight: 600; outline: none; }
 .waiting-other-ifs ul { list-style: none; padding: 8px 0 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -285,6 +312,26 @@ button { font-family: inherit; cursor: pointer; }
 .connected-v2 { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .dev-head-v2 { padding: 18px 26px 14px; border-bottom: 1px solid var(--border); }
 .connected-scroll { flex: 1; min-height: 0; padding: 20px 26px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
+
+/* Trust confirmation — positive "who connected?" card. Accent-tinted
+   (not a warning) so it reads as reassurance; the Disconnect button
+   below is the reject path. */
+.trust-card {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 16px 18px; border-radius: var(--r);
+  background: var(--accent-weak); border: 1px solid var(--accent-line);
+  animation: permOkFade .35s var(--ease);
+}
+.trust-icon {
+  width: 36px; height: 36px; flex: none; border-radius: var(--r-sm);
+  display: grid; place-items: center;
+  background: rgba(255,138,76,0.18); color: var(--accent);
+}
+.trust-body { flex: 1; min-width: 0; }
+.trust-title { font-size: 12px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; }
+.trust-name { font-size: 17px; font-weight: 600; color: var(--text-1); letter-spacing: -0.01em; margin-top: 4px; }
+.trust-meta { font-size: 12.5px; color: var(--text-2); margin-top: 3px; overflow-wrap: anywhere; }
+.trust-hint { font-size: 12.5px; color: var(--text-3); margin-top: 8px; line-height: 1.45; }
 
 .perm-card {
   display: flex; align-items: center; gap: 14px;

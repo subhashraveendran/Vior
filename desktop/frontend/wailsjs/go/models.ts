@@ -182,6 +182,9 @@ export namespace main {
 	    dpr: number;
 	    connectedAt: string;
 	    connectionType: string;
+	    remoteAddr?: string;
+	    platform?: string;
+	    deviceId?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ClientInfo(source);
@@ -196,6 +199,9 @@ export namespace main {
 	        this.dpr = source["dpr"];
 	        this.connectedAt = source["connectedAt"];
 	        this.connectionType = source["connectionType"];
+	        this.remoteAddr = source["remoteAddr"];
+	        this.platform = source["platform"];
+	        this.deviceId = source["deviceId"];
 	    }
 	}
 	export class DisplayInfo {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -324,6 +325,9 @@ func (a *App) OnClientConnect(sess *protocol.Session, hello *protocol.HelloMessa
 			DPR:            hello.DPR,
 			ConnectedAt:    time.Now().Format(time.RFC3339),
 			ConnectionType: "wifi",
+			RemoteAddr:     clientRemoteHost(sess),
+			Platform:       hello.Platform,
+			DeviceID:       hello.DeviceID,
 		})
 		return nil
 	}
@@ -785,6 +789,30 @@ type ClientInfo struct {
 	DPR            float64 `json:"dpr"`
 	ConnectedAt    string  `json:"connectedAt"`
 	ConnectionType string  `json:"connectionType"`
+	// RemoteAddr, Platform and DeviceID give the UI the context a user
+	// needs to confirm a newly-connected device is the one in their hand
+	// (the host side of the "does this match?" pairing gesture). Empty for
+	// the USB path, where the device is physically attached.
+	RemoteAddr string `json:"remoteAddr,omitempty"`
+	Platform   string `json:"platform,omitempty"`
+	DeviceID   string `json:"deviceId,omitempty"`
+}
+
+// clientRemoteHost returns the peer IP (no port) for a WS session, or ""
+// when unavailable. Used to show "who just connected" in the UI.
+func clientRemoteHost(sess *protocol.Session) string {
+	if sess == nil || sess.Conn == nil {
+		return ""
+	}
+	addr := sess.Conn.RemoteAddr()
+	if addr == nil {
+		return ""
+	}
+	host, _, err := net.SplitHostPort(addr.String())
+	if err != nil {
+		return addr.String()
+	}
+	return host
 }
 
 func (a *App) GetConnectedClients() []ClientInfo {

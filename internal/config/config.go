@@ -1,7 +1,10 @@
 // Package config handles application configuration.
 package config
 
-import "net"
+import (
+	"net"
+	"strconv"
+)
 
 const (
 	// Version is the current Vior version string.
@@ -59,4 +62,40 @@ func FreePort() (int, error) {
 	port := l.Addr().(*net.TCPAddr).Port
 	l.Close()
 	return port, nil
+}
+
+// DiscoverablePorts are the ports the mobile client probes during LAN
+// discovery. The desktop must bind one of these for auto-discovery to
+// work — the UDP beacon carries the real port but the Capacitor WebView
+// can't open a UDP socket to read it, so HTTP probing of these fixed
+// ports is currently the only working discovery path.
+var DiscoverablePorts = []int{8080, 8081}
+
+// portAvailable reports whether a TCP port can be bound right now.
+func portAvailable(port int) bool {
+	l, err := net.Listen("tcp", net.JoinHostPort("", strconv.Itoa(port)))
+	if err != nil {
+		return false
+	}
+	_ = l.Close()
+	return true
+}
+
+// ResolvePort turns a requested port into a concrete one to bind.
+//   - requested != 0 → honored as-is (operator override).
+//   - requested == 0 → prefer a DiscoverablePort (8080, then 8081) so the
+//     phone's fixed-port discovery sweep can actually find the server;
+//     fall back to a random free port only if both are taken (in which
+//     case discovery won't work, but the server still runs for a
+//     manually-entered address).
+func ResolvePort(requested int) (int, error) {
+	if requested != 0 {
+		return requested, nil
+	}
+	for _, p := range DiscoverablePorts {
+		if portAvailable(p) {
+			return p, nil
+		}
+	}
+	return FreePort()
 }

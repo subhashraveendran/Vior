@@ -81,17 +81,22 @@ async function pairOnlyConnect(pair: string): Promise<void> {
     return;
   }
   const base = localIP.split('.').slice(0, 3).join('.');
-  const probes: Promise<{ host: string; port: number; info: { pairCode?: string; name?: string; platform?: string } } | null>[] = [];
+  const probes: Promise<{ host: string; port: number; info: { paired?: boolean; name?: string; platform?: string } } | null>[] = [];
   for (let i = 1; i < 255; i++) {
     const host = base + '.' + i;
     probes.push((async function () {
       const ctrl = new AbortController();
       setTimeout(function () { ctrl.abort(); }, 1500);
       try {
-        const r = await fetch('http://' + host + ':8080/info', { signal: ctrl.signal });
+        // Send the typed code as ?probe= so the server can confirm it's
+        // the right one WITHOUT ever publishing the code. The desktop
+        // returns {"paired":true} only on a constant-time match (and
+        // rate-limits mismatches). The old flow read info.pairCode,
+        // which meant the code was readable by anyone on the LAN.
+        const r = await fetch('http://' + host + ':8080/info?probe=' + encodeURIComponent(pair), { signal: ctrl.signal });
         if (!r.ok) return null;
         const info = await r.json();
-        if ((info.pairCode || '') === pair) {
+        if (info.paired === true) {
           return { host, port: 8080, info };
         }
       } catch (_) { /* timeout or refused */ }
@@ -146,8 +151,20 @@ function cleanupKeepalive(): void {
 // reconnect-loop the user would otherwise see (two tabs ping-pong
 // fighting over one server).
 let replacedByOtherSession = false;
+// Timestamp (ms) of the last successful 'ready'. Used to decide whether
+// a drop followed a durable session (→ refill the reconnect budget) or
+// a flaky never-quite-connected loop (→ keep counting toward the cap).
+let lastReadyAt = 0;
+// True from the moment a connect is initiated until 'ready' arrives or
+// we give up. Lets onclose distinguish a drop DURING the handshake
+// (socket opened, hello sent, but 'ready' never came) from an idle
+// close — the former must still trigger reconnect even though
+// `connected` is still false. Without this a handshake-window drop hung
+// the UI on the spinner for 15s with no retry.
+let connecting = false;
 
 function doConnect(): void {
+  connecting = true;
   setConnState('connecting');
   viorState.set({ state: 'connecting', transport: 'wifi' });
   $('connecting-overlay').classList.remove('hidden');
@@ -227,11 +244,20 @@ function doConnect(): void {
   };
 
   ws.onmessage = function (e: MessageEvent) {
-    const msg = JSON.parse(e.data as string) as WSMessage;
-    // Any inbound traffic is a liveness proof — refresh freshness
-    // before we branch on type so even messages we don't recognise
-    // (forward-compat) keep the health dot green.
+    // Any inbound traffic is a liveness proof — refresh freshness first
+    // (before parsing) so even a frame we can't decode still counts as
+    // the link being alive.
     if (keepalive) keepalive.noteInbound();
+    // Guard the parse: a single non-JSON frame (binary frame, truncated
+    // frame after a Doze-suspended socket resumes, a proxy error page)
+    // would otherwise throw out of the handler and silently kill the
+    // message pump for the rest of the session.
+    let msg: WSMessage;
+    try {
+      msg = JSON.parse(e.data as string) as WSMessage;
+    } catch (_) {
+      return;
+    }
     if (msg.type === 'pong') {
       if (keepalive) keepalive.notePong();
       return;
@@ -265,6 +291,13 @@ function doConnect(): void {
       frameBaseUrl = 'http://' + host + ':' + port;
       $('connecting-overlay').classList.add('hidden');
       connected = true;
+      connecting = false;
+      // A completed handshake refills the reconnect budget. Previously
+      // the counter was only reset in scattered callers, so transient
+      // blips accumulated across independent-but-recoverable drops and
+      // eventually exhausted the budget, dumping the user to discovery.
+      reconnectAttempts = 0;
+      lastReadyAt = Date.now();
       setConnState('online');
       // Tell the state machine: tab bar lights up, ops mode selector
       // appears in the connected card, header chip flips to "Connected · …".
@@ -413,11 +446,12 @@ function doConnect(): void {
       setTimeout(function () { startDiscovery(); }, 300);
       return;
     }
-    if (connected && reconnectAttempts < maxReconnect) {
-      // Transient drop (WiFi blip) — trust survives because we never
-      // remove vior_known_ here; the saved deviceID re-admits us
-      // without a pair-code prompt. Exponential back-off keeps us
-      // under 10s between attempts.
+    if ((connected || connecting) && reconnectAttempts < maxReconnect) {
+      // Transient drop (WiFi blip) OR a drop mid-handshake — either way
+      // retry. Trust survives because we never remove vior_known_ here;
+      // the saved deviceID re-admits us without a pair-code prompt.
+      connected = false;
+      connecting = false;
       reconnectAttempts++;
       setConnState('reconnecting');
       viorState.set({ state: 'reconnecting' });
@@ -429,12 +463,14 @@ function doConnect(): void {
       // label in core/state.ts for this transitional moment.
       const lbl = document.getElementById('conn-label');
       if (lbl) lbl.textContent = 'Reconnecting (' + reconnectAttempts + '/' + maxReconnect + ')…';
-      // Backoff capped at 30s per the sustain spec (was 10s) — gives
-      // the desktop time to recover from a longer-form blip without
-      // burning through the attempt budget at the worst moment.
-      setTimeout(function () { if (connected) doConnect(); },
-        Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000));
-    } else if (connected) {
+      // Exponential backoff (cap 30s) with ±25% jitter. Jitter
+      // desynchronizes retry waves so multiple clients don't all hammer
+      // a just-restarted desktop at identical 1s/2s/4s boundaries.
+      const backoffBase = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000);
+      const jittered = backoffBase * (0.75 + Math.random() * 0.5);
+      setTimeout(function () { doConnect(); }, jittered);
+    } else if (connected || connecting) {
+      connecting = false;
       connected = false;
       setConnState('offline');
       hideStream();
@@ -646,10 +682,16 @@ function clearCascadeMemory(): void {
 }
 
 // Normalise pair-code input: strip everything that isn't a decimal
-// digit and truncate to 4 chars. The pair code is the machine's
-// "phone number" — short enough to memorise, no chunking needed.
+// digit and truncate to PAIR_CODE_MAX chars. The desktop derives a
+// 6-digit code and accepts 4-8 digit overrides (pairOverrideRe =
+// ^[0-9]{4,8}$ in internal/stream/stream.go), so the mobile side must
+// accept the same range. Truncating to 4 here — the old value — silently
+// dropped the last two digits of the real 6-digit code and made pairing
+// impossible.
+const PAIR_CODE_MIN = 4;
+const PAIR_CODE_MAX = 8;
 function normalisePairCode(raw: string): string {
-  return (raw || '').replace(/[^0-9]/g, '').slice(0, 4);
+  return (raw || '').replace(/[^0-9]/g, '').slice(0, PAIR_CODE_MAX);
 }
 function formatPairCode(raw: string): string {
   return normalisePairCode(raw);
@@ -695,8 +737,8 @@ function parseAddrInput(raw: string): ParsedAddr | null {
 // probes the local /24.
 function cascadeSubmitPair(raw: string): void {
   const pair = normalisePairCode(raw);
-  if (pair.length !== 4) {
-    toast('error', 'Pair code too short', 'Enter all 4 digits.');
+  if (pair.length < PAIR_CODE_MIN) {
+    toast('error', 'Pair code too short', `Enter at least ${PAIR_CODE_MIN} digits.`);
     return;
   }
   const mp = document.getElementById('manual-pair') as HTMLInputElement | null;
@@ -753,7 +795,7 @@ const cascadeCGo = document.getElementById('cascade-c-go') as HTMLButtonElement 
 if (cascadeCInput) {
   cascadeCInput.addEventListener('input', function () {
     cascadeCInput.value = formatPairCode(cascadeCInput.value);
-    const ok = normalisePairCode(cascadeCInput.value).length === 4;
+    const ok = normalisePairCode(cascadeCInput.value).length >= PAIR_CODE_MIN;
     if (cascadeCGo) cascadeCGo.disabled = !ok;
   });
   cascadeCInput.addEventListener('keydown', function (e: Event) {
@@ -840,11 +882,12 @@ if (cascadeWifiLink) cascadeWifiLink.addEventListener('click', function () {
 (window as unknown as { clearCascadeMemory?: () => void }).clearCascadeMemory = clearCascadeMemory;
 
 // ── Pair-prompt input: live digit-only formatting ──────────────────
-// Pair code is now 4 numeric digits. Strip everything else and clamp.
+// Pair code is 4-8 numeric digits (desktop derives 6, accepts 4-8
+// overrides). Strip everything else and clamp to the max.
 const pairInput = $('pair-prompt-input') as HTMLInputElement | null;
 if (pairInput) {
   pairInput.addEventListener('input', function () {
-    const raw = (pairInput.value || '').replace(/[^0-9]/g, '').slice(0, 4);
+    const raw = normalisePairCode(pairInput.value);
     if (pairInput.value !== raw) pairInput.value = raw;
   });
 }

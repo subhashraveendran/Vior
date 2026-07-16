@@ -55,7 +55,16 @@ Use --virtual-width and --virtual-height to skip WebSocket handshake and stream
 a pre-configured virtual display directly (legacy mode).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg := config.Default()
-		cfg.Port = port
+		// Resolve the port up front so the banner, URLs, QR and discovery
+		// beacon all show the REAL bound port. A 0 (the default) prefers
+		// 8080/8081 — the ports the mobile client actually probes — so
+		// `vior start` with no --port is discoverable, and we never print
+		// the bogus "port 0" / http://ip:0 the old default produced.
+		resolvedPort, err := config.ResolvePort(port)
+		if err != nil {
+			return fmt.Errorf("failed to resolve port: %w", err)
+		}
+		cfg.Port = resolvedPort
 		cfg.Quality = quality
 		cfg.FrameRate = fps
 

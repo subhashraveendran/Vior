@@ -69,7 +69,9 @@ func (a *Accessory) Start() error {
 	return nil
 }
 
-// Stop closes the USB connection.
+// Stop closes the USB connection and tears down the shared libusb
+// context. Only Stop closes a.ctx — per-cable-disconnect cleanup must
+// NOT, or the scanner dies permanently after the first unplug.
 func (a *Accessory) Stop() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -78,7 +80,14 @@ func (a *Accessory) Stop() {
 	}
 	a.running = false
 	close(a.stopCh)
-	a.cleanup()
+	// cleanupLocked (not cleanup) because we already hold a.mu — calling
+	// the lock-taking cleanup() here would self-deadlock on the
+	// non-reentrant mutex.
+	a.cleanupLocked()
+	if a.ctx != nil {
+		a.ctx.Close()
+		a.ctx = nil
+	}
 }
 
 // SendFrame sends a JPEG frame to the connected phone.
@@ -118,6 +127,14 @@ func (a *Accessory) writeOutLocked(packet []byte) error {
 }
 
 func (a *Accessory) scanLoop() {
+	// A panic in any USB callback (gousb, OnConnect/OnTouch handlers)
+	// must not take down the whole desktop process. Recover, log, and
+	// let Stop()/the OS reclaim the context.
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("usb: scanLoop panic recovered: %v", r)
+		}
+	}()
 	for {
 		select {
 		case <-a.stopCh:
@@ -153,7 +170,9 @@ func (a *Accessory) scanLoop() {
 		}
 
 		log.Println("usb: Android device connected in accessory mode")
+		a.mu.Lock()
 		a.dev = dev
+		a.mu.Unlock()
 
 		// Seed the pong clock to "now" so the heartbeat doesn't
 		// immediately trip on the first iteration (before the phone
@@ -173,6 +192,11 @@ func (a *Accessory) scanLoop() {
 // the cable goes away (outEP cleared by cleanup) or the accessory is
 // stopped.
 func (a *Accessory) heartbeatLoop() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("usb: heartbeatLoop panic recovered: %v", r)
+		}
+	}()
 	ticker := time.NewTicker(pingInterval)
 	defer ticker.Stop()
 	for {
@@ -332,17 +356,34 @@ func (a *Accessory) openEndpoints(dev *gousb.Device) error {
 
 	if inEP == nil || outEP == nil {
 		iface.Close()
+		cfg.Close()
 		return fmt.Errorf("missing endpoints")
 	}
 
+	// Assign connection state under the mutex — scanLoop runs this while
+	// cleanup() on another goroutine may be niling the same fields.
+	a.mu.Lock()
 	a.iface = iface
-	a.done = func() { iface.Close() }
+	// Close the interface AND the config claim on teardown. The old
+	// teardown func closed only the interface, leaking one gousb.Config
+	// (and its kernel-driver reattach) per connect/disconnect cycle.
+	a.done = func() { iface.Close(); cfg.Close() }
 	a.inEP = inEP
 	a.outEP = outEP
+	a.mu.Unlock()
 	return nil
 }
 
 func (a *Accessory) readInput() {
+	// Snapshot the IN endpoint under the mutex. cleanup() can nil a.inEP
+	// from another goroutine; reading the field directly on every loop
+	// iteration is a data race and could nil-deref mid-teardown.
+	a.mu.Lock()
+	inEP := a.inEP
+	a.mu.Unlock()
+	if inEP == nil {
+		return
+	}
 	// Bigger read buffer so multi-byte frames (e.g. a JPEG ack) come in
 	// one syscall; MaxFrameSize keeps it bounded.
 	buf := make([]byte, 64*1024)
@@ -353,7 +394,7 @@ func (a *Accessory) readInput() {
 		default:
 		}
 
-		n, err := a.inEP.Read(buf)
+		n, err := inEP.Read(buf)
 		if err != nil {
 			if err == io.EOF {
 				continue
@@ -446,9 +487,20 @@ func (a *Accessory) handleDisconnect() {
 	a.cleanup()
 }
 
+// cleanup tears down the current cable connection (device, interface,
+// config, endpoints) but leaves the shared libusb context alive so the
+// scanner can find the next device. Takes a.mu.
 func (a *Accessory) cleanup() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	a.cleanupLocked()
+}
+
+// cleanupLocked is the body of cleanup; callers must already hold a.mu.
+// It deliberately does NOT close a.ctx — that is Stop's job. Closing the
+// context here (the old behaviour) killed USB scanning permanently after
+// the first disconnect.
+func (a *Accessory) cleanupLocked() {
 	if a.done != nil {
 		a.done()
 		a.done = nil
@@ -460,8 +512,4 @@ func (a *Accessory) cleanup() {
 	a.inEP = nil
 	a.outEP = nil
 	a.iface = nil
-	if a.ctx != nil {
-		a.ctx.Close()
-		a.ctx = nil
-	}
 }

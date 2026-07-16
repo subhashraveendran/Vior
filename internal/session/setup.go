@@ -25,6 +25,15 @@ type Setup struct {
 	Height        int             // capture resolution height
 }
 
+// maxClientDimension bounds a single client-supplied width or height.
+// The capture/virtual-display path allocates buffers proportional to
+// width*height*4 (RGBA), so an unbounded value from an untrusted client
+// is a trivial OOM: 100000x100000 asks for ~40 GB per frame. 16384 is
+// larger than any real display edge (8K is 7680) yet caps a worst-case
+// frame at 16384*16384*4 ≈ 1 GiB, and the Linux extend path doubles the
+// height internally, so the effective ceiling stays well within int.
+const maxClientDimension = 16384
+
 // Configure tears down any prior virtual display and prepares capture for
 // a newly-connected client based on the client's hello message.
 //
@@ -37,11 +46,15 @@ type Setup struct {
 //
 // Caller is responsible for stopping the previous capture session before calling.
 func Configure(hello *protocol.HelloMessage) (*Setup, error) {
-	// Reject negative or zero dimensions before they reach the virtual
-	// display layer — a negative width cast to uint32 becomes ~4 GB,
-	// triggering an OOM allocation or kernel rejection.
+	// Reject non-positive or absurdly large dimensions before they reach
+	// the virtual-display / capture layer. A negative width cast to
+	// uint32 becomes ~4 GB; an unbounded positive width multiplies into
+	// a giant RGBA allocation. Both are attacker-controlled OOM vectors.
 	if hello.Width <= 0 || hello.Height <= 0 {
 		return nil, fmt.Errorf("invalid client dimensions: %dx%d", hello.Width, hello.Height)
+	}
+	if hello.Width > maxClientDimension || hello.Height > maxClientDimension {
+		return nil, fmt.Errorf("client dimensions exceed max %d: %dx%d", maxClientDimension, hello.Width, hello.Height)
 	}
 	if hello.DPR <= 0 {
 		hello.DPR = 1.0

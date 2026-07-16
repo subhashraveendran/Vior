@@ -144,10 +144,10 @@
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>
               </span>
               <div class="empty-title">Enter pair code</div>
-              <div class="empty-body">4-digit code shown on the desktop's Waiting screen.</div>
+              <div class="empty-body">Numeric code shown on the desktop's Waiting screen.</div>
             </div>
-            <input id="cascade-c-input" type="tel" maxlength="4" autocomplete="off" spellcheck="false"
-                   placeholder="0000" inputmode="numeric" pattern="[0-9]{4}"
+            <input id="cascade-c-input" type="tel" maxlength="8" autocomplete="off" spellcheck="false"
+                   placeholder="000000" inputmode="numeric" pattern="[0-9]{4,8}"
                    style="width: 100%; padding: 18px 16px; margin-top: 6px; border-radius: var(--r); border: 1px solid var(--border); background: var(--surface-1); color: var(--text-1); font-family: var(--font-mono); font-size: 28px; text-align: center; box-sizing: border-box;">
             <button class="btn btn-primary btn-block cascade-primary" id="cascade-c-go" style="margin-top: 14px;" disabled>
               <span>Connect</span>
@@ -583,9 +583,9 @@
       </span>
       <div style="font-size: 16px; font-weight: 600;">Pair this device</div>
     </div>
-    <div style="font-size: 13px; color: var(--text-2); margin-bottom: 14px;">Enter the 4-digit code shown on the desktop’s Waiting screen. Once paired, this device is trusted — you won’t be asked again.</div>
-    <input id="pair-prompt-input" type="tel" maxlength="4" autocomplete="off" spellcheck="false"
-           placeholder="0000" inputmode="numeric" pattern="[0-9]{4}"
+    <div style="font-size: 13px; color: var(--text-2); margin-bottom: 14px;">Enter the code shown on the desktop’s Waiting screen. Once paired, this device is trusted — you won’t be asked again.</div>
+    <input id="pair-prompt-input" type="tel" maxlength="8" autocomplete="off" spellcheck="false"
+           placeholder="000000" inputmode="numeric" pattern="[0-9]{4,8}"
            style="width: 100%; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-1); color: var(--text-1); font-family: var(--font-mono); font-size: 26px; text-align: center; box-sizing: border-box;">
     <div style="display: flex; gap: 10px; margin-top: 14px;">
       <button class="btn btn-quiet btn-block" id="pair-prompt-cancel">Cancel</button>

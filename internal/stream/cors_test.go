@@ -30,6 +30,10 @@ func TestCORSAllowedOrigins(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			req := httptest.NewRequest("GET", "/info", nil)
+			// Real LAN clients address the server by its private IP; the
+			// Host-header (DNS-rebinding) guard requires it. httptest
+			// defaults Host to example.com, which the guard rejects.
+			req.Host = "192.168.1.5:8080"
 			req.Header.Set("Origin", tc.origin)
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, req)
@@ -54,6 +58,7 @@ func TestCORSNoOriginPassThrough(t *testing.T) {
 	called := false
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { called = true; w.WriteHeader(200) })
 	req := httptest.NewRequest("GET", "/info", nil)
+	req.Host = "192.168.1.5:8080" // private Host so the DNS-rebinding guard admits it
 	rec := httptest.NewRecorder()
 	corsHandler(inner).ServeHTTP(rec, req)
 	if !called {

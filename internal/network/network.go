@@ -9,29 +9,21 @@ import (
 	qrcode "github.com/skip2/go-qrcode"
 )
 
-// QRCodePlain returns an ASCII-art QR code using plain characters
-// (no ANSI codes, safe for all terminals).
+// QRCodePlain returns a compact half-block QR code. The previous
+// renderer drew "██" per dark module (two full blocks wide) and one
+// text row per module — roughly 2× too wide AND full height, which
+// overflowed phone-height terminals. ToSmallString packs two module
+// rows into each text line via half-block glyphs (▀▄█), halving the
+// height while staying scannable, and includes the mandatory quiet
+// zone.
 func QRCodePlain(url string) (string, error) {
 	qr, err := qrcode.New(url, qrcode.Low)
 	if err != nil {
 		return "", fmt.Errorf("qr generate: %w", err)
 	}
-
-	bitmap := qr.Bitmap()
 	var sb strings.Builder
 	sb.WriteString("\n")
-
-	for _, row := range bitmap {
-		sb.WriteString("  ")
-		for _, col := range row {
-			if col {
-				sb.WriteString("██")
-			} else {
-				sb.WriteString("  ")
-			}
-		}
-		sb.WriteString("\n")
-	}
+	sb.WriteString(qr.ToSmallString(false))
 	sb.WriteString(fmt.Sprintf("\n  %s\n\n", url))
 	return sb.String(), nil
 }

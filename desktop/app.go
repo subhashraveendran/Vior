@@ -41,6 +41,11 @@ type App struct {
 	client   *protocol.Session
 	clientMu sync.Mutex
 
+	// stopMu serializes stopEverything so the OnBeforeClose path, the
+	// tray Stop/Quit handlers and the SIGINT/SIGTERM handler can't run
+	// teardown concurrently (double-Stop / racing nil assignments).
+	stopMu sync.Mutex
+
 	// inputPermChecked guards the one-time accessibility prompt that
 	// fires on the first input event after a client connects.
 	inputPermChecked bool
@@ -90,6 +95,8 @@ func (a *App) beforeClose(ctx context.Context) bool {
 }
 
 func (a *App) stopEverything() {
+	a.stopMu.Lock()
+	defer a.stopMu.Unlock()
 	if a.ipWatchStop != nil {
 		close(a.ipWatchStop)
 		a.ipWatchStop = nil
@@ -141,14 +148,15 @@ func (a *App) StartServer() error {
 	// store", which the user perceives as "the connection died".
 	stream.EnablePersistedPair()
 
-	// Auto-select free port if not explicitly set.
-	if a.cfg.Port == 0 {
-		port, err := config.FreePort()
-		if err != nil {
-			return fmt.Errorf("failed to find free port: %w", err)
-		}
-		a.cfg.Port = port
+	// Resolve the port. A 0 (auto) prefers 8080/8081 — the fixed ports
+	// the mobile client probes during discovery — so auto-config is
+	// actually discoverable, falling back to a random free port only if
+	// both are taken.
+	port, err := config.ResolvePort(a.cfg.Port)
+	if err != nil {
+		return fmt.Errorf("failed to resolve port: %w", err)
 	}
+	a.cfg.Port = port
 
 	// Start HTTP+WS server with no frame channel yet (will be set on client connect).
 	a.server = stream.NewMJPEGServer(a.cfg.Host, a.cfg.Port, nil, a)
@@ -506,20 +514,37 @@ func (a *App) handleUSBConnect(width, height int, dpr float32) {
 	// Send ready.
 	a.usbAcc.SendReady(width, height)
 
-	// Stream frames over USB.
+	// Stream frames over USB, teeing a best-effort copy to the MJPEG
+	// server for the web-client fallback.
+	//
+	// A Go channel delivers each value to exactly ONE receiver, so the
+	// old code — a goroutine ranging FrameCh AND server.SetFrameCh(FrameCh)
+	// — split frames ~50/50 between USB and the web distributor, halving
+	// and corrupting both streams. Instead, a single reader owns FrameCh
+	// and fans each frame out: USB gets every frame (priority, blocking),
+	// the web side gets a non-blocking copy that's dropped if it's slow.
+	var webCh chan []byte
+	if a.server != nil {
+		webCh = make(chan []byte, 4)
+		a.server.SetFrameCh(webCh)
+	}
 	go func() {
+		if webCh != nil {
+			defer close(webCh)
+		}
 		for frame := range a.session.FrameCh {
 			if err := a.usbAcc.SendFrame(frame); err != nil {
 				log.Printf("usb: send frame error: %v", err)
 				return
 			}
+			if webCh != nil {
+				select {
+				case webCh <- frame:
+				default: // web distributor slow — drop, keep USB real-time
+				}
+			}
 		}
 	}()
-
-	// Also hook up to MJPEG server if running (for web client fallback).
-	if a.server != nil {
-		a.server.SetFrameCh(a.session.FrameCh)
-	}
 
 	runtime.EventsEmit(a.ctx, "client:connected", ClientInfo{
 		SessionID:      "usb",

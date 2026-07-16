@@ -6,8 +6,10 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -110,7 +112,10 @@ func EnablePersistedPair() {
 		if !os.IsNotExist(err) {
 			log.Printf("stream: read %s failed: %v (using derived pair)", path, err)
 		}
-		log.Printf("stream: using derived pair code %s", PairCode())
+		// Never log the actual pair code — it's the admission secret and
+		// this line runs on the default (no-override) path. See the
+		// redaction at the pair-mismatch site for the same rule.
+		log.Printf("stream: using machine-derived pair code")
 		return
 	}
 	code := strings.TrimSpace(string(b))
@@ -387,7 +392,32 @@ type MJPEGServer struct {
 	wsConn   *protocol.Session // current WebSocket client (single client mode)
 	wsConnMu sync.Mutex
 
-	// stopDistribute signals the distributeFrames goroutine to stop.
+	// frameClientIP is the remote IP of the currently paired WS client.
+	// /snapshot and /stream serve raw screen frames, so they must only
+	// answer the already-authenticated client (or loopback, i.e. the
+	// desktop's own preview) — otherwise any LAN peer could scrape the
+	// screen with no pairing. Guarded by frameClientMu. Empty = nobody
+	// paired = frames closed.
+	frameClientIP string
+	frameClientMu sync.RWMutex
+
+	// setFrameMu serializes SetFrameCh calls end-to-end. distMu alone is
+	// not enough: SetFrameCh must release distMu while it waits for the
+	// old distributor to exit (<-done), and two concurrent callers could
+	// both observe distRunning, both wait on the same done, then both
+	// install a distributor — leaking one and desyncing the done/stop
+	// channels. A coarse op-lock makes SetFrameCh atomic; the exiting
+	// distributor's defer only needs distMu, so there is no deadlock.
+	setFrameMu sync.Mutex
+
+	// Distributor lifecycle. All four fields are guarded by distMu.
+	// They were previously read/written lock-free from Start, Stop,
+	// SetFrameCh and the distributor goroutine simultaneously — a data
+	// race that could double-close stopDistribute or observe a torn
+	// frameCh swap. distributeFrames now receives its channels as
+	// parameters so it never reads these fields after launch; the only
+	// shared write it makes is distRunning=false on exit, under distMu.
+	distMu         sync.Mutex
 	stopDistribute chan struct{}
 	distDone       chan struct{} // closed when the distributor goroutine exits
 	distRunning    bool
@@ -446,14 +476,30 @@ func (s *MJPEGServer) Start() error {
 
 	// Distribute frames to all connected clients.
 	if s.frameCh != nil {
+		s.distMu.Lock()
+		fc := s.frameCh
+		stop := s.stopDistribute
+		done := make(chan struct{})
+		s.distDone = done
 		s.distRunning = true
-		s.distDone = make(chan struct{})
-		go s.distributeFrames()
+		s.distMu.Unlock()
+		go s.distributeFrames(fc, stop, done)
 	}
 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("listen failed: %w", err)
+	}
+
+	// If we bound port 0 (ephemeral), write the OS-assigned port back so
+	// Port() and every caller (banner, URLs, QR, discovery beacon) report
+	// the real port instead of 0.
+	if s.port == 0 {
+		if tcpAddr, ok := ln.Addr().(*net.TCPAddr); ok {
+			s.mu.Lock()
+			s.port = tcpAddr.Port
+			s.mu.Unlock()
+		}
 	}
 
 	go func() {
@@ -475,11 +521,13 @@ func (s *MJPEGServer) Stop() error {
 	s.running = false
 
 	// Signal frame distributor to stop.
+	s.distMu.Lock()
 	select {
 	case <-s.stopDistribute:
 	default:
 		close(s.stopDistribute)
 	}
+	s.distMu.Unlock()
 
 	// Close WebSocket session if active.
 	s.wsConnMu.Lock()
@@ -512,13 +560,26 @@ func (s *MJPEGServer) IsRunning() bool {
 // SetFrameCh replaces the frame channel (e.g. when a new capture session starts
 // after a client connects with different resolution).
 func (s *MJPEGServer) SetFrameCh(ch <-chan []byte) {
+	// Serialize the whole operation so concurrent callers can't both wait
+	// on the same distributor's done and then both install a new one.
+	s.setFrameMu.Lock()
+	defer s.setFrameMu.Unlock()
+
+	s.distMu.Lock()
 	if s.distRunning {
+		stop := s.stopDistribute
+		done := s.distDone
 		select {
-		case <-s.stopDistribute:
+		case <-stop:
 		default:
-			close(s.stopDistribute)
+			close(stop)
 		}
-		<-s.distDone
+		// Release the lock before waiting so the exiting distributor can
+		// take distMu to clear distRunning — holding it here would
+		// deadlock against that defer.
+		s.distMu.Unlock()
+		<-done
+		s.distMu.Lock()
 	}
 
 	s.frameCh = ch
@@ -526,10 +587,15 @@ func (s *MJPEGServer) SetFrameCh(ch <-chan []byte) {
 	s.distDone = make(chan struct{})
 	if ch != nil {
 		s.distRunning = true
-		go s.distributeFrames()
-	} else {
-		s.distRunning = false
+		fc := s.frameCh
+		stop := s.stopDistribute
+		done := s.distDone
+		s.distMu.Unlock()
+		go s.distributeFrames(fc, stop, done)
+		return
 	}
+	s.distRunning = false
+	s.distMu.Unlock()
 }
 
 // ClientCount returns the number of connected MJPEG stream clients.
@@ -541,17 +607,27 @@ func (s *MJPEGServer) ClientCount() int {
 
 // Port returns the configured port.
 func (s *MJPEGServer) Port() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.port
 }
 
-func (s *MJPEGServer) distributeFrames() {
-	defer func() { s.distRunning = false }()
-	defer close(s.distDone)
+// distributeFrames fans captured frames out to all connected MJPEG
+// clients. It receives its channels as parameters (captured at launch
+// under distMu) so it never races a concurrent SetFrameCh swap of the
+// server's shared fields.
+func (s *MJPEGServer) distributeFrames(frameCh <-chan []byte, stop <-chan struct{}, done chan struct{}) {
+	defer func() {
+		s.distMu.Lock()
+		s.distRunning = false
+		s.distMu.Unlock()
+		close(done)
+	}()
 	for {
 		select {
-		case <-s.stopDistribute:
+		case <-stop:
 			return
-		case frame, ok := <-s.frameCh:
+		case frame, ok := <-frameCh:
 			if !ok {
 				return
 			}
@@ -588,10 +664,17 @@ func (s *MJPEGServer) addClient() (chan []byte, error) {
 }
 
 func (s *MJPEGServer) removeClient(ch chan []byte) {
+	// Close-once: only the goroutine that removes ch from the map closes
+	// it. Stop() also deletes+closes every client under clientsMu, so a
+	// handleStream defer that fires after Stop finds ch already gone and
+	// skips the close — without this guard the two paths double-closed
+	// the channel and panicked on shutdown with a viewer connected.
 	s.clientsMu.Lock()
-	delete(s.clients, ch)
-	s.clientsMu.Unlock()
-	close(ch)
+	defer s.clientsMu.Unlock()
+	if _, ok := s.clients[ch]; ok {
+		delete(s.clients, ch)
+		close(ch)
+	}
 }
 
 func (s *MJPEGServer) generateBoundary() string {
@@ -603,6 +686,10 @@ func (s *MJPEGServer) generateBoundary() string {
 }
 
 func (s *MJPEGServer) handleStream(w http.ResponseWriter, r *http.Request) {
+	if !s.frameClientAuthorized(r) {
+		http.Error(w, "not authorized", http.StatusForbidden)
+		return
+	}
 	log.Printf("stream: MJPEG client connected: %s", r.RemoteAddr)
 
 	ch, err := s.addClient()
@@ -672,12 +759,35 @@ func (s *MJPEGServer) handleDownload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *MJPEGServer) handleInfo(w http.ResponseWriter, r *http.Request) {
-	name := friendlyDeviceName()
+	resp := map[string]any{
+		// deviceId is the stable server-install ID. Mobiles save it and
+		// use it to re-find the server at a new IP after DHCP drift.
+		"name":     friendlyDeviceName(),
+		"version":  config.Version,
+		"platform": friendlyPlatform(),
+		"deviceId": serverID,
+	}
+	// Pairing probe. Previously /info published the raw pairCode to any
+	// LAN client, which nullified the whole pairing scheme (anyone could
+	// read the code and connect). Instead, a client that ALREADY knows
+	// the code passes it as ?probe= and we confirm — constant-time, and
+	// rate-limited so this can't become a brute-force oracle. The code
+	// itself is never returned.
+	if probe := strings.TrimSpace(r.URL.Query().Get("probe")); probe != "" {
+		ip := remoteIP(r.RemoteAddr)
+		if subtle.ConstantTimeCompare([]byte(probe), []byte(PairCode())) == 1 {
+			resp["paired"] = true
+			clearPairAttempts(ip)
+		} else if recordPairAttempt(ip) {
+			http.Error(w, "too many pairing probes", http.StatusTooManyRequests)
+			return
+		}
+	}
 	w.Header().Set("Content-Type", "application/json")
-	// deviceId is the stable server-install ID. Mobiles save it and
-	// use it to re-find the server at a new IP after DHCP drift.
-	fmt.Fprintf(w, `{"name":"%s","version":"%s","platform":"%s","pairCode":"%s","deviceId":"%s"}`,
-		name, config.Version, friendlyPlatform(), PairCode(), serverID)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		log.Printf("stream: /info encode failed: %v", err)
+	}
 }
 
 func friendlyDeviceName() string {
@@ -711,7 +821,26 @@ func friendlyPlatform() string {
 	}
 }
 
+// frameClientAuthorized reports whether r may read raw screen frames.
+// Only the paired WS client's IP (or loopback, i.e. the desktop's own
+// preview) is allowed — otherwise any LAN peer could scrape the screen
+// with no pairing at all.
+func (s *MJPEGServer) frameClientAuthorized(r *http.Request) bool {
+	ip := remoteIP(r.RemoteAddr)
+	if pip := net.ParseIP(ip); pip != nil && pip.IsLoopback() {
+		return true
+	}
+	s.frameClientMu.RLock()
+	authorized := s.frameClientIP
+	s.frameClientMu.RUnlock()
+	return authorized != "" && ip == authorized
+}
+
 func (s *MJPEGServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {
+	if !s.frameClientAuthorized(r) {
+		http.Error(w, "not authorized", http.StatusForbidden)
+		return
+	}
 	s.frameMu.RLock()
 	frame := s.currentFrame
 	s.frameMu.RUnlock()
@@ -722,6 +851,7 @@ func (s *MJPEGServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Write(frame)
 }
 
@@ -755,6 +885,13 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			s.wsConn = nil
 		}
 		s.wsConnMu.Unlock()
+		// Revoke frame authorization for this client's IP so a later
+		// unpaired peer at the same address can't keep scraping.
+		s.frameClientMu.Lock()
+		if s.frameClientIP == remoteIP(r.RemoteAddr) {
+			s.frameClientIP = ""
+		}
+		s.frameClientMu.Unlock()
 		// sync.Once on the session guarantees OnClientDisconnect runs
 		// exactly once even when an in-loop Bye and the post-loop
 		// defer both arrive — without this guard, the App handler
@@ -809,8 +946,12 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		// close. Without this a script on the LAN could enumerate the
 		// 16M-combo hex pair code in roughly a day.
 		over := recordPairAttempt(ip)
-		log.Printf("stream: pair mismatch [%s] from %s: got %q want %q (deviceID=%q untrusted) over=%v",
-			session.ID, ip, hello.PairCode, PairCode(), hello.DeviceID, over)
+		// Never log the real pair code (the admission secret). Log only
+		// the length of the rejected guess — enough to debug a "wrong
+		// number of digits" client bug without leaking the code to
+		// anyone who can read the desktop logs.
+		log.Printf("stream: pair mismatch [%s] from %s: got %d-digit code (deviceID=%q untrusted) over=%v",
+			session.ID, ip, len(strings.TrimSpace(hello.PairCode)), hello.DeviceID, over)
 		if over {
 			session.Send(protocol.MsgError, &protocol.ErrorMessage{
 				Code:    "rate_limited",
@@ -824,6 +965,13 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	// Admitted. Authorize this client's IP for /snapshot and /stream so
+	// the raw screen frames are only served to the paired device (plus
+	// loopback for the desktop's own preview).
+	s.frameClientMu.Lock()
+	s.frameClientIP = ip
+	s.frameClientMu.Unlock()
 
 	// Notify handler — this triggers virtual display creation.
 	if err := s.handler.OnClientConnect(session, hello); err != nil {
@@ -915,7 +1063,28 @@ func checkWSOrigin(r *http.Request) bool {
 	if err != nil {
 		return false
 	}
-	host := u.Hostname()
+	return isPrivateHost(u.Hostname())
+}
+
+// hostnameOnly strips an optional :port from a Host header value,
+// returning just the host. Handles bare hosts, host:port, and
+// [ipv6]:port. Falls back to the raw value if there's no port.
+func hostnameOnly(hostport string) string {
+	if hostport == "" {
+		return ""
+	}
+	if h, _, err := net.SplitHostPort(hostport); err == nil {
+		return h
+	}
+	// No port — strip surrounding brackets from a bare IPv6 literal.
+	return strings.Trim(hostport, "[]")
+}
+
+// isPrivateHost reports whether host is localhost or a loopback /
+// link-local / RFC1918 private IP literal. Public hostnames and public
+// IPs are rejected. Empty is rejected. Shared by the WS origin check
+// and the Host-header (DNS-rebinding) guard.
+func isPrivateHost(host string) bool {
 	if host == "" {
 		return false
 	}
@@ -926,10 +1095,7 @@ func checkWSOrigin(r *http.Request) bool {
 	if ip == nil {
 		return false
 	}
-	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsPrivate() {
-		return true
-	}
-	return false
+	return ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsPrivate()
 }
 
 // corsHandler wraps an http.Handler with a same-network CORS policy.
@@ -945,6 +1111,16 @@ func checkWSOrigin(r *http.Request) bool {
 // clients with no Origin header skip CORS entirely.
 func corsHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// DNS-rebinding defense: the Origin allowlist checks the calling
+		// page's host, but a rebound DNS name (attacker.com → victim LAN
+		// IP) drives requests whose Host header is the attacker's domain.
+		// Reject any Host that isn't a private/loopback literal or
+		// localhost — a legitimate LAN client always addresses the
+		// server by its IP. Hostname() strips the :port.
+		if !isPrivateHost(hostnameOnly(r.Host)) {
+			http.Error(w, "forbidden host", http.StatusForbidden)
+			return
+		}
 		if origin := r.Header.Get("Origin"); origin != "" {
 			if isAllowedHTTPOrigin(origin) {
 				w.Header().Set("Access-Control-Allow-Origin", origin)

@@ -136,19 +136,50 @@ static int isDisplayMirrored(int displayIndex) {
 	if (id == 0) return -1;
 	return CGDisplayIsInMirrorSet(id) ? 1 : 0;
 }
-// checkScreenRecordingPermission tries to capture a tiny frame from the main display.
-// Returns 0 if permission granted, -1 if denied.
+typedef bool (*CGPreflightScreenCaptureAccessFunc)(void);
+typedef bool (*CGRequestScreenCaptureAccessFunc)(void);
+
+// checkScreenRecordingPermission reports whether Screen Recording is
+// granted. Returns 0 if granted, -1 if denied.
+//
+// The old implementation called CGDisplayCreateImage and treated a
+// non-nil result as "granted" — but that call returns a NON-nil image
+// (wallpaper + menubar + own windows only) even when permission is
+// DENIED, so it was a false positive: capture started, the phone showed
+// a near-blank frame, and the "grant permission" UI never fired. Use
+// the purpose-built CGPreflightScreenCaptureAccess (macOS 10.15+), which
+// reports the real TCC status without prompting.
 static int checkScreenRecordingPermission(void) {
-	static CGDisplayCreateImageFunc createImage = NULL;
+	static CGPreflightScreenCaptureAccessFunc preflight = NULL;
 	static dispatch_once_t onceToken;
 	dispatch_once(&onceToken, ^{
-		createImage = (CGDisplayCreateImageFunc)dlsym(RTLD_DEFAULT, "CGDisplayCreateImage");
+		preflight = (CGPreflightScreenCaptureAccessFunc)dlsym(RTLD_DEFAULT, "CGPreflightScreenCaptureAccess");
 	});
-	if (!createImage) return -1;
-	CGImageRef img = createImage(CGMainDisplayID());
-	if (!img) return -1;
-	CGImageRelease(img);
-	return 0;
+	if (preflight) {
+		return preflight() ? 0 : -1;
+	}
+	// Pre-10.15 has no screen-recording gate — treat as granted if the
+	// legacy capture symbol is present.
+	static CGDisplayCreateImageFunc legacyImg = NULL;
+	static dispatch_once_t legacyOnce;
+	dispatch_once(&legacyOnce, ^{
+		legacyImg = (CGDisplayCreateImageFunc)dlsym(RTLD_DEFAULT, "CGDisplayCreateImage");
+	});
+	return legacyImg ? 0 : -1;
+}
+
+// requestScreenRecordingPermission triggers the OS Screen Recording
+// prompt (deep-links the user to System Settings on first denial).
+// Returns 1 if access is (now) granted, 0 otherwise. No-op returning 1
+// on systems without the gate.
+static int requestScreenRecordingPermission(void) {
+	static CGRequestScreenCaptureAccessFunc request = NULL;
+	static dispatch_once_t onceToken;
+	dispatch_once(&onceToken, ^{
+		request = (CGRequestScreenCaptureAccessFunc)dlsym(RTLD_DEFAULT, "CGRequestScreenCaptureAccess");
+	});
+	if (!request) return 1;
+	return request() ? 1 : 0;
 }
 
 // findDisplayIndexByID returns the CGGetActiveDisplayList index for a CGDirectDisplayID.
@@ -299,6 +330,14 @@ func CheckScreenRecordingPermission() error {
 		return fmt.Errorf("screen recording permission denied — open System Settings > Privacy & Security > Screen Recording and enable Vior")
 	}
 	return nil
+}
+
+// RequestScreenRecordingPermission triggers the macOS Screen Recording
+// permission prompt (and deep-links to System Settings on first denial).
+// Returns true if access is granted after the request. Safe to call
+// repeatedly; it's a no-op once granted.
+func RequestScreenRecordingPermission() bool {
+	return C.requestScreenRecordingPermission() != 0
 }
 
 // FindDisplayIndexByID returns the capture-compatible display index for a CGDirectDisplayID.

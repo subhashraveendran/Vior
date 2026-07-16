@@ -32,7 +32,25 @@ function hideStream(): void {
   if (fpsTimer) { clearInterval(fpsTimer); fpsTimer = null; }
 }
 
+// streamTransport reads the active transport ('wifi' | 'usb') via the
+// accessor usb.ts publishes on window.
+function streamTransport(): 'wifi' | 'usb' {
+  const fn = (window as unknown as { viorTransport?: () => 'wifi' | 'usb' }).viorTransport;
+  return typeof fn === 'function' ? fn() : 'wifi';
+}
+
 function startFramePolling(): void {
+  // USB sessions receive frames pushed directly (usb.ts writes
+  // streamImg.src on each AOA video frame); there is no HTTP /snapshot
+  // endpoint reachable — frameBaseUrl is empty — so polling would spin a
+  // permanent failing-fetch storm against a relative URL, draining the
+  // battery and racing the real USB frames. Only Wi-Fi polls.
+  if (streamTransport() === 'usb' || !frameBaseUrl) return;
+  // Single-flight: if a poll loop is already running, don't start a
+  // second one. Overlapping loops each createObjectURL and only one
+  // blobUrl global tracks the latest, leaking the other's URL until the
+  // WebView is OOM-killed.
+  if (framePolling) return;
   framePolling = true;
   frameCount = 0;
   if (fpsTimer) clearInterval(fpsTimer);

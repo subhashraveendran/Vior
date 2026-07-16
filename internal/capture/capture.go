@@ -96,6 +96,7 @@ type Session struct {
 	running      bool
 	mu           sync.RWMutex
 	stopCh       chan struct{}
+	captureDone  chan struct{} // closed when the capture goroutine exits
 
 	// FrameCh delivers captured JPEG frames to consumers.
 	// Closed when the session is stopped.
@@ -119,6 +120,7 @@ func NewSession(displayIndex, quality, fps int) *Session {
 		fps:          fps,
 		FrameCh:      make(chan []byte, 4),
 		stopCh:       make(chan struct{}),
+		captureDone:  make(chan struct{}),
 	}
 }
 
@@ -136,8 +138,18 @@ func (s *Session) Start() error {
 
 	go func() {
 		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
+		// Defers run LIFO: captureDone closes LAST (so a Stop() waiting
+		// on it knows FrameCh is already closed), FrameCh closes before
+		// that, and the recover runs first to keep a cgo-capture panic
+		// from crashing the whole process.
+		defer close(s.captureDone)
 		defer close(s.FrameCh)
+		defer ticker.Stop()
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("capture: goroutine panic recovered: %v", r)
+			}
+		}()
 
 		for {
 			select {
@@ -162,23 +174,33 @@ func (s *Session) Start() error {
 	return nil
 }
 
-// Stop ends the capture session.
+// Stop ends the capture session and waits (bounded) for the capture
+// goroutine to fully exit before returning, so a subsequent Start()
+// can't run a second capture loop against the same display.
 func (s *Session) Stop() {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.running {
-		close(s.stopCh)
-		s.running = false
+	if !s.running {
+		s.mu.Unlock()
+		return
+	}
+	close(s.stopCh)
+	s.running = false
+	done := s.captureDone
+	// Release the lock BEFORE waiting. The goroutine never needs s.mu to
+	// exit, but holding it here would block IsRunning and other callers
+	// for a whole frame interval. The old code instead busy-looped
+	// draining FrameCh under the lock — which spun forever once the
+	// goroutine had already closed FrameCh (recv on a closed channel is
+	// always ready, so the `default` branch was never taken).
+	s.mu.Unlock()
 
-		// Drain FrameCh to unblock any blocked sends.
-		for {
-			select {
-			case <-s.FrameCh:
-			default:
-				goto drained
-			}
-		}
-	drained:
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		// The capture goroutine is wedged in a cgo call; give up waiting
+		// rather than hang shutdown. It will exit on its own and close
+		// the channels then.
+		log.Printf("capture: Stop timed out waiting for goroutine")
 	}
 }
 

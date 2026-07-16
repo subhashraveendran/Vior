@@ -4,6 +4,7 @@
 import { useState } from 'react'
 import { CheckPermissions } from '../lib/api'
 import { Icons } from '../lib/icons'
+import { useFocusTrap } from '../lib/useFocusTrap'
 
 interface Props {
   onDone: () => void
@@ -12,6 +13,7 @@ interface Props {
 export default function PermissionsModal({ onDone }: Props) {
   const [granted, setGranted] = useState<boolean>(false)
   const [verifying, setVerifying] = useState<boolean>(false)
+  const ref = useFocusTrap<HTMLDivElement>(true, onDone)
   const verify = async (): Promise<void> => {
     setVerifying(true)
     try { await CheckPermissions(); setGranted(true) } catch { /* still denied */ }
@@ -19,11 +21,17 @@ export default function PermissionsModal({ onDone }: Props) {
   }
   return (
     <div className="modal-backdrop">
-      <div className="card modal">
+      <div
+        className="card modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="permissions-modal-title"
+        ref={ref}
+      >
         <span className="modal-icon" style={{ color: granted ? 'var(--ok)' : 'var(--accent)' }}>
           {granted ? Icons.check(28) : Icons.shield(28)}
         </span>
-        <div className="modal-title">{granted ? 'Permission granted' : 'Screen Recording access'}</div>
+        <div className="modal-title" id="permissions-modal-title">{granted ? 'Permission granted' : 'Screen Recording access'}</div>
         <div className="modal-body">
           {granted ? 'Vior can now mirror your display. You’re all set.'
             : <>macOS requires permission for Vior to capture your screen. Enable it under <span style={{ color: 'var(--text-1)', fontWeight: 600 }}>Privacy &amp; Security → Screen Recording</span>.</>}

@@ -27,6 +27,12 @@
   .disc-wrap::-webkit-scrollbar { display: none; }
   .disc-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
   .disc-refresh { background: none; border: none; color: var(--text-3); display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px; }
+  /* Busy state while a sweep is in flight — spin the icon + accent the
+     label so the tap reads as "working" rather than a dead press. */
+  .disc-refresh.scanning { color: var(--accent); }
+  .disc-refresh.scanning #refresh-icon { animation: discRefreshSpin .8s linear infinite; }
+  .disc-refresh:disabled { opacity: 0.9; }
+  @keyframes discRefreshSpin { to { transform: rotate(360deg); } }
   .disc-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 9px; padding-bottom: 12px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .disc-list::-webkit-scrollbar { display: none; }
 

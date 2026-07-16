@@ -118,6 +118,7 @@ SHORTCUTS.forEach(function (s: Shortcut): void {
   const b = document.createElement('button');
   b.className = 'keycap';
   b.dataset.key = s[0];
+  b.setAttribute('aria-label', s[1] + ' key');
   b.innerHTML =
     '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + (ICONS[s[3]] || '') + '</svg>' +
     '<span class="keycap-label keycap-label-icon">' + s[1] + '</span>' +
@@ -130,6 +131,7 @@ const fkeyGrid = $('fkey-grid') as HTMLElement;
 ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F11', 'F12'].forEach(function (f: string): void {
   const b = document.createElement('button');
   b.className = 'keycap'; b.dataset.key = f;
+  b.setAttribute('aria-label', f + ' key');
   b.innerHTML = '<span class="keycap-label">' + f + '</span>';
   fkeyGrid.appendChild(b);
 });

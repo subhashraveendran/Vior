@@ -6,13 +6,25 @@
 // now tap-to-connect; the discovery module's `initiateConnect()` routes
 // straight here (with a pair-prompt detour for never-paired servers).
 
-function promptPair(): void {
+function promptPair(opts?: { preserveValue?: boolean }): void {
   viorState.set({ state: 'pairing' });
   const m = $('pair-prompt');
   if (m) {
     m.classList.remove('hidden');
     const inp = $('pair-prompt-input') as HTMLInputElement | null;
-    if (inp) { inp.value = ''; setTimeout(function () { try { inp.focus(); } catch (_) {} }, 60); }
+    if (inp) {
+      // On a rejected code we keep the typed value so the user can fix a
+      // typo instead of re-entering the whole code. Otherwise start fresh.
+      if (!(opts && opts.preserveValue)) inp.value = '';
+      setTimeout(function () {
+        try {
+          inp.focus();
+          // Select the preserved value so the first keystroke overwrites
+          // it, but a single edit is still possible.
+          if (opts && opts.preserveValue) inp.select();
+        } catch (_) {}
+      }, 60);
+    }
   }
 }
 // Expose to globalThis so discovery.ts can call into us without
@@ -393,8 +405,10 @@ function doConnect(): void {
         if (selectedServer) {
           try { localStorage.removeItem('vior_known_' + selectedServer.host + ':' + selectedServer.port); } catch (_) {}
         }
-        toast('error', 'Pair code rejected', 'Enter the 4-digit code shown on the desktop.');
-        promptPair();
+        toast('error', 'Pair code rejected', 'Check the code shown on the desktop and try again.');
+        // Preserve the typed code so the user can correct a single typo
+        // instead of re-entering the whole thing.
+        promptPair({ preserveValue: true });
       } else if (code === 'occupied') {
         // Second-tab scenario: the desktop server already has a WS
         // client. Surface a clean "you were replaced" message and stop

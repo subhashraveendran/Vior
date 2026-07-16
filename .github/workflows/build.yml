@@ -81,6 +81,25 @@ jobs:
       - name: Vet
         run: go vet ./cmd/... ./internal/...
 
+      - name: Gofmt (check formatting)
+        if: runner.os != 'Windows'
+        run: |
+          unformatted="$(gofmt -l $(git ls-files '*.go'))"
+          if [ -n "$unformatted" ]; then
+            echo "The following files are not gofmt-formatted:"
+            echo "$unformatted"
+            echo "Run: gofmt -w \$(git ls-files '*.go')"
+            exit 1
+          fi
+
+      - name: golangci-lint (report-only)
+        if: runner.os == 'Linux'
+        continue-on-error: true
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+          args: --timeout=5m --issues-exit-code=0
+
       - name: Test
         run: go test ./internal/... -short
 
@@ -162,6 +181,14 @@ jobs:
       - name: Install frontend dependencies
         run: cd desktop/frontend && npm install
 
+      - name: Typecheck frontend
+        run: cd desktop/frontend && npm run typecheck
+
+      # Report-only lint — enabled once desktop/frontend adds a "lint" script.
+      # - name: Lint frontend (report-only)
+      #   continue-on-error: true
+      #   run: cd desktop/frontend && npm run lint
+
       - name: Build desktop app
         run: |
           cd desktop
@@ -214,6 +241,14 @@ jobs:
 
       - name: Install dependencies
         run: cd mobile-cap && npm install
+
+      - name: Typecheck
+        run: cd mobile-cap && npm run typecheck
+
+      # Report-only lint — enabled once mobile-cap adds a "lint" script.
+      # - name: Lint (report-only)
+      #   continue-on-error: true
+      #   run: cd mobile-cap && npm run lint
 
       - name: Compile TypeScript → JS (emits src/js/*.js consumed by Capacitor)
         run: cd mobile-cap && npm run build

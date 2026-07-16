@@ -9,8 +9,9 @@
 // Pre-connect surface intentionally hides Files / Permissions / virtual-
 // display info: there's no client to send a file to, no input to inject,
 // no display to describe. Those panels only appear after pairing.
-import React from 'react'
+import React, { useState } from 'react'
 import { Icons } from '../lib/icons'
+import ConfirmModal from '../lib/ConfirmModal'
 import type { WaitingScreenProps as BaseWaitingScreenProps, ServerStatus } from '../types'
 
 interface WaitingScreenProps extends BaseWaitingScreenProps {
@@ -32,18 +33,28 @@ export default function WaitingScreen({ status, onStop, onCopy, onCopyPair, disc
   const s: ServerStatus | null = status
   const url = s?.url || ''
   const pairDisplay = formatPair(s?.pairCode)
+
+  const [confirmStop, setConfirmStop] = useState(false)
+  // Tracks which copy button last succeeded so we can flash "Copied!" for
+  // ~1.5s in addition to the toast. Cleared on a timer.
+  const [copied, setCopied] = useState<'url' | 'pair' | null>(null)
+  const flashCopied = (which: 'url' | 'pair'): void => {
+    setCopied(which)
+    window.setTimeout(() => setCopied(c => (c === which ? null : c)), 1500)
+  }
+
   return (
     <div className="waiting-v2">
       {disconnectBanner && (
         <div className="waiting-banner">
-          <span className="dot dot-warn dot-pulse" />
+          <span className="dot dot-warn dot-pulse" role="img" aria-label="Status: Waiting to reconnect" />
           <span>{disconnectBanner} disconnected — waiting for it to reconnect.</span>
         </div>
       )}
 
       <div className="waiting-hero">
         <div className="waiting-eyebrow">
-          <span className="dot dot-ok dot-pulse" />
+          <span className="dot dot-ok dot-pulse" role="img" aria-label="Status: Server ready, waiting for a device" />
           <span>Server ready · waiting for a device</span>
         </div>
         <div className="waiting-headline">Scan to connect</div>
@@ -55,18 +66,22 @@ export default function WaitingScreen({ status, onStop, onCopy, onCopyPair, disc
 
         <div className="waiting-qr-wrap">
           {s?.qrCodeDataUrl ? (
-            <img src={s.qrCodeDataUrl} alt="QR code — scan with Vior mobile app" style={{ width: 280, height: 280, borderRadius: 14, border: '1px solid var(--border)' }} />
+            <img
+              src={s.qrCodeDataUrl}
+              alt={url ? `QR code to connect to ${url} — scan with the Vior mobile app` : 'QR code — scan with the Vior mobile app to connect'}
+              style={{ width: 280, height: 280, borderRadius: 14, border: '1px solid var(--border)' }}
+            />
           ) : (
             <div className="waiting-qr-wrap" style={{ width: 280, height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)' }}>QR loading…</div>
           )}
         </div>
 
         <div className="waiting-actions">
-          <button className="btn btn-ghost btn-sm" onClick={onCopy} disabled={!url}>
-            {Icons.copy(15)} Copy URL
+          <button className="btn btn-ghost btn-sm" onClick={() => { onCopy(); flashCopied('url') }} disabled={!url}>
+            {copied === 'url' ? <>{Icons.check(15)} Copied!</> : <>{Icons.copy(15)} Copy URL</>}
           </button>
-          <button className="btn btn-ghost btn-sm" onClick={onCopyPair} disabled={!pairDisplay}>
-            {Icons.copy(15)} Copy pair code
+          <button className="btn btn-ghost btn-sm" onClick={() => { onCopyPair(); flashCopied('pair') }} disabled={!pairDisplay}>
+            {copied === 'pair' ? <>{Icons.check(15)} Copied!</> : <>{Icons.copy(15)} Copy pair code</>}
           </button>
         </div>
 
@@ -105,15 +120,23 @@ export default function WaitingScreen({ status, onStop, onCopy, onCopyPair, disc
       <div className="waiting-foot">
         <button
           className="btn btn-ghost"
-          onClick={() => {
-            if (window.confirm('Stop the server? Your phone will be disconnected.')) {
-              onStop()
-            }
-          }}
+          onClick={() => setConfirmStop(true)}
         >
           {Icons.power(19)} Stop Server
         </button>
       </div>
+
+      {confirmStop && (
+        <ConfirmModal
+          title="Stop the server?"
+          body="Your phone won't be able to connect until you start the server again."
+          confirmLabel="Stop server"
+          cancelLabel="Keep running"
+          danger
+          onConfirm={() => { setConfirmStop(false); onStop() }}
+          onCancel={() => setConfirmStop(false)}
+        />
+      )}
     </div>
   )
 }

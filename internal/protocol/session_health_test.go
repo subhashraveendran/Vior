@@ -18,15 +18,15 @@ import (
 // dispatch.
 type noopHandler struct{}
 
-func (noopHandler) OnHello(*Session, *HelloMessage) error                 { return nil }
-func (noopHandler) OnInput(*Session, *InputMessage) error                 { return nil }
-func (noopHandler) OnResize(*Session, *ResizeMessage) error               { return nil }
-func (noopHandler) OnBye(*Session) error                                  { return nil }
-func (noopHandler) OnFileOffer(*Session, *FileOfferMessage) error         { return nil }
-func (noopHandler) OnFileAccept(*Session, *FileAcceptMessage) error       { return nil }
-func (noopHandler) OnFileReject(*Session, *FileRejectMessage) error       { return nil }
-func (noopHandler) OnFileChunk(*Session, *FileChunkMessage) error         { return nil }
-func (noopHandler) OnFileComplete(*Session, *FileCompleteMessage) error   { return nil }
+func (noopHandler) OnHello(*Session, *HelloMessage) error                   { return nil }
+func (noopHandler) OnInput(*Session, *InputMessage) error                   { return nil }
+func (noopHandler) OnResize(*Session, *ResizeMessage) error                 { return nil }
+func (noopHandler) OnBye(*Session) error                                    { return nil }
+func (noopHandler) OnFileOffer(*Session, *FileOfferMessage) error           { return nil }
+func (noopHandler) OnFileAccept(*Session, *FileAcceptMessage) error         { return nil }
+func (noopHandler) OnFileReject(*Session, *FileRejectMessage) error         { return nil }
+func (noopHandler) OnFileChunk(*Session, *FileChunkMessage) error           { return nil }
+func (noopHandler) OnFileComplete(*Session, *FileCompleteMessage) error     { return nil }
 func (noopHandler) OnDownloadAccept(*Session, *DownloadAcceptMessage) error { return nil }
 func (noopHandler) OnDownloadReject(*Session, *DownloadRejectMessage) error { return nil }
 func (noopHandler) OnDownloadComplete(*Session, *DownloadCompleteMessage) error {

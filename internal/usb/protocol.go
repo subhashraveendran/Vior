@@ -52,8 +52,8 @@ const (
 	AOAProdNoADB = 0x2D00 // accessory only
 
 	// AOA control requests.
-	AOAGetProtocol   = 51
-	AOASendString    = 52
+	AOAGetProtocol    = 51
+	AOASendString     = 52
 	AOAStartAccessory = 53
 
 	// AOA string indices.
@@ -67,12 +67,12 @@ const (
 
 // AOA identification strings.
 var AOAStrings = [6]string{
-	"Vior",                                       // manufacturer
-	"Vior Desktop",                               // model
-	"Second display streaming over USB",          // description
-	"1.0",                                        // version
-	"https://github.com/subhashraveendran/Vior",  // URI
-	"0001",                                       // serial
+	"Vior",                              // manufacturer
+	"Vior Desktop",                      // model
+	"Second display streaming over USB", // description
+	"1.0",                               // version
+	"https://github.com/subhashraveendran/Vior", // URI
+	"0001", // serial
 }
 
 // EncodeVideoFrame creates a video frame packet.

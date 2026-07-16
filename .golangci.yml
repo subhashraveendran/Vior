@@ -1,0 +1,36 @@
+# golangci-lint configuration (v2 schema).
+# This is wired into CI as a REPORT-ONLY step (continue-on-error), so it
+# surfaces issues without blocking the build. See .github/workflows/build.yml.
+version: "2"
+
+run:
+  # Include test files in analysis.
+  tests: true
+
+linters:
+  # Start from an empty set and enable a small, sane default selection so the
+  # signal stays focused and predictable across golangci-lint upgrades.
+  default: none
+  enable:
+    - govet        # reports suspicious constructs (vet)
+    - staticcheck  # broad correctness/simplification checks
+    - ineffassign  # detects ineffectual assignments
+    - errcheck     # detects unchecked errors
+
+  settings:
+    errcheck:
+      # Don't flag common fire-and-forget calls where the error is intentionally
+      # ignored (e.g. deferred Close, cache warms). Keeps noise down.
+      check-type-assertions: false
+      check-blank: false
+
+  exclusions:
+    # Reasonable built-in exclusion presets; keeps report-only output actionable.
+    generated: lax
+    presets:
+      - common-false-positives
+      - legacy
+
+formatters:
+  # No auto-formatters run in CI; gofmt is enforced by a separate step.
+  enable: []

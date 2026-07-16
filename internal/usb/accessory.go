@@ -12,12 +12,12 @@ import (
 
 // Accessory manages the AOA USB connection to an Android device.
 type Accessory struct {
-	ctx    *gousb.Context
+	ctx   *gousb.Context
 	dev   *gousb.Device
 	iface *gousb.Interface
-	inEP   *gousb.InEndpoint
-	outEP  *gousb.OutEndpoint
-	done   func()
+	inEP  *gousb.InEndpoint
+	outEP *gousb.OutEndpoint
+	done  func()
 
 	running bool
 	mu      sync.Mutex

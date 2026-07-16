@@ -40,7 +40,15 @@ function toast(tone: ToastTone, title: string, msg?: string | null): void {
   const host = $('toast-host');
   if (!host) return;
   const el = document.createElement('div');
-  el.className = 'toast';
+  // Tone modifier (toast-ok / toast-warn / toast-err / toast-idle) drives
+  // the per-severity accent border in toast.css so success/error/warn read
+  // distinctly without relying on the small colour dot alone.
+  const toneCls =
+    tone === 'success' ? 'toast-ok'
+    : tone === 'warning' ? 'toast-warn'
+    : tone === 'error' ? 'toast-err'
+    : 'toast-idle';
+  el.className = 'toast ' + toneCls;
   el.dataset.id = String(id);
   const dotCls =
     tone === 'success' ? 'dot-ok'

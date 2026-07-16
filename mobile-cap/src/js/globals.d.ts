@@ -139,7 +139,7 @@ declare function handleIncomingFile(msg: { type: 'incoming-file'; data: unknown 
 declare function selectServer(host: string, port: number, name: string, platform: string): void;
 declare function doConnect(): void;
 declare function initiateConnect(): void;
-declare function promptPair(): void;
+declare function promptPair(opts?: { preserveValue?: boolean }): void;
 declare function showView(name: string): void;
 declare function sendInput(action: string, x: number, y: number): void;
 declare function wsSend(obj: unknown): void;

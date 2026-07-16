@@ -224,9 +224,9 @@ func ServerID() string { return serverID }
 // 60-burst/min ceiling push enumeration beyond practical attack
 // windows for LAN-only auth.
 const (
-	maxPairAttempts        = 5
-	maxGlobalPairAttempts  = 60
-	pairAttemptWindow      = time.Minute
+	maxPairAttempts       = 5
+	maxGlobalPairAttempts = 60
+	pairAttemptWindow     = time.Minute
 )
 
 type pairAttemptBucket struct {

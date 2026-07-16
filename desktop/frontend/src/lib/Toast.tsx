@@ -10,15 +10,20 @@ type ToastHostProps = { toasts: Toast[]; onClose: (id: number) => void }
 
 export default function ToastHost({ toasts, onClose }: ToastHostProps): React.JSX.Element {
   return (
-    <div className="toast-host">
+    <div className="toast-host" role="status" aria-live="polite" aria-atomic="true">
       {toasts.map(t => (
-        <div key={t.id} className="toast">
+        <div
+          key={t.id}
+          className="toast"
+          role={t.tone === 'error' ? 'alert' : 'status'}
+          aria-live={t.tone === 'error' ? 'assertive' : 'polite'}
+        >
           <span className={`dot ${t.tone === 'success' ? 'dot-ok' : t.tone === 'warning' ? 'dot-warn' : t.tone === 'error' ? 'dot-err' : 'dot-idle'}`} style={{ marginTop: 5 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="toast-title">{t.title}</div>
             {t.msg && <div className="toast-msg">{t.msg}</div>}
           </div>
-          <button onClick={() => onClose(t.id)} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: 2 }}>{Icons.close(15)}</button>
+          <button aria-label="Dismiss notification" onClick={() => onClose(t.id)} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: 2 }}>{Icons.close(15)}</button>
         </div>
       ))}
     </div>

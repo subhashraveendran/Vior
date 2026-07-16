@@ -39,7 +39,7 @@ func (h *captureHandler) OnClientInput(s *protocol.Session, msg *protocol.InputM
 func (h *captureHandler) OnClientResize(*protocol.Session, *protocol.ResizeMessage) error {
 	return nil
 }
-func (h *captureHandler) OnClientDisconnect(*protocol.Session)                                {}
+func (h *captureHandler) OnClientDisconnect(*protocol.Session) {}
 func (h *captureHandler) OnClientFileOffer(*protocol.Session, *protocol.FileOfferMessage) error {
 	return nil
 }

@@ -26,7 +26,7 @@ function onScanHit(raw: string): void {
   // knows the scan worked — otherwise the modal just vanishes and they
   // wonder if they missed it.
   const dot = $('qr-scanning-dot'), txt = $('qr-hint-text');
-  if (dot) dot.style.background = '#3ecf6f';
+  if (dot) dot.style.background = 'var(--ok)';
   if (txt) txt.textContent = 'Decoded ' + (p.host || 'server') + ' — connecting…';
   if (p.code) ($('manual-pair') as HTMLInputElement).value = p.code.replace(/[^0-9]/g, '');
   toast('success', 'QR scanned', 'Connecting to ' + p.host + (p.port !== 8080 ? ':' + p.port : '') + '…');

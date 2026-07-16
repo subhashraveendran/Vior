@@ -26,6 +26,7 @@ import {
 import { Icons } from '../lib/icons'
 import Glyph from '../lib/Glyph'
 import { accentName } from '../lib/accent'
+import ConfirmModal from '../lib/ConfirmModal'
 import AppearancePanel from './Appearance'
 import type { SettingsScreenProps, AppConfig } from '../types'
 import type { main } from '../../wailsjs/go/models'
@@ -100,12 +101,15 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }: 
     const off = EventsOn?.('client:connected', () => refreshTrusted())
     return (): void => { if (typeof off === 'function') off() }
   }, [refreshTrusted])
-  const onForget = (deviceID: string, name: string): void => {
-    if (!window.confirm(`Forget "${name || deviceID}"? They'll need to re-enter the pair code next time.`)) return
+  // Confirm dialog state for the destructive trusted-device actions.
+  // 'clear' = clear-all; { deviceID, name } = forget one; null = closed.
+  const [confirm, setConfirm] = useState<'clear' | { deviceID: string; name: string } | null>(null)
+  const onForget = (deviceID: string, name: string): void => setConfirm({ deviceID, name })
+  const onClearAll = (): void => setConfirm('clear')
+  const doForget = (deviceID: string): void => {
     ForgetTrustedDevice?.(deviceID).then(refreshTrusted).catch(() => refreshTrusted())
   }
-  const onClearAll = (): void => {
-    if (!window.confirm('Forget every trusted device? All paired phones/tablets will need the pair code again on next connect.')) return
+  const doClearAll = (): void => {
     ClearAllTrustedDevices?.().then(refreshTrusted).catch(() => refreshTrusted())
   }
 
@@ -134,6 +138,8 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }: 
       setPairMsg('Saved. New code is active immediately.')
       refreshPair()
     } catch (e) {
+      // Preserve the typed value on failure so the user can fix + retry
+      // without re-typing — only refreshPair() (success path) resets it.
       setPairMsg('Save failed: ' + String(e))
     } finally { setPairSaving(false) }
   }
@@ -250,7 +256,7 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }: 
             </button>
           </div>
           {pairMsg && (
-            <div style={{ fontSize: 12, color: pairMsg.startsWith('Saved') || pairMsg.startsWith('Reset') ? 'var(--accent)' : '#e05a5a' }}>
+            <div style={{ fontSize: 12, color: pairMsg.startsWith('Saved') || pairMsg.startsWith('Reset') ? 'var(--accent)' : 'var(--err)' }}>
               {pairMsg}
             </div>
           )}
@@ -286,7 +292,7 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }: 
           <div className="settings-row" style={{ justifyContent: 'flex-end' }}>
             <button
               onClick={onClearAll}
-              style={{ background: 'none', border: 'none', color: '#e05a5a', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+              style={{ background: 'none', border: 'none', color: 'var(--err)', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
               Clear all trusted devices
             </button>
           </div>
@@ -316,6 +322,29 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }: 
           <a href="https://github.com/subhashraveendran/Vior" target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>Check for updates</a>
         </div>
       </div>
+
+      {confirm === 'clear' && (
+        <ConfirmModal
+          title="Forget every trusted device?"
+          body="All paired phones and tablets will need the pair code again on next connect."
+          confirmLabel="Forget all"
+          cancelLabel="Cancel"
+          danger
+          onConfirm={() => { setConfirm(null); doClearAll() }}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
+      {confirm && confirm !== 'clear' && (
+        <ConfirmModal
+          title="Forget this device?"
+          body={<><b>{confirm.name || confirm.deviceID}</b> will need to re-enter the pair code next time.</>}
+          confirmLabel="Forget"
+          cancelLabel="Cancel"
+          danger
+          onConfirm={() => { const id = confirm.deviceID; setConfirm(null); doForget(id) }}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
     </div>
   )
 }

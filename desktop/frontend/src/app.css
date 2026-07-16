@@ -206,7 +206,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .state-pill .label { margin: 0; }
 .idle-title { font-size: 26px; font-weight: 600; color: var(--text-1); letter-spacing: -0.02em; }
-.idle-sub { font-size: 14.5px; color: var(--text-2); margin-top: 10px; max-width: 380px; line-height: 1.55; }
+.idle-sub { font-size: 14.5px; color: var(--text-1); margin-top: 10px; max-width: 380px; line-height: 1.55; }
 .idle-cta-btn { margin-top: 26px !important; min-height: 52px; padding: 0 30px; font-size: 16px;
   box-shadow: 0 1px 0 rgba(255,255,255,0.18) inset, 0 10px 34px rgba(255,138,76,0.32) !important; }
 .idle-fallback { margin-top: 18px; background: none; border: none; cursor: pointer; color: var(--text-3); font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }

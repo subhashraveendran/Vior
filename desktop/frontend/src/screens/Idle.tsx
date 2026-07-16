@@ -48,6 +48,13 @@ export default function IdleScreen({ onStart, showUpdate, onUpdate, onDismiss, s
               <div className="perm-card-title">Server failed to start</div>
               <div className="perm-card-sub">{startError}</div>
             </div>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={starting ? undefined : onStart}
+              disabled={starting}
+            >
+              {Icons.refresh(15)} Retry
+            </button>
           </div>
         )}
         <button

@@ -8,10 +8,17 @@
   .toast {
     display: flex; align-items: flex-start; gap: 11px; padding: 13px 14px;
     background: var(--surface-3); border: 1px solid var(--border-strong);
+    border-left: 3px solid var(--idle);
     border-radius: var(--r); box-shadow: var(--shadow-2);
     pointer-events: auto;
     animation: toastIn .25s var(--ease) both;
   }
+  /* Per-severity accent so success / warning / error read distinctly
+     without relying on the small dot alone. */
+  .toast.toast-ok   { border-left-color: var(--ok); }
+  .toast.toast-warn { border-left-color: var(--warn); }
+  .toast.toast-err  { border-left-color: var(--err); }
+  .toast.toast-idle { border-left-color: var(--idle); }
   @keyframes toastIn { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .toast-title { font-size: 13.5px; font-weight: 600; color: var(--text-1); }
   .toast-msg { font-size: 12.5px; color: var(--text-2); margin-top: 2px; line-height: 1.4; }

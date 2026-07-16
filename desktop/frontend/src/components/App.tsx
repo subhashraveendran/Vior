@@ -27,6 +27,7 @@ import { Icons }       from '../lib/icons'
 import Glyph           from '../lib/Glyph'
 import ToastHost       from '../lib/Toast'
 import { applyAccent } from '../lib/accent'
+import { useFocusTrap } from '../lib/useFocusTrap'
 
 import IdleScreen        from '../screens/Idle'
 import WaitingScreen     from '../screens/Waiting'
@@ -76,6 +77,17 @@ export default function App() {
   // directly, so re-running this effect on every accent change would double-write.
   useEffect(() => { applyAccent(accent) }, [])
   const idRef = useRef<number>(100)
+
+  // Focus trap for the incoming-file-offer modal. Escape declines the
+  // offer (same as the Decline button) so the dialog is fully keyboard
+  // operable.
+  const declineOffer = useCallback(() => {
+    setIncomingOffer(prev => {
+      if (prev) { RejectIncomingFile(prev.id).catch(() => {}) }
+      return null
+    })
+  }, [])
+  const offerRef = useFocusTrap<HTMLDivElement>(!!incomingOffer, declineOffer)
 
   const toast = useCallback((tone: ToastTone, title: string, msg: string | null) => {
     const id = ++idRef.current
@@ -291,7 +303,7 @@ export default function App() {
         <div style={{ width: 60 }} />
         <div className="titlebar-center"><Glyph size={15} /><span>Vior</span></div>
         <div style={{ flex: 'none' }} className="titlebar-state">
-          <span className={`dot ${sidebarState[0]} ${running ? 'dot-pulse' : ''}`} />
+          <span className={`dot ${sidebarState[0]} ${running ? 'dot-pulse' : ''}`} role="img" aria-label={`Status: ${sidebarState[1]}`} />
           {sidebarState[1]}
         </div>
       </div>
@@ -306,7 +318,7 @@ export default function App() {
           ))}
           <div className="sidebar-foot">
             <div className="sidebar-foot-label">Server</div>
-            <div className="sidebar-foot-state"><span className={`dot ${sidebarState[0]} ${running ? 'dot-pulse' : ''}`} />{sidebarState[1]}</div>
+            <div className="sidebar-foot-state"><span className={`dot ${sidebarState[0]} ${running ? 'dot-pulse' : ''}`} aria-hidden="true" />{sidebarState[1]}</div>
           </div>
         </div>
         <div className="main">{body}</div>
@@ -314,7 +326,13 @@ export default function App() {
       {showPerms && <PermissionsModal onDone={() => setShowPerms(false)} />}
       {incomingOffer && (
         <div className="error-backdrop">
-          <div className="card error-modal">
+          <div
+            className="card error-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="incoming-file-title"
+            ref={offerRef}
+          >
             {/* Preview: real thumbnail for images, big extension badge otherwise. */}
             {incomingOffer.preview ? (
               <img
@@ -338,7 +356,7 @@ export default function App() {
                 {(incomingOffer.name.split('.').pop() || 'FILE').slice(0, 4)}
               </div>
             )}
-            <div className="modal-title">Incoming file</div>
+            <div className="modal-title" id="incoming-file-title">Incoming file</div>
             <div className="modal-body">
               <b>{incomingOffer.name}</b>
               <br />

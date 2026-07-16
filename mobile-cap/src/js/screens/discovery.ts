@@ -8,8 +8,35 @@ let foundServers: Record<string, ServerInfo> = {};
 let discoveryTimeout: ReturnType<typeof setTimeout> | null = null;
 let autoConnectTimer: ReturnType<typeof setTimeout> | null = null;
 let scanning = false;
+
+// Toggle the refresh button into a busy state during a sweep so the tap
+// registers visibly — otherwise a re-scan looks like nothing happened.
+function setRefreshBusy(busy: boolean): void {
+  const btn = document.getElementById('disc-refresh') as HTMLButtonElement | null;
+  if (!btn) return;
+  btn.disabled = busy;
+  btn.setAttribute('aria-busy', busy ? 'true' : 'false');
+  btn.classList.toggle('scanning', busy);
+  // The label sits as a bare text node after the SVG icon; rewrite just
+  // that node so we don't clobber the icon.
+  for (let i = 0; i < btn.childNodes.length; i++) {
+    const n = btn.childNodes[i];
+    if (n.nodeType === Node.TEXT_NODE && (n.textContent || '').trim()) {
+      n.textContent = busy ? ' Scanning… ' : ' Refresh ';
+      break;
+    }
+  }
+}
+
+// Central end-of-sweep settle: clears the busy affordance. Idempotent.
+function finishScan(): void {
+  scanning = false;
+  setRefreshBusy(false);
+}
+
 function startDiscovery(): void {
   foundServers = {}; selectedServer = null; scanning = true;
+  setRefreshBusy(true);
   if (localStorage.getItem('vior_wifi') === '0' || localStorage.getItem('vior_usb_only') === '1') {
     $('disc-status').textContent = 'Wi-Fi discovery off';
     $('disc-list').innerHTML = '<div class="empty"><span class="empty-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.56 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/></svg></span><div class="empty-title">Wi-Fi discovery is off</div><div class="empty-body">Enable in Settings → Connectivity, or switch to USB cable mode using the transport toggle above.</div></div>';
@@ -18,6 +45,7 @@ function startDiscovery(): void {
     if (localStorage.getItem('vior_usb_only') === '1') {
       applyEntryMode('usb');
     }
+    finishScan();
     return;
   }
   viorState.set({ state: 'scanning' });
@@ -39,7 +67,16 @@ function startDiscovery(): void {
   if (last) { const p = last.split(':'); probeServer(p[0], parseInt(p[1] || '8080')); }
 
   getLocalIP(function (ip: string | null) {
-    if (!ip) { setTimeout(showEmpty, 2500); return; }
+    if (!ip) {
+      // No Wi-Fi IP → we're off-network (mobile data, airplane, or no
+      // Wi-Fi). Don't silently show the empty "no servers" view — that
+      // reads as "your desktop isn't running" when the real cause is the
+      // phone's network. Surface it explicitly with a Retry affordance.
+      if (discoveryTimeout) { clearTimeout(discoveryTimeout); discoveryTimeout = null; }
+      showNoNetwork();
+      finishScan();
+      return;
+    }
     const base = ip.split('.').slice(0, 3).join('.');
     // Parallel /24 sweep — fire all probes at once across common ports.
     // The UDP beacon carries the real port, but this HTTP fallback helps
@@ -50,16 +87,32 @@ function startDiscovery(): void {
       for (let i = 1; i < 255; i++) probes.push(probeServer(base + '.' + i, commonPorts[pi]));
     }
     Promise.allSettled(probes).then(function () {
-      scanning = false;
+      finishScan();
       if (!selectedServer && Object.keys(foundServers).length === 0) showEmpty();
     });
   });
 
   discoveryTimeout = setTimeout(function () {
-    scanning = false;
+    finishScan();
     if (!selectedServer && Object.keys(foundServers).length === 0) showEmpty();
     else if (selectedServer) $('disc-status').textContent = Object.keys(foundServers).length + ' server' + (Object.keys(foundServers).length > 1 ? 's' : '') + ' found · tap to connect';
   }, 4000);
+}
+
+// No-Wi-Fi / off-network state. Renders an inline card in the discovery
+// list with a clear cause + a Retry button, and fires a matching toast.
+function showNoNetwork(): void {
+  showView('disc');
+  $('disc-status').textContent = 'Not on a Wi-Fi network';
+  $('disc-list').innerHTML =
+    '<div class="empty"><span class="empty-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.56 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/></svg></span>' +
+    '<div class="empty-title">Not on a Wi-Fi network</div>' +
+    '<div class="empty-body">Connect to the same Wi-Fi network as your desktop, then Retry.</div>' +
+    '<button class="btn btn-primary" id="no-network-retry" style="margin-top: 14px;">Retry</button>' +
+    '</div>';
+  const retry = document.getElementById('no-network-retry');
+  if (retry) retry.addEventListener('click', function () { startDiscovery(); });
+  toast('warning', 'Not on a Wi-Fi network', 'Connect to the same network as your desktop, then Retry.');
 }
 
 function probeServer(host: string, port: number): Promise<void> {

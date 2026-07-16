@@ -45,22 +45,22 @@ type Session struct {
 	// endpoint) who wants to read the connection's pulse without
 	// adding more callbacks. healthMu guards the lot; reads are cheap
 	// (RLock would be overkill for a 4-field struct).
-	healthMu     sync.Mutex
-	lastPongAt   time.Time
-	lastReadAt   time.Time
-	bytesIn      uint64
-	bytesOut     uint64
-	messagesIn   uint64
+	healthMu   sync.Mutex
+	lastPongAt time.Time
+	lastReadAt time.Time
+	bytesIn    uint64
+	bytesOut   uint64
+	messagesIn uint64
 }
 
 // Health snapshots the current liveness counters for a session.
 // Cheap to call from any goroutine — copied under a brief mutex.
 type Health struct {
-	LastPongAgo  time.Duration
-	LastReadAgo  time.Duration
-	BytesIn      uint64
-	BytesOut     uint64
-	MessagesIn   uint64
+	LastPongAgo time.Duration
+	LastReadAgo time.Duration
+	BytesIn     uint64
+	BytesOut    uint64
+	MessagesIn  uint64
 }
 
 // Snapshot returns the current health counters relative to now.

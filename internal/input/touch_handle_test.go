@@ -14,7 +14,7 @@ type recCtrl struct {
 	up   [2]int
 }
 
-func (c *recCtrl) MoveMouse(x, y int) error              { c.last = [2]int{x, y}; return nil }
+func (c *recCtrl) MoveMouse(x, y int) error { c.last = [2]int{x, y}; return nil }
 func (c *recCtrl) MouseDown(x, y int, b MouseButton) error {
 	c.down = [2]int{x, y}
 	c.last = [2]int{x, y}
@@ -25,10 +25,10 @@ func (c *recCtrl) MouseUp(x, y int, b MouseButton) error {
 	c.last = [2]int{x, y}
 	return nil
 }
-func (c *recCtrl) Click(b MouseButton) error             { return nil }
-func (c *recCtrl) TypeKey(k string) error                { return nil }
-func (c *recCtrl) Scroll(dx, dy int) error               { return nil }
-func (c *recCtrl) CurrentMousePos() (int, int, error)    { return 0, 0, nil }
+func (c *recCtrl) Click(b MouseButton) error               { return nil }
+func (c *recCtrl) TypeKey(k string) error                  { return nil }
+func (c *recCtrl) Scroll(dx, dy int) error                 { return nil }
+func (c *recCtrl) CurrentMousePos() (int, int, error)      { return 0, 0, nil }
 func (c *recCtrl) MainDisplayBounds() (int, int, int, int) { return 0, 0, 1920, 1080 }
 
 // TestHandleTouchClampsToDisplayBounds — out-of-range coordinates from a
@@ -40,10 +40,10 @@ func TestHandleTouchClampsToDisplayBounds(t *testing.T) {
 	m := NewTouchMapper(&recCtrl{}, bounds)
 
 	cases := []struct {
-		name     string
-		x, y     float64
-		wantX    int
-		wantY    int
+		name  string
+		x, y  float64
+		wantX int
+		wantY int
 	}{
 		{"in range middle", 640, 400, 200 + 640, 100 + 400},
 		{"x negative clamps to 0", -50, 100, 200 + 0, 100 + 100},

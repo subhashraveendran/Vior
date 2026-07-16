@@ -40,7 +40,7 @@ var (
 	// store still admits paired devices by deviceID, so this only
 	// affects the first-connect window; setting --persist-pair=false
 	// restores the old behaviour for users who explicitly want it.
-	persistPair    bool
+	persistPair bool
 )
 
 var startCmd = &cobra.Command{

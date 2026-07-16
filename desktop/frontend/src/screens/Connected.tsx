@@ -12,6 +12,8 @@
 import React, { useEffect, useState } from 'react'
 import { Icons } from '../lib/icons'
 import FilesPane from '../panes/Files'
+import ConfirmModal from '../lib/ConfirmModal'
+import { useFocusTrap } from '../lib/useFocusTrap'
 import type { ServerStatus, ClientInfo } from '../types'
 
 type DisplayMode = 'extend' | 'mirror'
@@ -67,6 +69,10 @@ export default function ConnectedScreen({
     const id = setInterval(() => setTick(n => n + 1), 1000)
     return () => clearInterval(id)
   }, [])
+
+  // Confirm dialog for the Disconnect & stop action — replaces the native
+  // window.confirm with the styled, focus-trapped ConfirmModal.
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false)
 
   const connectedFor = elapsedSince(client?.connectedAt)
   const transport = (client?.connectionType || 'wifi').toUpperCase()
@@ -174,16 +180,24 @@ export default function ConnectedScreen({
         <div className="section">
           <button
             className="btn btn-danger btn-block"
-            onClick={() => {
-              if (window.confirm(`Disconnect '${client?.name || 'device'}' and stop the server? All active transfers will be cancelled.`)) {
-                onDisconnect()
-              }
-            }}
+            onClick={() => setConfirmDisconnect(true)}
           >
             {Icons.close(19)} Disconnect &amp; stop server
           </button>
         </div>
       </div>
+
+      {confirmDisconnect && (
+        <ConfirmModal
+          title="Disconnect & stop server?"
+          body={<>Disconnect <b>{client?.name || 'device'}</b> and stop the server? All active transfers will be cancelled.</>}
+          confirmLabel="Disconnect"
+          cancelLabel="Keep connected"
+          danger
+          onConfirm={() => { setConfirmDisconnect(false); onDisconnect() }}
+          onCancel={() => setConfirmDisconnect(false)}
+        />
+      )}
 
       {errorState && <DisconnectModal client={client} onStop={onStop} onRetry={onRetry} />}
     </div>
@@ -201,7 +215,7 @@ function ConnectedHeader({ client, transport, connectedFor, errorState }: { clie
         </div>
       </div>
       <span className="conn-chip">
-        <span className={`dot ${errorState ? 'dot-warn dot-pulse' : 'dot-ok dot-pulse'}`} />
+        <span className={`dot ${errorState ? 'dot-warn dot-pulse' : 'dot-ok dot-pulse'}`} role="img" aria-label={errorState ? 'Status: Reconnecting' : 'Status: Connected'} />
         {errorState ? 'Reconnecting' : 'Connected'}
       </span>
     </div>
@@ -209,11 +223,20 @@ function ConnectedHeader({ client, transport, connectedFor, errorState }: { clie
 }
 
 function DisconnectModal({ client, onStop, onRetry }: { client: ClientInfo | null; onStop: () => void; onRetry: () => void }): React.JSX.Element {
+  // Escape retries (dismisses the "connection lost" overlay) — the least
+  // destructive of the two actions.
+  const ref = useFocusTrap<HTMLDivElement>(true, onRetry)
   return (
     <div className="error-backdrop">
-      <div className="card error-modal">
+      <div
+        className="card error-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="disconnect-modal-title"
+        ref={ref}
+      >
         <span className="error-icon">{Icons.alert(26)}</span>
-        <div className="modal-title">Connection lost</div>
+        <div className="modal-title" id="disconnect-modal-title">Connection lost</div>
         <div className="modal-body">Couldn't reach {client?.name || 'device'} after 5 attempts. The device may have left the network.</div>
         <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
           <button className="btn btn-ghost btn-block" onClick={onStop}>{Icons.power(19)} Stop Server</button>

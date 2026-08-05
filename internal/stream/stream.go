@@ -10,6 +10,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/subhashraveendran/vior/internal/config"
+	"github.com/subhashraveendran/vior/internal/handshake"
 	"github.com/subhashraveendran/vior/internal/machineid"
 	"github.com/subhashraveendran/vior/internal/protocol"
 	"github.com/subhashraveendran/vior/internal/trust"
@@ -401,6 +403,13 @@ type MJPEGServer struct {
 	frameClientIP string
 	frameClientMu sync.RWMutex
 
+	// frameToken authorises the frame endpoints for a secure session.
+	// Derived from the session key and delivered only inside the sealed
+	// channel, so holding it proves the bearer completed the handshake.
+	// Empty for cleartext sessions, which fall back to IP-only checks.
+	// Guarded by frameClientMu alongside frameClientIP.
+	frameToken string
+
 	// setFrameMu serializes SetFrameCh calls end-to-end. distMu alone is
 	// not enough: SetFrameCh must release distMu while it waits for the
 	// old distributor to exit (<-done), and two concurrent callers could
@@ -605,6 +614,17 @@ func (s *MJPEGServer) ClientCount() int {
 	return len(s.clients)
 }
 
+// ClientSecure reports whether the currently connected WebSocket client
+// negotiated an encrypted channel. The desktop surfaces this so the UI states
+// the connection's actual security rather than assuming it — under
+// SecurePreferred a legacy client is admitted in cleartext, and the user
+// deserves to know which one they have.
+func (s *MJPEGServer) ClientSecure() bool {
+	s.wsConnMu.Lock()
+	defer s.wsConnMu.Unlock()
+	return s.wsConn != nil && s.wsConn.IsSecure()
+}
+
 // Port returns the configured port.
 func (s *MJPEGServer) Port() int {
 	s.mu.RLock()
@@ -703,6 +723,11 @@ func (s *MJPEGServer) handleStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "multipart/x-mixed-replace; boundary="+boundary)
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	// The frame token travels as a query parameter because an <img> tag
+	// cannot set request headers. no-referrer stops that URL leaking into
+	// a Referer header if the rendering page ever navigates onward.
+	w.Header().Set("Referrer-Policy", "no-referrer")
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -766,6 +791,19 @@ func (s *MJPEGServer) handleInfo(w http.ResponseWriter, r *http.Request) {
 		"version":  config.Version,
 		"platform": friendlyPlatform(),
 		"deviceId": serverID,
+
+		// Transport-security capability. A client uses this to decide
+		// whether to attempt the handshake and whether to warn the user.
+		// Only the policy is published — never the channel secret, which
+		// travels solely in the QR payload. "secureRequired" tells an old
+		// client it will be rejected before it wastes a connection.
+		"secure":         GetSecurityMode() != SecureOff,
+		"secureMode":     GetSecurityMode().String(),
+		"secureRequired": GetSecurityMode() == SecureRequired,
+		// Handshake wire version, so a client can tell "this server
+		// speaks a protocol I don't know" apart from "my secret is
+		// stale" — two failures that need very different messages.
+		"secureVersion": handshake.Version,
 	}
 	// Pairing probe. Previously /info published the raw pairCode to any
 	// LAN client, which nullified the whole pairing scheme (anyone could
@@ -825,15 +863,38 @@ func friendlyPlatform() string {
 // Only the paired WS client's IP (or loopback, i.e. the desktop's own
 // preview) is allowed — otherwise any LAN peer could scrape the screen
 // with no pairing at all.
+// frameClientAuthorized gates the raw-screen endpoints (/stream, /snapshot).
+//
+// Loopback is always allowed — that is the desktop rendering its own preview.
+// For a secure session the caller must present the session's frame token,
+// which only the peer that completed the handshake can hold; the IP must
+// still match as a second constraint. Cleartext sessions fall back to the
+// historical IP-only check, which is weak but is all a legacy client can
+// satisfy.
+//
+// Note this controls ACCESS, not confidentiality: /stream is plain HTTP, so a
+// passive listener on the same network still sees the frames regardless of
+// this check. Closing that gap needs the video path itself to be encrypted —
+// see docs/securechan-handshake-architecture.md.
 func (s *MJPEGServer) frameClientAuthorized(r *http.Request) bool {
 	ip := remoteIP(r.RemoteAddr)
 	if pip := net.ParseIP(ip); pip != nil && pip.IsLoopback() {
 		return true
 	}
 	s.frameClientMu.RLock()
-	authorized := s.frameClientIP
+	authorizedIP := s.frameClientIP
+	token := s.frameToken
 	s.frameClientMu.RUnlock()
-	return authorized != "" && ip == authorized
+
+	if authorizedIP == "" || ip != authorizedIP {
+		return false
+	}
+	if token == "" {
+		// Cleartext session: no token exists to present.
+		return true
+	}
+	supplied := r.URL.Query().Get("t")
+	return subtle.ConstantTimeCompare([]byte(supplied), []byte(token)) == 1
 }
 
 func (s *MJPEGServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {
@@ -852,6 +913,7 @@ func (s *MJPEGServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Write(frame)
 }
 
@@ -886,10 +948,13 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 		s.wsConnMu.Unlock()
 		// Revoke frame authorization for this client's IP so a later
-		// unpaired peer at the same address can't keep scraping.
+		// unpaired peer at the same address can't keep scraping. The
+		// token goes with it — it is scoped to this session's key, so
+		// leaving it live would outlast the channel that justified it.
 		s.frameClientMu.Lock()
 		if s.frameClientIP == remoteIP(r.RemoteAddr) {
 			s.frameClientIP = ""
+			s.frameToken = ""
 		}
 		s.frameClientMu.Unlock()
 		// sync.Once on the session guarantees OnClientDisconnect runs
@@ -904,14 +969,22 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		log.Printf("stream: WebSocket client disconnected: %s [%s]", r.RemoteAddr, session.ID)
 	}()
 
-	// Wait for hello message.
-	hello, err := session.WaitForHello()
+	// Establish the encrypted channel (or admit a legacy cleartext client
+	// where policy allows) and read hello. The handshake deliberately runs
+	// before hello so the pair code is sealed rather than exposed.
+	hello, frameToken, err := s.negotiateSecure(session)
 	if err != nil {
-		log.Printf("stream: ws hello error [%s]: %v", session.ID, err)
-		session.Send(protocol.MsgError, &protocol.ErrorMessage{
-			Code:    "hello_failed",
-			Message: err.Error(),
-		})
+		log.Printf("stream: ws negotiation error [%s]: %v", session.ID, err)
+		// Only send a generic error when negotiateSecure has not already
+		// sent a specific, actionable one. Sending both would leave the
+		// client acting on the less useful of the two — turning "update
+		// your app" into "connection setup failed".
+		if !errors.Is(err, errReported) {
+			session.Send(protocol.MsgError, &protocol.ErrorMessage{
+				Code:    "hello_failed",
+				Message: "Connection setup failed.",
+			})
+		}
 		return
 	}
 
@@ -969,11 +1042,19 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Admitted. Authorize this client's IP for /snapshot and /stream so
-	// the raw screen frames are only served to the paired device (plus
-	// loopback for the desktop's own preview).
+	// Admitted. Authorize this client for /snapshot and /stream so the raw
+	// screen frames are only served to the paired device (plus loopback
+	// for the desktop's own preview).
+	//
+	// For secure sessions the frame token is the real authenticator: it
+	// was derived from the session key and delivered inside the sealed
+	// channel, so only the peer that completed the handshake holds it. The
+	// IP is retained as a second constraint, but on its own it is weak —
+	// it is shared behind NAT and spoofable on exactly the hostile
+	// networks this work exists to defend against.
 	s.frameClientMu.Lock()
 	s.frameClientIP = ip
+	s.frameToken = frameToken
 	s.frameClientMu.Unlock()
 
 	// Notify handler — this triggers virtual display creation.

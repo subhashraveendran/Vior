@@ -40,7 +40,65 @@ const (
 	// none in 20s force-close + reconnect.
 	MsgPing MessageType = "ping"
 	MsgPong MessageType = "pong"
+
+	// Secure-channel handshake. These three are the only messages that
+	// ever cross the wire in cleartext once a server requires security:
+	// they carry ephemeral public keys and confirmation MACs, none of
+	// which are secret. Everything after them is sealed.
+	//
+	// The handshake runs immediately after the WebSocket upgrade and
+	// before hello, so the pair code — and every frame, keystroke and
+	// file chunk after it — is inside the encrypted channel.
+	MsgSecureInit    MessageType = "secure-init"
+	MsgSecureResp    MessageType = "secure-resp"
+	MsgSecureConfirm MessageType = "secure-confirm"
+	// MsgSecureReady is the first sealed message the server sends. It
+	// both confirms the channel is live and hands the client the
+	// short-lived token it needs for the frame endpoints, which cannot
+	// ride the WebSocket because they are plain HTTP responses.
+	MsgSecureReady MessageType = "secure-ready"
 )
+
+// Error codes emitted during the secure handshake. Clients match on these
+// to tell "you need to update" apart from "your QR code is stale", which
+// need very different user-facing messages.
+const (
+	// ErrCodeUpgradeRequired is sent to a client that opened with hello
+	// instead of secure-init against a server that requires security.
+	ErrCodeUpgradeRequired = "upgrade_required"
+	// ErrCodeSecureFailed is sent when the handshake ran but failed to
+	// authenticate — a stale or wrong QR secret, or an active MITM.
+	ErrCodeSecureFailed = "secure_failed"
+)
+
+// SecureInitMessage opens the handshake. Byte fields are base64 in JSON.
+type SecureInitMessage struct {
+	Version int    `json:"v"`
+	PubKey  []byte `json:"epk"`
+	Nonce   []byte `json:"n"`
+}
+
+// SecureRespMessage answers SecureInitMessage. MAC proves the server knows
+// the channel secret, so the client can abort before revealing its own.
+type SecureRespMessage struct {
+	PubKey []byte `json:"epk"`
+	Nonce  []byte `json:"n"`
+	MAC    []byte `json:"mac"`
+}
+
+// SecureConfirmMessage closes the handshake from the client side.
+type SecureConfirmMessage struct {
+	MAC []byte `json:"mac"`
+}
+
+// SecureReadyMessage is the first sealed server message.
+type SecureReadyMessage struct {
+	// FrameToken authorises GET /stream and /snapshot. It is derived
+	// from the session key and delivered only inside the encrypted
+	// channel, so possession of it proves the holder completed the
+	// handshake.
+	FrameToken string `json:"frameToken"`
+}
 
 // Envelope is the outer JSON wrapper for all WebSocket messages.
 type Envelope struct {

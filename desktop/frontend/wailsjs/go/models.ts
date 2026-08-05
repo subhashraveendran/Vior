@@ -237,6 +237,8 @@ export namespace main {
 	    uptime: number;
 	    pairCode: string;
 	    frameRate: number;
+	    secure: boolean;
+	    secureMode: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ServerStatus(source);
@@ -256,6 +258,8 @@ export namespace main {
 	        this.uptime = source["uptime"];
 	        this.pairCode = source["pairCode"];
 	        this.frameRate = source["frameRate"];
+	        this.secure = source["secure"];
+	        this.secureMode = source["secureMode"];
 	    }
 	}
 	export class StreamConfig {

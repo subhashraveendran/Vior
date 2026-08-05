@@ -1,0 +1,26 @@
+# GitGuardian configuration.
+#
+# Scope note: this excludes exactly one file, and only because its contents are
+# provably not credentials. Nothing here relaxes scanning of application code,
+# configuration, or anything that could hold a real secret.
+version: 2
+
+secret:
+  ignored-paths:
+    # Cryptographic test vectors for the secure-channel handshake.
+    #
+    # GitGuardian flags the hex fields here as "Generic High Entropy Secret",
+    # which is a reasonable heuristic — they are 32-byte values that look
+    # exactly like keys. They are not. Every value in the file is the
+    # deterministic output of hardcoded, non-secret test seeds (0x01 repeated,
+    # 0x11 repeated, all-zero, all-0xFF), regenerated on demand by
+    # `go test ./internal/handshake/ -update-vectors`. None of them
+    # authenticates anything: the real channel secret is generated at runtime
+    # with crypto/rand and stored at ~/.vior/channel-secret, which is never
+    # committed and is covered by .gitignore.
+    #
+    # Committing known-answer test vectors is standard practice for
+    # cryptographic code (RFC test vectors, NIST CAVP) and is what lets the Go
+    # host and the JavaScript clients prove byte-level agreement instead of
+    # discovering a mismatch as an opaque decrypt failure on a user's phone.
+    - internal/handshake/testdata/handshake_vectors.json

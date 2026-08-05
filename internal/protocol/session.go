@@ -3,13 +3,21 @@ package protocol
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/subhashraveendran/vior/internal/securechan"
 )
+
+// ErrPlaintextOnSecure is returned when a peer sends an unsealed frame on a
+// channel that has already been secured. It is always an attack or a broken
+// client — a correct client has no way to reach this state — so it is fatal
+// to the session rather than merely ignored.
+var ErrPlaintextOnSecure = errors.New("protocol: unsealed frame on a secure channel")
 
 const (
 	// pongWait is the deadline for reading the next pong message.
@@ -34,6 +42,13 @@ type Session struct {
 	CreatedAt time.Time
 	mu        sync.Mutex
 	closed    bool
+
+	// secure is the record layer, installed by EnableSecure once the
+	// handshake completes. nil means the session is still in cleartext:
+	// either mid-handshake, or a legacy client on a server that does not
+	// require security. Guarded by mu — deliberately the same lock the
+	// write path uses, see Send.
+	secure *securechan.Channel
 	// disconnectOnce guards SessionHandler.OnClientDisconnect so it
 	// fires exactly once per session even when both the read-loop
 	// defer and an explicit Bye both try to invoke it.
@@ -110,6 +125,24 @@ func NewSession(conn *websocket.Conn) *Session {
 	}
 }
 
+// EnableSecure installs the record layer. Every subsequent Send is sealed and
+// every subsequent read must be sealed. Call once, after the handshake and
+// before ReadLoop starts.
+func (s *Session) EnableSecure(ch *securechan.Channel) {
+	s.mu.Lock()
+	s.secure = ch
+	s.mu.Unlock()
+}
+
+// IsSecure reports whether this session's payloads are encrypted. The stream
+// layer surfaces this so the UI can never claim a connection is protected
+// when it is not.
+func (s *Session) IsSecure() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.secure != nil
+}
+
 // Send sends a typed message to the client. Thread-safe.
 func (s *Session) Send(msgType MessageType, data any) error {
 	b, err := Encode(msgType, data)
@@ -121,8 +154,31 @@ func (s *Session) Send(msgType MessageType, data any) error {
 		s.mu.Unlock()
 		return fmt.Errorf("session closed")
 	}
+	// Seal under the same lock that serialises the write. securechan
+	// rejects any counter that is not strictly greater than the last
+	// accepted one, so if two goroutines sealed concurrently and then
+	// raced to write, the peer would see counter N+1 before N and drop
+	// N as a replay — killing the channel. Holding mu across both makes
+	// seal order and wire order the same order.
+	frameType := websocket.TextMessage
+	if s.secure != nil {
+		sealed, sealErr := s.secure.Seal(b)
+		if sealErr != nil {
+			// A seal failure is terminal for the channel: the only way
+			// it happens is counter exhaustion, after which no further
+			// frame can be sent safely. Mark the session closed under
+			// the lock we already hold so callers stop writing rather
+			// than retrying forever against a dead channel.
+			s.closed = true
+			s.mu.Unlock()
+			s.Conn.Close()
+			return fmt.Errorf("seal: %w", sealErr)
+		}
+		b = sealed
+		frameType = websocket.BinaryMessage
+	}
 	s.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-	writeErr := s.Conn.WriteMessage(websocket.TextMessage, b)
+	writeErr := s.Conn.WriteMessage(frameType, b)
 	s.mu.Unlock()
 	if writeErr == nil {
 		s.healthMu.Lock()
@@ -155,7 +211,7 @@ func (s *Session) ReadLoop(handler MessageHandler) error {
 	defer close(stopHealth)
 
 	for {
-		_, msg, err := s.Conn.ReadMessage()
+		msg, err := s.readFrame()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
 				log.Printf("protocol: ws read error [%s]: %v", s.ID, err)
@@ -233,10 +289,57 @@ func (s *Session) healthLogger(stop <-chan struct{}) {
 	}
 }
 
+// channel returns the active record layer, or nil while the session is still
+// in cleartext.
+func (s *Session) channel() *securechan.Channel {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.secure
+}
+
+// readFrame reads one WebSocket message and, once the channel is secure,
+// authenticates and decrypts it.
+//
+// Both failure modes here are deliberately fatal to the session rather than
+// skippable. An unsealed frame on a secure channel can only be an injection
+// attempt, and a sealed frame that fails to open means tampering, a replay,
+// or a desynchronised counter. Continuing to serve input events and file
+// chunks on a channel we can no longer authenticate is strictly worse than
+// dropping the connection and making the client reconnect.
+func (s *Session) readFrame() ([]byte, error) {
+	frameType, msg, err := s.Conn.ReadMessage()
+	if err != nil {
+		return nil, err
+	}
+	ch := s.channel()
+	if ch == nil {
+		return msg, nil
+	}
+	if frameType != websocket.BinaryMessage {
+		return nil, ErrPlaintextOnSecure
+	}
+	plain, err := ch.Open(msg)
+	if err != nil {
+		return nil, fmt.Errorf("secure read: %w", err)
+	}
+	return plain, nil
+}
+
+// ReadEnvelope reads and decodes one message under an explicit deadline. The
+// secure handshake drives the session with this before ReadLoop takes over.
+func (s *Session) ReadEnvelope(timeout time.Duration) (*Envelope, error) {
+	s.Conn.SetReadDeadline(time.Now().Add(timeout))
+	msg, err := s.readFrame()
+	if err != nil {
+		return nil, err
+	}
+	return Decode(msg)
+}
+
 // WaitForHello blocks until the client sends a hello message or the timeout expires.
 func (s *Session) WaitForHello() (*HelloMessage, error) {
 	s.Conn.SetReadDeadline(time.Now().Add(helloTimeout))
-	_, msg, err := s.Conn.ReadMessage()
+	msg, err := s.readFrame()
 	if err != nil {
 		return nil, fmt.Errorf("waiting for hello: %w", err)
 	}

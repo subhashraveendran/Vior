@@ -105,7 +105,10 @@ func makeKeyInput(vk, scan uint16, flags uintptr) []byte {
 	return buf
 }
 
-func callSendInput(buf []byte) {
+// callSendInput is a var rather than a plain func so tests can capture what
+// would be injected without invoking the real SendInput syscall. Nothing in
+// production reassigns it.
+var callSendInput = func(buf []byte) {
 	sendInput.Call(1, uintptr(unsafe.Pointer(&buf[0])), uintptr(inputSize))
 }
 
@@ -198,6 +201,19 @@ func (c *winController) TypeKey(key string) error {
 				mods = append(mods, vkLWin)
 			}
 		}
+	}
+
+	// A chord with nothing after the last "+" has no key to send.
+	// "Shift++" splits to ["Shift", "", ""], leaving finalKey empty; none
+	// of the cases below match it, so the old code pressed the modifiers,
+	// sent nothing, and released them again — a keystroke silently dropped
+	// after emitting real modifier events into whatever window had focus.
+	//
+	// Bailing here rather than after the switch means no partial input is
+	// emitted at all, and matches the darwin implementation, which already
+	// returns early on an empty final key.
+	if finalKey == "" {
+		return nil
 	}
 
 	// Press modifiers.

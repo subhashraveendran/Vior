@@ -101,6 +101,34 @@ func DecodeFrameHeader(header []byte) (frameType byte, length uint32) {
 }
 
 // EncodePing / EncodePong build single-byte liveness frames.
+// InboundFrameSize returns the total on-wire size of a frame — including the
+// one-byte type prefix — that the host can receive from the phone, and whether
+// the type is one the host accepts at all.
+//
+// Every inbound frame is fixed-length, which is what makes a proper framing
+// layer possible: the reader can tell exactly how many bytes a frame occupies
+// from its first byte, so several frames arriving in one bulk transfer can be
+// split apart rather than the tail being discarded.
+//
+// FrameVideo is deliberately absent. It is host→phone only, so receiving one
+// means the peer is out of sync or not Vior, and it is the one frame whose
+// length is not derivable from the type alone.
+func InboundFrameSize(frameType byte) (int, bool) {
+	switch frameType {
+	case FrameHello:
+		return 18, true // type + magic(4) + ver(1) + w(4) + h(4) + dpr(4)
+	case FrameHelloAck:
+		return 6, true // type + magic(4) + ver(1)
+	case FrameTouch:
+		return 10, true // type + action(1) + x(4) + y(4)
+	case FrameReady:
+		return 9, true // type + w(4) + h(4)
+	case FrameBye, FramePing, FramePong:
+		return 1, true
+	}
+	return 0, false
+}
+
 func EncodePing() []byte { return []byte{FramePing} }
 func EncodePong() []byte { return []byte{FramePong} }
 

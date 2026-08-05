@@ -163,6 +163,42 @@ function statusMeta(t: FileTransfer): { color: string; text: string } {
 function fileIconSvg(): string { return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h7l5 5v13a0 0 0 0 1 0 0H6a0 0 0 0 1 0 0z"/><path d="M13 3v5h5"/></svg>'; }
 function photoIconSvg(): string { return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.6"/><path d="M5 17l4.5-4 3 2.6L16 12l3 3.2"/></svg>'; }
 
+const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
+// Raster formats only. SVG is deliberately excluded: it is a document format
+// with its own parser, and nothing in this product ever produces an SVG
+// thumbnail. (Script inside an SVG does not run when it is loaded through an
+// <img>, so this is depth rather than the primary defence.)
+const DATA_IMAGE_RE = /^data:image\/(?:png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+
+// previewSrc builds the thumbnail data: URI from a peer-supplied preview, or
+// returns '' when the value is not a base64 image. The caller falls back to
+// the extension badge.
+//
+// The peer's mimeType is deliberately NOT used. Previews are always JPEG —
+// the desktop re-encodes every thumbnail with jpeg.Encode regardless of the
+// source file's type, and the mobile never generates previews at all. The
+// mimeType field describes the *file*, not its thumbnail, so interpolating it
+// here was both wrong (JPEG bytes labelled image/png, saved only by browser
+// sniffing) and the injection vector: a hostile desktop could send
+// `image/jpeg";onerror="alert(1)" x="` and break straight out of the src
+// attribute. Hardcoding the type removes the vector at its root instead of
+// validating around it.
+//
+// The value lands in a URI, so this validates rather than escapes — escaping
+// would prevent a breakout but still allow a hostile scheme inside the
+// attribute. An allowlist answers the question that matters: is this actually
+// a base64 image?
+function previewSrc(preview: string): string {
+  if (!preview) return '';
+  // Some senders may pass a complete data: URI — accept only a well-formed
+  // raster one.
+  if (preview.indexOf('data:') === 0) {
+    return DATA_IMAGE_RE.test(preview) ? preview : '';
+  }
+  if (!BASE64_RE.test(preview)) return '';
+  return 'data:image/jpeg;base64,' + preview;
+}
+
 function renderIncoming(): void {
   const wrap = $('incoming-wrap') as HTMLElement, list = $('incoming-list') as HTMLElement;
   let html = ''; let has = false;
@@ -172,11 +208,12 @@ function renderIncoming(): void {
     has = true;
     // Preview: real thumbnail if server sent one (images), big ext badge otherwise.
     let thumb: string;
-    if (t.preview) {
-      const src = t.preview.indexOf('data:') === 0
-        ? t.preview
-        : ('data:' + (t.mimeType || 'image/jpeg') + ';base64,' + t.preview);
-      thumb = '<img src="' + src + '" alt="" style="width:56px;height:56px;border-radius:10px;object-fit:cover;border:1px solid var(--border);">';
+    const src = previewSrc(t.preview || '');
+    if (src) {
+      // esc() as well as the allowlist: the validation already rules out a
+      // breakout, and this keeps the attribute safe if the pattern is ever
+      // loosened.
+      thumb = '<img src="' + esc(src) + '" alt="" style="width:56px;height:56px;border-radius:10px;object-fit:cover;border:1px solid var(--border);">';
     } else {
       const ext = (t.name.split('.').pop() || 'FILE').slice(0, 4).toUpperCase();
       thumb = '<div style="width:56px;height:56px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--accent-weak);color:var(--accent);font:700 13px/1 var(--font-mono);letter-spacing:0.03em;border:1px solid var(--accent-line);">' + esc(ext) + '</div>';

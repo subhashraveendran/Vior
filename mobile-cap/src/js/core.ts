@@ -65,10 +65,24 @@ function toast(tone: ToastTone, title: string, msg?: string | null): void {
   setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 3500);
 }
 
+// esc renders an untrusted value safe for interpolation into HTML — in text
+// nodes AND in quoted attribute values.
+//
+// The previous implementation set textContent on a detached div and read back
+// innerHTML. That escapes &, < and > but leaves both quote characters intact,
+// because a text node has no reason to escape them. Nearly every call site
+// here interpolates into an attribute — src="…", or a JS string literal inside
+// onclick="…('…')" — where a surviving " or ' closes the attribute early and
+// lets the value inject its own markup or handler. Escaping the quotes as well
+// costs nothing (&quot; and &#39; render identically as text) and makes the one
+// helper correct for every context it is already used in.
 function esc(s: unknown): string {
-  const d = document.createElement('div');
-  d.textContent = String(s == null ? '' : s);
-  return d.innerHTML;
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;') // must run first, or it double-escapes the rest
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 

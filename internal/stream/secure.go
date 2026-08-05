@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -41,6 +42,12 @@ var (
 	securityModeMu sync.RWMutex
 	securityMode   = SecurePreferred
 )
+
+// errReported marks a negotiation failure whose specific, actionable error has
+// already been sent to the client. Without it the caller would send a second,
+// vaguer error on top — and the client would act on the less useful of the
+// two, turning "update your app" into "connection setup failed".
+var errReported = errors.New("stream: failure already reported to the client")
 
 // SetSecurityMode sets the transport-security policy.
 func SetSecurityMode(m SecurityMode) {
@@ -102,7 +109,7 @@ func (s *MJPEGServer) negotiateSecure(session *protocol.Session) (hello *protoco
 				Code:    protocol.ErrCodeUpgradeRequired,
 				Message: "This desktop requires an encrypted connection. Update the Vior app and reconnect by scanning the QR code.",
 			})
-			return nil, "", fmt.Errorf("client opened in cleartext but policy is %s", mode)
+			return nil, "", fmt.Errorf("%w: client opened in cleartext but policy is %s", errReported, mode)
 		}
 		h, err := protocol.DecodeData[protocol.HelloMessage](env)
 		if err != nil {
@@ -139,7 +146,7 @@ func (s *MJPEGServer) completeHandshake(session *protocol.Session, env *protocol
 	})
 	if err != nil {
 		s.sendSecureFailure(session, err)
-		return nil, "", fmt.Errorf("handshake respond: %w", err)
+		return nil, "", fmt.Errorf("%w: handshake respond: %v", errReported, err)
 	}
 
 	if err := session.Send(protocol.MsgSecureResp, &protocol.SecureRespMessage{
@@ -167,7 +174,7 @@ func (s *MJPEGServer) completeHandshake(session *protocol.Session, env *protocol
 		// stale QR code, or someone in the middle. Never distinguish
 		// the two to the client.
 		s.sendSecureFailure(session, err)
-		return nil, "", fmt.Errorf("handshake confirm: %w", err)
+		return nil, "", fmt.Errorf("%w: handshake confirm: %v", errReported, err)
 	}
 
 	key, err := responder.SessionKey()

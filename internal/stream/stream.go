@@ -10,6 +10,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -963,13 +964,16 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	hello, frameToken, err := s.negotiateSecure(session)
 	if err != nil {
 		log.Printf("stream: ws negotiation error [%s]: %v", session.ID, err)
-		// negotiateSecure has already sent a specific error for the
-		// cases the client can act on (upgrade_required, secure_failed);
-		// this covers the rest without leaking internals.
-		session.Send(protocol.MsgError, &protocol.ErrorMessage{
-			Code:    "hello_failed",
-			Message: "Connection setup failed.",
-		})
+		// Only send a generic error when negotiateSecure has not already
+		// sent a specific, actionable one. Sending both would leave the
+		// client acting on the less useful of the two — turning "update
+		// your app" into "connection setup failed".
+		if !errors.Is(err, errReported) {
+			session.Send(protocol.MsgError, &protocol.ErrorMessage{
+				Code:    "hello_failed",
+				Message: "Connection setup failed.",
+			})
+		}
 		return
 	}
 

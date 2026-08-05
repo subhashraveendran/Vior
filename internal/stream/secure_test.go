@@ -286,6 +286,7 @@ func TestSecureHandshakeWrongSecretRejected(t *testing.T) {
 	if errMsg.Code != protocol.ErrCodeSecureFailed {
 		t.Fatalf("error code = %q, want %q", errMsg.Code, protocol.ErrCodeSecureFailed)
 	}
+	assertNoFurtherError(t, conn)
 }
 
 // Under SecureRequired a legacy client must get an actionable code, not a
@@ -308,6 +309,32 @@ func TestSecureRequiredRejectsCleartextHello(t *testing.T) {
 	}
 	if errMsg.Code != protocol.ErrCodeUpgradeRequired {
 		t.Fatalf("error code = %q, want %q", errMsg.Code, protocol.ErrCodeUpgradeRequired)
+	}
+
+	// Exactly one error, then close. A second, vaguer error on top would
+	// leave the client acting on the less useful of the two — showing
+	// "connection setup failed" instead of "update your app".
+	assertNoFurtherError(t, conn)
+}
+
+// assertNoFurtherError requires that the connection carries no additional
+// error message before it closes.
+func assertNoFurtherError(t *testing.T, c *websocket.Conn) {
+	t.Helper()
+	c.SetReadDeadline(time.Now().Add(2 * time.Second))
+	for {
+		_, msg, err := c.ReadMessage()
+		if err != nil {
+			return // closed without another message, as required
+		}
+		env, decodeErr := protocol.Decode(msg)
+		if decodeErr != nil {
+			continue
+		}
+		if env.Type == protocol.MsgError {
+			second, _ := protocol.DecodeData[protocol.ErrorMessage](env)
+			t.Fatalf("server sent a second error after an actionable one: code=%q", second.Code)
+		}
 	}
 }
 
@@ -464,13 +491,6 @@ func TestChannelSecretEncoding(t *testing.T) {
 	if string(decoded) != string(ChannelSecret()) {
 		t.Fatal("secret did not survive the encode/decode round trip")
 	}
-	if !SecretMatches(param) {
-		t.Fatal("SecretMatches rejected the active secret")
-	}
-	if SecretMatches("not-the-secret") {
-		t.Fatal("SecretMatches accepted a wrong value")
-	}
-
 	for _, bad := range []string{"", "short", "!!!not-base64!!!"} {
 		if _, ok := decodeSecret(bad); ok {
 			t.Errorf("decodeSecret(%q) accepted an unusable secret", bad)

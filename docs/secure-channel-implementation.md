@@ -124,6 +124,13 @@ the "revoke all devices" action.
 `/info` advertises `secure`, `secureMode`, `secureRequired`. The secret itself
 is never published there — it travels only in the QR.
 
+There is deliberately **no exported "does this secret match" helper**. A client
+never sends the channel secret; it proves knowledge through the handshake MAC,
+which is the whole reason the scheme resists a network attacker. A comparison
+helper would invite the opposite pattern — accept the secret as a request
+parameter and compare it — putting it on the wire in cleartext and dismantling
+the design it appears to support.
+
 ## 6. Testing
 
 `internal/handshake`: 30 tests plus committed cross-language vectors.

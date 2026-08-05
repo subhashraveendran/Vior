@@ -1,7 +1,6 @@
 package stream
 
 import (
-	"crypto/subtle"
 	"encoding/base64"
 	"log"
 	"os"
@@ -133,13 +132,15 @@ func ChannelSecretParam() string {
 	return base64.RawURLEncoding.EncodeToString(channelSecret)
 }
 
-// SecretMatches reports whether the supplied encoded secret equals the active
-// one, in constant time. Used by callers that need to validate a
-// client-supplied secret without leaking it through timing.
-func SecretMatches(encoded string) bool {
-	want := ChannelSecretParam()
-	return subtle.ConstantTimeCompare([]byte(strings.TrimSpace(encoded)), []byte(want)) == 1
-}
+// There is deliberately no exported "does this secret match" helper.
+//
+// A client never sends the channel secret — it proves knowledge of it through
+// the handshake MAC, which is the entire reason the scheme resists a network
+// attacker. A comparison helper would invite the opposite pattern (accept the
+// secret as a request parameter and compare it), putting the secret on the
+// wire in cleartext and dismantling the design it appears to support. If a
+// future caller genuinely needs to validate a locally-held copy, it should use
+// crypto/subtle directly and justify itself at the call site.
 
 // RotateSecret generates a fresh secret and persists it, invalidating every
 // previously issued QR code. This is the "revoke all devices" action.

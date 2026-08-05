@@ -121,7 +121,7 @@ func (a *App) stopEverything() {
 	// Destroy virtual display and wait for system to process.
 	virtual.Destroy()
 	time.Sleep(200 * time.Millisecond)
-	a.touchMapper = nil
+	a.setTouchMapper(nil)
 	if a.fileMgr != nil {
 		a.fileMgr.Cleanup()
 		a.fileMgr = nil
@@ -188,7 +188,7 @@ func (a *App) StartServer() error {
 		a.handleUSBConnect(width, height, dpr)
 	}
 	a.usbAcc.OnTouch = func(action byte, x, y float32) {
-		if a.touchMapper != nil {
+		if tm := a.currentTouchMapper(); tm != nil {
 			var act string
 			switch action {
 			case usb.TouchDown:
@@ -198,7 +198,7 @@ func (a *App) StartServer() error {
 			case usb.TouchUp:
 				act = "up"
 			}
-			a.touchMapper.HandleTouch(act, float64(x), float64(y))
+			tm.HandleTouch(act, float64(x), float64(y))
 		}
 	}
 	a.usbAcc.OnDisconnect = func() {
@@ -216,7 +216,7 @@ func (a *App) StartServer() error {
 			a.session = nil
 		}
 		virtual.Destroy()
-		a.touchMapper = nil
+		a.setTouchMapper(nil)
 		runtime.EventsEmit(a.ctx, "client:disconnected", "usb")
 	}
 	if err := a.usbAcc.Start(); err != nil {
@@ -330,7 +330,7 @@ func (a *App) OnClientConnect(sess *protocol.Session, hello *protocol.HelloMessa
 	// and Files-only intents. Input still works (mapped against the main
 	// display's bounds); the MJPEG stream simply has no frame source.
 	if setup.Mode == "none" {
-		a.touchMapper = input.NewTouchMapper(input.DefaultController, setup.DisplayBounds)
+		a.setTouchMapper(input.NewTouchMapper(input.DefaultController, setup.DisplayBounds))
 		sess.Send(protocol.MsgReady, &protocol.ReadyMessage{
 			StreamURL:  "",
 			Resolution: fmt.Sprintf("%dx%d", setup.Width, setup.Height),
@@ -356,7 +356,7 @@ func (a *App) OnClientConnect(sess *protocol.Session, hello *protocol.HelloMessa
 		return fmt.Errorf("capture failed: %w", err)
 	}
 	a.server.SetFrameCh(a.session.FrameCh)
-	a.touchMapper = input.NewTouchMapper(input.DefaultController, setup.DisplayBounds)
+	a.setTouchMapper(input.NewTouchMapper(input.DefaultController, setup.DisplayBounds))
 
 	sess.Send(protocol.MsgReady, &protocol.ReadyMessage{
 		StreamURL:  config.DefaultStreamPath,
@@ -402,7 +402,7 @@ func (a *App) OnClientResize(sess *protocol.Session, msg *protocol.ResizeMessage
 		return err
 	}
 	a.server.SetFrameCh(a.session.FrameCh)
-	a.touchMapper = input.NewTouchMapper(input.DefaultController, setup.DisplayBounds)
+	a.setTouchMapper(input.NewTouchMapper(input.DefaultController, setup.DisplayBounds))
 
 	sess.Send(protocol.MsgReady, &protocol.ReadyMessage{
 		StreamURL:  config.DefaultStreamPath,
@@ -443,18 +443,21 @@ func (a *App) OnClientInput(_ *protocol.Session, msg *protocol.InputMessage) err
 	if msg.Event == "key" {
 		return input.DefaultController.TypeKey(msg.Key)
 	}
-	if a.touchMapper == nil {
+	// Snapshot once. Reading the field per-branch left a window where a
+	// concurrent disconnect nilled it between the guard and the call.
+	tm := a.currentTouchMapper()
+	if tm == nil {
 		log.Printf("input: dropped %s/%s — touchMapper not initialised", msg.Event, msg.Action)
 		return nil
 	}
 	var err error
 	switch msg.Event {
 	case "touch":
-		err = a.touchMapper.HandleTouch(msg.Action, msg.X, msg.Y)
+		err = tm.HandleTouch(msg.Action, msg.X, msg.Y)
 	case "mouse":
-		err = a.touchMapper.HandleMouse(msg.Action, msg.DX, msg.DY)
+		err = tm.HandleMouse(msg.Action, msg.DX, msg.DY)
 	case "scroll":
-		err = a.touchMapper.HandleScroll(msg.DX, msg.DY)
+		err = tm.HandleScroll(msg.DX, msg.DY)
 	default:
 		log.Printf("input: unknown event %q", msg.Event)
 	}
@@ -464,6 +467,28 @@ func (a *App) OnClientInput(_ *protocol.Session, msg *protocol.InputMessage) err
 	return err
 }
 
+// setTouchMapper installs the touch mapper under clientMu, which is the lock
+// guarding the rest of the WS/USB session state.
+func (a *App) setTouchMapper(m *input.TouchMapper) {
+	a.clientMu.Lock()
+	a.touchMapper = m
+	a.clientMu.Unlock()
+}
+
+// currentTouchMapper snapshots the touch mapper under clientMu.
+//
+// Callers use the returned pointer *outside* the lock. That is deliberate:
+// the mapper's methods perform OS-level input injection, and holding session
+// state locked across a syscall would serialise input behind connect/disconnect
+// and invite deadlock with the fileMgr send path, which also takes clientMu.
+// Snapshotting keeps the critical section to a pointer read while still
+// removing the read/write race.
+func (a *App) currentTouchMapper() *input.TouchMapper {
+	a.clientMu.Lock()
+	defer a.clientMu.Unlock()
+	return a.touchMapper
+}
+
 func (a *App) OnClientDisconnect(sess *protocol.Session) {
 	log.Printf("session: client disconnected: %s", sess.ID)
 
@@ -471,14 +496,25 @@ func (a *App) OnClientDisconnect(sess *protocol.Session) {
 	if a.client == sess {
 		a.client = nil
 	}
+	fileMgr := a.fileMgr
 	a.clientMu.Unlock()
+
+	// Close any transfer still in flight. Without this a client could
+	// offer a file, accept it, push a few chunks and then disconnect,
+	// leaving the descriptor open and the partial file on disk until the
+	// whole app exited — repeatable at will, so it exhausted the process
+	// file-descriptor limit. Transfers are inherently session-scoped:
+	// their chunks arrive over the WS that just went away.
+	if fileMgr != nil {
+		fileMgr.Cleanup()
+	}
 
 	if a.session != nil {
 		a.session.Stop()
 		a.session = nil
 	}
 	virtual.Destroy()
-	a.touchMapper = nil
+	a.setTouchMapper(nil)
 	a.inputPermChecked = false
 	a.currentClientTrusted = false
 
@@ -532,7 +568,7 @@ func (a *App) handleUSBConnect(width, height int, dpr float32) {
 		log.Printf("usb: capture failed: %v", err)
 		return
 	}
-	a.touchMapper = input.NewTouchMapper(input.DefaultController, setup.DisplayBounds)
+	a.setTouchMapper(input.NewTouchMapper(input.DefaultController, setup.DisplayBounds))
 
 	// Send ready.
 	a.usbAcc.SendReady(width, height)

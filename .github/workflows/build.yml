@@ -9,6 +9,21 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # libusb Windows binaries, pinned by content.
+  #
+  # This archive is downloaded on the runner and its DLL is copied into
+  # C:\Windows\System32, so whatever it contains executes inside every
+  # subsequent Windows build. Fetching it over HTTPS only proves the transport
+  # was not tampered with in flight — it says nothing about the bytes the
+  # release host served. Pinning the digest means a swapped asset fails the
+  # build instead of shipping.
+  #
+  # The digest was verified against two independent distribution channels
+  # (the GitHub release CDN and the SourceForge mirror), which agreed on both
+  # the hash and the 4101966-byte length. Update it deliberately, the same way,
+  # whenever LIBUSB_VERSION changes.
+  LIBUSB_VERSION: "1.0.27"
+  LIBUSB_SHA256: "19835e290f46fab6bd8ce4be6ab7dc5209f1c04bad177065df485e51dc4118c8"
 
 jobs:
   # ═══════════════════════════════════════════
@@ -47,9 +62,19 @@ jobs:
         shell: powershell
         run: |
           choco install pkgconfiglite -y
-          $libusb_ver = "1.0.27"
+          $ErrorActionPreference = "Stop"
+          $libusb_ver = "${env:LIBUSB_VERSION}"
+          $expected = "${env:LIBUSB_SHA256}".ToLower()
           $url = "https://github.com/libusb/libusb/releases/download/v${libusb_ver}/libusb-${libusb_ver}.7z"
           Invoke-WebRequest -Uri $url -OutFile libusb.7z
+          # Verify BEFORE extraction: this archive's DLL is copied into
+          # System32, so an unverified one would execute in every later step.
+          $actual = (Get-FileHash libusb.7z -Algorithm SHA256).Hash.ToLower()
+          if ($actual -ne $expected) {
+            Write-Error "libusb archive checksum mismatch`n  expected: $expected`n  actual:   $actual`nRefusing to extract."
+            exit 1
+          }
+          Write-Host "libusb $libusb_ver checksum verified: $actual"
           7z x libusb.7z -olibusb
           $dest = "C:\libusb"
           New-Item -ItemType Directory -Force -Path $dest
@@ -152,9 +177,19 @@ jobs:
         shell: powershell
         run: |
           choco install pkgconfiglite -y
-          $libusb_ver = "1.0.27"
+          $ErrorActionPreference = "Stop"
+          $libusb_ver = "${env:LIBUSB_VERSION}"
+          $expected = "${env:LIBUSB_SHA256}".ToLower()
           $url = "https://github.com/libusb/libusb/releases/download/v${libusb_ver}/libusb-${libusb_ver}.7z"
           Invoke-WebRequest -Uri $url -OutFile libusb.7z
+          # Verify BEFORE extraction: this archive's DLL is copied into
+          # System32, so an unverified one would execute in every later step.
+          $actual = (Get-FileHash libusb.7z -Algorithm SHA256).Hash.ToLower()
+          if ($actual -ne $expected) {
+            Write-Error "libusb archive checksum mismatch`n  expected: $expected`n  actual:   $actual`nRefusing to extract."
+            exit 1
+          }
+          Write-Host "libusb $libusb_ver checksum verified: $actual"
           7z x libusb.7z -olibusb
           $dest = "C:\libusb"
           New-Item -ItemType Directory -Force -Path $dest

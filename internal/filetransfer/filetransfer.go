@@ -338,6 +338,21 @@ func (m *Manager) AcceptFile(id string) error {
 		return fmt.Errorf("unknown transfer: %s", id)
 	}
 
+	// Refuse a repeat accept. Each AcceptFile opened a fresh file and
+	// overwrote t.file, orphaning the previous descriptor and — via
+	// uniquePath — leaving a second empty file on disk. Reachable by
+	// double-tapping Accept in the UI, and guaranteed whenever HandleOffer
+	// auto-accepts (no OnFileOffer callback) and a caller then accepts
+	// explicitly. POSIX hides the leak because unlinking an open file
+	// succeeds; on Windows the stranded handle blocks deletion outright,
+	// which is how CI surfaced it.
+	t.mu.Lock()
+	alreadyOpen := t.file != nil
+	t.mu.Unlock()
+	if alreadyOpen {
+		return nil
+	}
+
 	// Create receive directory.
 	os.MkdirAll(m.ReceiveDir, 0755)
 	destPath := filepath.Join(m.ReceiveDir, sanitizeFilename(t.Name))
@@ -359,6 +374,14 @@ func (m *Manager) AcceptFile(id string) error {
 	}
 
 	t.mu.Lock()
+	if t.file != nil {
+		// Lost a race with a concurrent accept. Discard what this call
+		// created rather than replacing the winner's handle.
+		t.mu.Unlock()
+		f.Close()
+		os.Remove(destPath)
+		return nil
+	}
 	t.Path = destPath
 	t.file = f
 	t.hash = sha256.New()

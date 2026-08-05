@@ -258,12 +258,24 @@ func (a *App) GetServerStatus() ServerStatus {
 		} else {
 			s.URL = fmt.Sprintf("http://localhost:%d", a.cfg.Port)
 		}
-		qr, err := network.QRCodeDataURL(s.URL + "?pair=" + stream.PairCode())
+		// The QR carries the high-entropy channel secret alongside the
+		// pair code. That secret is what makes the encrypted channel
+		// meaningful: a QR is a machine-to-machine channel, so it can
+		// hold 256 bits at no cost to the user, whereas the 6-digit
+		// code exists to be typed and is far too small to authenticate
+		// against an offline attack.
+		qrURL := s.URL + "?pair=" + stream.PairCode()
+		if stream.GetSecurityMode() != stream.SecureOff {
+			qrURL += "&k=" + stream.ChannelSecretParam()
+		}
+		qr, err := network.QRCodeDataURL(qrURL)
 		if err == nil {
 			s.QRCodeDataURL = qr
 		}
 		s.ClientCount = a.server.ClientCount()
 		s.Uptime = int(time.Since(a.startedAt).Seconds())
+		s.Secure = a.server.ClientSecure()
+		s.SecureMode = stream.GetSecurityMode().String()
 	}
 
 	// USB status.
@@ -847,6 +859,13 @@ type ServerStatus struct {
 	Uptime        int      `json:"uptime"`
 	PairCode      string   `json:"pairCode"`
 	FrameRate     int      `json:"frameRate"`
+
+	// Secure reports whether the connected client's payloads are actually
+	// encrypted. SecureMode is the server policy ("preferred", "required",
+	// "off"). The UI must render the connection's real state — claiming a
+	// cleartext session is protected would be worse than showing nothing.
+	Secure     bool   `json:"secure"`
+	SecureMode string `json:"secureMode"`
 }
 
 // ── File Transfer ───────────────────────────────────────────────────

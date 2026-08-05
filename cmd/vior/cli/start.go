@@ -252,7 +252,15 @@ func printQR(port int) {
 	}
 	for _, addr := range addrs {
 		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
-			url := fmt.Sprintf("http://%s:%d", ipnet.IP.String(), port)
+			url := fmt.Sprintf("http://%s:%d?pair=%s", ipnet.IP.String(), port, stream.PairCode())
+			// The channel secret rides the QR, not the printed URL: the
+			// QR is scanned by the phone, whereas the URL is meant to be
+			// read and typed by a human and cannot usefully carry 256
+			// bits. A typed connection therefore falls back to the
+			// cleartext path until the short-code handshake lands.
+			if stream.GetSecurityMode() != stream.SecureOff {
+				url += "&k=" + stream.ChannelSecretParam()
+			}
 			qr, err := network.QRCodePlain(url)
 			if err == nil {
 				fmt.Print(qr)

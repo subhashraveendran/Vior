@@ -113,14 +113,14 @@ func TestHandleOfferRejectsOversize(t *testing.T) {
 		return nil
 	}
 	m.HandleOffer(&protocol.FileOfferMessage{
-		ID:   "x",
+		ID:   "aaaaaaaa",
 		Name: "huge.bin",
 		Size: MaxDownloadSize + 1,
 	})
 	if len(sent) != 1 || sent[0] != protocol.MsgFileReject {
 		t.Fatalf("expected single file-reject, got %v", sent)
 	}
-	if m.GetTransfer("x") != nil {
+	if m.GetTransfer("aaaaaaaa") != nil {
 		t.Fatalf("oversize offer must not register a transfer")
 	}
 }
@@ -136,15 +136,15 @@ func TestHandleChunkOverrunStopsWriting(t *testing.T) {
 	m := NewManager(dir)
 	m.Send = func(protocol.MessageType, any) error { return nil }
 	// Honest 10-byte offer.
-	m.HandleOffer(&protocol.FileOfferMessage{ID: "y", Name: "a.bin", Size: 10})
-	if err := m.AcceptFile("y"); err != nil {
+	m.HandleOffer(&protocol.FileOfferMessage{ID: "bbbbbbbb", Name: "a.bin", Size: 10})
+	if err := m.AcceptFile("bbbbbbbb"); err != nil {
 		t.Fatalf("AcceptFile: %v", err)
 	}
 	// Honest chunk.
-	m.HandleChunk(&protocol.FileChunkMessage{ID: "y", Offset: 0, Data: "AAAAAAAAAA=="}) // ~10 bytes
+	m.HandleChunk(&protocol.FileChunkMessage{ID: "bbbbbbbb", Offset: 0, Data: "AAAAAAAAAA=="}) // ~10 bytes
 	// Dishonest extra chunk.
-	m.HandleChunk(&protocol.FileChunkMessage{ID: "y", Offset: 10, Data: "BBBBBBBBBBBB"})
-	t2 := m.GetTransfer("y")
+	m.HandleChunk(&protocol.FileChunkMessage{ID: "bbbbbbbb", Offset: 10, Data: "BBBBBBBBBBBB"})
+	t2 := m.GetTransfer("bbbbbbbb")
 	if t2.Transferred > 10 {
 		t.Errorf("Transferred=%d, expected ≤10 after overrun guard", t2.Transferred)
 	}
@@ -176,8 +176,8 @@ func TestHandleChunkFiresProgress(t *testing.T) {
 	// Offer a file larger than progressEmitStep so a single chunk
 	// payload triggers the boundary.
 	total := int64(progressEmitStep + ChunkSize)
-	m.HandleOffer(&protocol.FileOfferMessage{ID: "p", Name: "big.bin", Size: total})
-	if err := m.AcceptFile("p"); err != nil {
+	m.HandleOffer(&protocol.FileOfferMessage{ID: "cccccccc", Name: "big.bin", Size: total})
+	if err := m.AcceptFile("cccccccc"); err != nil {
 		t.Fatalf("AcceptFile: %v", err)
 	}
 
@@ -189,7 +189,7 @@ func TestHandleChunkFiresProgress(t *testing.T) {
 			end = total - off
 		}
 		m.HandleChunk(&protocol.FileChunkMessage{
-			ID:     "p",
+			ID:     "cccccccc",
 			Offset: off,
 			Data:   base64.StdEncoding.EncodeToString(payload[:end]),
 		})
@@ -202,7 +202,7 @@ func TestHandleChunkFiresProgress(t *testing.T) {
 
 	// Release any remaining file handle.
 	t.Cleanup(func() {
-		got := m.GetTransfer("p")
+		got := m.GetTransfer("cccccccc")
 		if got == nil {
 			return
 		}
@@ -226,11 +226,11 @@ func TestAcceptFileWritesInsideReceiveDir(t *testing.T) {
 	dir := t.TempDir()
 	m := NewManager(dir)
 	m.Send = func(protocol.MessageType, any) error { return nil }
-	m.HandleOffer(&protocol.FileOfferMessage{ID: "z", Name: "../escape.txt", Size: 4})
-	if err := m.AcceptFile("z"); err != nil {
+	m.HandleOffer(&protocol.FileOfferMessage{ID: "dddddddd", Name: "../escape.txt", Size: 4})
+	if err := m.AcceptFile("dddddddd"); err != nil {
 		t.Fatalf("AcceptFile rejected legitimate-after-sanitize name: %v", err)
 	}
-	got := m.GetTransfer("z")
+	got := m.GetTransfer("dddddddd")
 	if !strings.HasPrefix(got.Path, dir) {
 		t.Errorf("Path %q is not inside ReceiveDir %q", got.Path, dir)
 	}

@@ -164,7 +164,14 @@ func (s *Session) Send(msgType MessageType, data any) error {
 	if s.secure != nil {
 		sealed, sealErr := s.secure.Seal(b)
 		if sealErr != nil {
+			// A seal failure is terminal for the channel: the only way
+			// it happens is counter exhaustion, after which no further
+			// frame can be sent safely. Mark the session closed under
+			// the lock we already hold so callers stop writing rather
+			// than retrying forever against a dead channel.
+			s.closed = true
 			s.mu.Unlock()
+			s.Conn.Close()
 			return fmt.Errorf("seal: %w", sealErr)
 		}
 		b = sealed

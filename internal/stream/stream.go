@@ -27,6 +27,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/subhashraveendran/vior/internal/config"
+	"github.com/subhashraveendran/vior/internal/handshake"
 	"github.com/subhashraveendran/vior/internal/machineid"
 	"github.com/subhashraveendran/vior/internal/protocol"
 	"github.com/subhashraveendran/vior/internal/trust"
@@ -722,6 +723,11 @@ func (s *MJPEGServer) handleStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "multipart/x-mixed-replace; boundary="+boundary)
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	// The frame token travels as a query parameter because an <img> tag
+	// cannot set request headers. no-referrer stops that URL leaking into
+	// a Referer header if the rendering page ever navigates onward.
+	w.Header().Set("Referrer-Policy", "no-referrer")
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -794,6 +800,10 @@ func (s *MJPEGServer) handleInfo(w http.ResponseWriter, r *http.Request) {
 		"secure":         GetSecurityMode() != SecureOff,
 		"secureMode":     GetSecurityMode().String(),
 		"secureRequired": GetSecurityMode() == SecureRequired,
+		// Handshake wire version, so a client can tell "this server
+		// speaks a protocol I don't know" apart from "my secret is
+		// stale" — two failures that need very different messages.
+		"secureVersion": handshake.Version,
 	}
 	// Pairing probe. Previously /info published the raw pairCode to any
 	// LAN client, which nullified the whole pairing scheme (anyone could
@@ -903,6 +913,7 @@ func (s *MJPEGServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Write(frame)
 }
 

@@ -264,9 +264,16 @@ func (a *App) GetServerStatus() ServerStatus {
 		// hold 256 bits at no cost to the user, whereas the 6-digit
 		// code exists to be typed and is far too small to authenticate
 		// against an offline attack.
+		//
+		// The secret goes in the URL *fragment*, never the query. A
+		// fragment is never transmitted to the server, so it cannot
+		// reach an access log, and it is never included in a Referer
+		// header sent by a page loaded from this URL. A query parameter
+		// would land in both. JavaScript still reads it via
+		// location.hash, so the web client loses nothing.
 		qrURL := s.URL + "?pair=" + stream.PairCode()
 		if stream.GetSecurityMode() != stream.SecureOff {
-			qrURL += "&k=" + stream.ChannelSecretParam()
+			qrURL += "#k=" + stream.ChannelSecretParam()
 		}
 		qr, err := network.QRCodeDataURL(qrURL)
 		if err == nil {

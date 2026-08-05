@@ -232,7 +232,7 @@ func TestVectorsMatchCommittedFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read %s (run with -update-vectors to create it): %v", vectorFile, err)
 	}
-	if !bytes.Equal(bytes.TrimSpace(want), bytes.TrimSpace(encoded)) {
+	if !bytes.Equal(normaliseEOL(want), normaliseEOL(encoded)) {
 		t.Errorf("handshake output no longer matches %s.\n"+
 			"This means the wire format or key schedule changed, which breaks every\n"+
 			"shipped client. If the change is intended, bump Version and regenerate\n"+
@@ -329,6 +329,18 @@ func TestVectorsAreSelfConsistent(t *testing.T) {
 func hkdfInto(key []byte, info string, out []byte) error {
 	_, err := io.ReadFull(hkdf.New(sha256.New, key, nil, []byte(info)), out)
 	return err
+}
+
+// normaliseEOL trims surrounding whitespace and collapses CRLF to LF.
+//
+// Without this the comparison fails on Windows: git checks the committed file
+// out with CRLF under the default core.autocrlf, while the freshly marshalled
+// bytes always use LF. That difference is a property of the checkout, not of
+// the handshake, and must not be reported as a wire-format break. .gitattributes
+// pins the file to LF as well — this is the belt to that braces, so the test
+// stays honest even in a tree checked out before that rule existed.
+func normaliseEOL(b []byte) []byte {
+	return bytes.ReplaceAll(bytes.TrimSpace(b), []byte("\r\n"), []byte("\n"))
 }
 
 func mustHex(t *testing.T, s string) []byte {

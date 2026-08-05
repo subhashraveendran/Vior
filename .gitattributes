@@ -1,0 +1,26 @@
+# Normalise line endings so a checkout on Windows does not rewrite files that
+# are compared byte-for-byte.
+#
+# The immediate motivation is internal/handshake/testdata/handshake_vectors.json:
+# it pins the secure-channel wire format, and the test that guards it compares
+# the committed bytes against freshly generated ones. Under the default
+# core.autocrlf on Windows, git would hand the test CRLF while the generator
+# emits LF, failing a check that has nothing to do with the handshake.
+* text=auto eol=lf
+
+# Cryptographic test vectors are compared byte-for-byte and must never be
+# rewritten by a checkout.
+*.json text eol=lf
+internal/handshake/testdata/** text eol=lf
+
+# Binary assets must not be touched at all.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.icns binary
+*.gif binary
+*.pdf binary
+*.zip binary
+*.jar binary
+*.keystore binary

@@ -55,6 +55,8 @@ public class MainActivity extends BridgeActivity {
     private UsbAccessoryPlugin usbPlugin;
     private boolean usbConnected = false;
     private volatile boolean helloAckReceived = false;
+    // Guards the pre-auth drop log so a flooding peer cannot spam logcat.
+    private volatile boolean preAuthDropLogged = false;
     private Runnable helloAckTimeoutTask;
 
     @Override
@@ -70,6 +72,7 @@ public class MainActivity extends BridgeActivity {
             public void onConnected() {
                 usbConnected = true;
                 helloAckReceived = false;
+            preAuthDropLogged = false;
                 Log.i(TAG, "USB connected — sending hello (awaiting Vior ack)");
                 runOnUiThread(() -> {
                     // Notify web client the cable handshake is up — the
@@ -116,6 +119,28 @@ public class MainActivity extends BridgeActivity {
                 // payload past the type byte. Drop short / malformed
                 // reads to avoid OOB indexing below.
                 if (length < 5) return;
+
+                // Payload frames are only meaningful from a peer that has
+                // proved it is Vior. HELLO_ACK is exempt because it is the
+                // frame that establishes that proof.
+                //
+                // Outbound input was already gated this way (see sendTouch),
+                // but inbound frames were not: anything on the far end of the
+                // cable could push 8 MiB video frames straight into
+                // Base64.encodeToString and evaluateJs before authenticating,
+                // exhausting the heap on repeat. An AOA cable can be attached
+                // by any device claiming to be an accessory, so "physical
+                // access" is a lower bar here than it sounds.
+                if (!helloAckReceived && frameType != FRAME_HELLO_ACK) {
+                    // Logged once per connection. An attacker controls the
+                    // frame rate, so a line per dropped frame would itself be
+                    // a log-flood vector.
+                    if (!preAuthDropLogged) {
+                        preAuthDropLogged = true;
+                        Log.w(TAG, "usb: dropping frames received before hello-ack");
+                    }
+                    return;
+                }
 
                 if (frameType == FRAME_VIDEO) {
                     // Parse as long so the high bit doesn't turn the
@@ -186,6 +211,7 @@ public class MainActivity extends BridgeActivity {
             public void onDisconnected() {
                 usbConnected = false;
                 helloAckReceived = false;
+            preAuthDropLogged = false;
                 Log.i(TAG, "USB disconnected");
                 runOnUiThread(() -> {
                     if (helloAckTimeoutTask != null) {
@@ -364,6 +390,7 @@ public class MainActivity extends BridgeActivity {
         if (!usbConnected || usbPlugin == null) return;
         runOnUiThread(() -> {
             helloAckReceived = false;
+            preAuthDropLogged = false;
             sendHello();
             if (helloAckTimeoutTask != null) {
                 getBridge().getWebView().removeCallbacks(helloAckTimeoutTask);

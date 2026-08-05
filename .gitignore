@@ -9,10 +9,16 @@ build-errors.log
 *.out
 .DS_Store
 
-# Go
-vior
-vior-desktop
+# Go — built binaries at the repository root only.
+#
+# These were previously unanchored (`vior`, `vior-desktop`), which matches a
+# path component of that name at ANY depth: cmd/vior/, and the Android package
+# directory com/vior/. Both hold tracked source, so every `git add` touching
+# them needed -f and the hint about ignored paths. The anchored /vior* below
+# already covered the actual build artifacts, so the unanchored forms only ever
+# caused that friction.
 /vior*
+/vior-desktop
 
 # Wails desktop build artifacts
 desktop/build/

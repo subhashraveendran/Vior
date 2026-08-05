@@ -1,6 +1,7 @@
 package filetransfer
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -10,6 +11,12 @@ import (
 // offerAndAccept drives a transfer to the point where its file handle is open
 // and chunks are being written — the state a client can park it in and then
 // walk away from.
+// testID builds a distinct id in the hex shape HandleOffer requires, so these
+// tests exercise the real admission path rather than a shape it would reject.
+func testID(n int) string {
+	return fmt.Sprintf("%08x", 0xA0000+n)
+}
+
 // HandleOffer auto-accepts when OnFileOffer is nil, so the offer alone reaches
 // the open-handle state. Accepting again here would be a *second* accept —
 // which the manager now correctly ignores, but which previously orphaned a
@@ -46,17 +53,17 @@ func offerAndAccept(t *testing.T, m *Manager, id string) {
 func TestRepeatAcceptDoesNotOpenASecondHandle(t *testing.T) {
 	dir := t.TempDir()
 	m := NewManager(dir)
-	offerAndAccept(t, m, "dup")
+	offerAndAccept(t, m, "deadbeef")
 
 	m.mu.Lock()
-	tr := m.transfers["dup"]
+	tr := m.transfers["deadbeef"]
 	m.mu.Unlock()
 	tr.mu.Lock()
 	firstHandle, firstPath := tr.file, tr.Path
 	tr.mu.Unlock()
 
 	for range 3 {
-		if err := m.AcceptFile("dup"); err != nil {
+		if err := m.AcceptFile("deadbeef"); err != nil {
 			t.Fatalf("repeat AcceptFile: %v", err)
 		}
 	}
@@ -99,7 +106,7 @@ func TestCleanupClosesFilesAndDropsTransfers(t *testing.T) {
 
 	const count = 5
 	for i := range count {
-		offerAndAccept(t, m, string(rune('a'+i)))
+		offerAndAccept(t, m, testID(i))
 	}
 
 	m.mu.Lock()
@@ -147,7 +154,7 @@ func TestCleanupClosesFilesAndDropsTransfers(t *testing.T) {
 // defer), so Cleanup has to be safe to call more than once.
 func TestCleanupIsIdempotent(t *testing.T) {
 	m := NewManager(t.TempDir())
-	offerAndAccept(t, m, "x")
+	offerAndAccept(t, m, "aaaaaaaa")
 
 	m.Cleanup()
 	m.Cleanup() // must not panic on already-closed files or a cleared map

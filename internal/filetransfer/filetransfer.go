@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -308,6 +309,21 @@ func (m *Manager) HandleOffer(msg *protocol.FileOfferMessage) {
 		}
 		return
 	}
+	// The ID is a peer-supplied map key. An empty or malformed one, or a
+	// repeat of a live transfer's ID, silently replaced the existing entry
+	// — dropping the previous Transfer while its file handle stayed open,
+	// and misrouting every subsequent chunk into the wrong file. The mobile
+	// client already enforces this shape on ids it receives (VALID_ID in
+	// files.ts); the desktop has to do the same for ids it is given.
+	if !validTransferID(msg.ID) {
+		log.Printf("filetransfer: rejecting offer with invalid id")
+		_ = m.send(protocol.MsgFileReject, &protocol.FileRejectMessage{
+			ID:     msg.ID,
+			Reason: "invalid transfer id",
+		})
+		return
+	}
+
 	t := &Transfer{
 		ID:       msg.ID,
 		Name:     sanitizeFilename(msg.Name),
@@ -317,6 +333,15 @@ func (m *Manager) HandleOffer(msg *protocol.FileOfferMessage) {
 	}
 
 	m.mu.Lock()
+	if _, exists := m.transfers[msg.ID]; exists {
+		m.mu.Unlock()
+		log.Printf("filetransfer: rejecting offer %s — id already in use", msg.ID)
+		_ = m.send(protocol.MsgFileReject, &protocol.FileRejectMessage{
+			ID:     msg.ID,
+			Reason: "transfer id already in use",
+		})
+		return
+	}
 	m.transfers[msg.ID] = t
 	m.mu.Unlock()
 
@@ -746,6 +771,19 @@ func (m *Manager) PendingDownloads() []*PendingDownload {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
+
+// transferIDRe matches the ids this package generates: lowercase hex. The
+// bound is generous (generateID emits 16 chars) so a peer with a slightly
+// different but still sane scheme interoperates, while anything that could act
+// as a path fragment, a shell token, or an unbounded key is refused.
+var transferIDRe = regexp.MustCompile(`^[a-f0-9]{8,64}$`)
+
+// validTransferID reports whether a peer-supplied transfer id is usable as a
+// map key. Matches the VALID_ID filter the mobile client applies to ids it
+// receives, so both ends agree on what an id may look like.
+func validTransferID(id string) bool {
+	return transferIDRe.MatchString(id)
+}
 
 func generateID() string {
 	b := make([]byte, 8)

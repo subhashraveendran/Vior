@@ -42,6 +42,12 @@ type App struct {
 	client   *protocol.Session
 	clientMu sync.Mutex
 
+	// pickedPaths holds the symlink-resolved paths the user has chosen in
+	// the native file dialog. The file-send bindings will only offer a
+	// path present here, so a compromised frontend cannot name an
+	// arbitrary file. Guarded by clientMu.
+	pickedPaths map[string]struct{}
+
 	// stopMu serializes stopEverything so the OnBeforeClose path, the
 	// tray Stop/Quit handlers and the SIGINT/SIGTERM handler can't run
 	// teardown concurrently (double-Stop / racing nil assignments).
@@ -992,12 +998,62 @@ func (a *App) PickAndSendFile() error {
 	if path == "" {
 		return nil // cancelled
 	}
+	a.allowPickedPath(path)
 	return a.SendFileToPhone(path)
+}
+
+// The file-send bindings take an absolute path from the frontend, and Wails
+// exposes every public App method to the webview. A compromised or XSS'd
+// frontend could therefore ask the desktop to read any file the user can read
+// — ~/.ssh/id_rsa, a password store, anything — and ship it to the paired
+// phone. Neither binding is actually called with a caller-chosen path: the UI
+// only ever invokes PickAndSendFile, which sources the path from a native
+// dialog.
+//
+// A directory allowlist would not fix this, because anything broad enough to
+// be useful (~/Documents, ~/Desktop) still exposes everything inside it. The
+// authority that matters is not *where* the file is but *whether the user
+// chose it*, so the dialog records its result and the send paths require
+// membership. Paths are compared after symlink resolution so a link planted
+// inside an approved location cannot redirect the read.
+var errPathNotPicked = fmt.Errorf("file was not selected by the user; use the file picker")
+
+// allowPickedPath records a path the user selected in the native dialog.
+func (a *App) allowPickedPath(path string) {
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		resolved = filepath.Clean(path)
+	}
+	a.clientMu.Lock()
+	if a.pickedPaths == nil {
+		a.pickedPaths = make(map[string]struct{})
+	}
+	a.pickedPaths[resolved] = struct{}{}
+	a.clientMu.Unlock()
+}
+
+// checkPickedPath reports whether the user selected this path.
+func (a *App) checkPickedPath(path string) error {
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		resolved = filepath.Clean(path)
+	}
+	a.clientMu.Lock()
+	_, ok := a.pickedPaths[resolved]
+	a.clientMu.Unlock()
+	if !ok {
+		log.Printf("files: refusing to send a path the user did not select")
+		return errPathNotPicked
+	}
+	return nil
 }
 
 // SendFileToPhone is the HTTP-download (bidirectional) entry point.
 // Registers the file, pushes IncomingFile to the connected mobile.
 func (a *App) SendFileToPhone(path string) error {
+	if err := a.checkPickedPath(path); err != nil {
+		return err
+	}
 	a.ensureFileMgr()
 	a.clientMu.Lock()
 	c := a.client
@@ -1025,6 +1081,9 @@ func (a *App) SendFileToPhone(path string) error {
 // SendFile keeps the legacy WS-chunked desktop→mobile path alive for
 // existing callers / tests. New UI should call SendFileToPhone.
 func (a *App) SendFile(path string) error {
+	if err := a.checkPickedPath(path); err != nil {
+		return err
+	}
 	a.ensureFileMgr()
 	_, err := a.fileMgr.OfferFile(path)
 	return err

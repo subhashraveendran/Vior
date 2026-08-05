@@ -239,7 +239,7 @@ func (m *Manager) sendChunks(t *Transfer) {
 			hasher.Write(chunk)
 
 			encoded := base64.StdEncoding.EncodeToString(chunk)
-			sendErr := m.Send(protocol.MsgFileChunk, &protocol.FileChunkMessage{
+			sendErr := m.send(protocol.MsgFileChunk, &protocol.FileChunkMessage{
 				ID:     t.ID,
 				Offset: offset,
 				Data:   encoded,
@@ -281,7 +281,7 @@ func (m *Manager) sendChunks(t *Transfer) {
 	t.Hash = hash
 	t.mu.Unlock()
 
-	m.Send(protocol.MsgFileComplete, &protocol.FileCompleteMessage{
+	m.send(protocol.MsgFileComplete, &protocol.FileCompleteMessage{
 		ID:   t.ID,
 		Hash: hash,
 	})
@@ -364,7 +364,7 @@ func (m *Manager) AcceptFile(id string) error {
 	t.hash = sha256.New()
 	t.mu.Unlock()
 
-	if err := m.Send(protocol.MsgFileAccept, &protocol.FileAcceptMessage{ID: id}); err != nil {
+	if err := m.send(protocol.MsgFileAccept, &protocol.FileAcceptMessage{ID: id}); err != nil {
 		t.mu.Lock()
 		if t.file != nil {
 			t.file.Close()
@@ -376,13 +376,29 @@ func (m *Manager) AcceptFile(id string) error {
 	return nil
 }
 
+// send delivers a protocol message when a transport is wired.
+//
+// HandleOffer already guarded `m.Send != nil`, but AcceptFile and RejectFile
+// called it bare — and HandleOffer auto-accepts when no OnFileOffer callback
+// is set, so a Manager constructed without a transport panicked on the first
+// offer instead of degrading. Routing every send through here makes the three
+// paths consistent. A nil transport is not a production configuration (the
+// desktop wires Send immediately after NewManager); this exists so the failure
+// mode is a no-op rather than a crash.
+func (m *Manager) send(msgType protocol.MessageType, data any) error {
+	if m.Send == nil {
+		return nil
+	}
+	return m.Send(msgType, data)
+}
+
 // RejectFile rejects an incoming file offer.
 func (m *Manager) RejectFile(id, reason string) error {
 	m.mu.Lock()
 	delete(m.transfers, id)
 	m.mu.Unlock()
 
-	return m.Send(protocol.MsgFileReject, &protocol.FileRejectMessage{ID: id, Reason: reason})
+	return m.send(protocol.MsgFileReject, &protocol.FileRejectMessage{ID: id, Reason: reason})
 }
 
 // HandleChunk processes an incoming file chunk.
@@ -532,6 +548,14 @@ func (m *Manager) Cleanup() {
 		}
 		t.mu.Unlock()
 	}
+	// Drop the entries as well as closing their files. Closing alone
+	// released the descriptor but left every Transfer struct — and its
+	// metadata — reachable for the process lifetime, so a client that
+	// repeatedly offered a transfer and disconnected mid-stream grew the
+	// map without bound. Callers of Cleanup are tearing a session (or the
+	// whole app) down, and an in-flight transfer cannot outlive the
+	// session that was carrying its chunks.
+	m.transfers = make(map[string]*Transfer)
 	m.mu.Unlock()
 
 	m.pendingMu.Lock()

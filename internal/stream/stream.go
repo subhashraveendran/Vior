@@ -4,6 +4,7 @@ package stream
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -44,8 +45,15 @@ var trustedDevices = trust.Default()
 func TrustedDevices() *trust.Store { return trustedDevices }
 
 // pairCode is the 6-digit numeric "phone number" for this Vior install.
-// It is derived deterministically from the machine UUID — the user can
-// memorise it once and it survives reinstalls + ~/.vior/pair.txt wipes.
+// It is an HMAC over the machine ID keyed by the random per-install secret in
+// ~/.vior/pair-secret, so it is stable for the life of that file but NOT
+// reconstructible from the machine ID alone.
+//
+// It previously was reconstructible, which is why this changed: machine IDs
+// are readable by any unprivileged process, so the code could be computed
+// offline rather than guessed. The cost is that the code no longer survives a
+// ~/.vior wipe — see pairsecret.go.
+//
 // A user-set override (SetPairCode) is read from ~/.vior/pair.txt if
 // EnablePersistedPair was called.
 var (
@@ -61,16 +69,31 @@ var (
 // previous value and was brute-forced in ~13 minutes from 256 IPs.
 const pairCodeDigits = 6
 
-// derivePair returns the stable per-machine pair code. Strategy:
-// SHA-256("vior-pair:" + machineID), walk the lower-case hex digest
-// collecting decimal digits 0–9 until we have pairCodeDigits. SHA-256
-// hex is 64 chars long and on average ~25 of them are decimal digits,
-// so collecting 6 succeeds almost always; the fallback (Uint32 of the
-// first 4 bytes mod 10^pairCodeDigits) is defence in depth.
+// derivePair returns the per-install pair code.
+//
+// It is an HMAC-SHA256 over the machine ID, keyed by the random per-install
+// secret in ~/.vior/pair-secret. The machine ID alone is NOT secret — macOS
+// exposes the IOPlatformUUID to unprivileged `ioreg`, and /etc/machine-id is
+// world-readable on most Linux installs — so the previous unkeyed SHA-256 let
+// anyone who learned it compute the code offline and skip pairing entirely.
+// See pairsecret.go for the full rationale and the UX cost.
+//
+// The digit extraction is unchanged: walk the lower-case hex digest collecting
+// decimal digits 0–9 until we have pairCodeDigits. A SHA-256 digest is 64 hex
+// chars of which ~25 are decimal on average, so collecting 6 succeeds almost
+// always; the fallback (Uint32 of the first 4 bytes mod 10^pairCodeDigits) is
+// defence in depth.
 func derivePair() string {
-	id := machineid.ID()
-	sum := sha256.Sum256([]byte("vior-pair:" + id))
-	hexed := hex.EncodeToString(sum[:])
+	return derivePairWith(currentPairSecret(), machineid.ID())
+}
+
+// derivePairWith is the pure core of derivePair, split out so the derivation
+// can be tested against fixed inputs.
+func derivePairWith(secret []byte, id string) string {
+	mac := hmac.New(sha256.New, secret)
+	mac.Write([]byte("vior-pair:v2:" + id))
+	sum := mac.Sum(nil)
+	hexed := hex.EncodeToString(sum)
 	var b strings.Builder
 	for _, c := range hexed {
 		if c >= '0' && c <= '9' {

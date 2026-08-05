@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -495,6 +496,57 @@ func TestChannelSecretEncoding(t *testing.T) {
 		if _, ok := decodeSecret(bad); ok {
 			t.Errorf("decodeSecret(%q) accepted an unusable secret", bad)
 		}
+	}
+}
+
+// /info is reachable by any LAN peer without authentication. It advertises the
+// security capability so a client knows whether to handshake — but publishing
+// the secret there would hand the encrypted channel to exactly the attacker it
+// defends against.
+func TestInfoAdvertisesCapabilityButNeverTheSecret(t *testing.T) {
+	srv := &MJPEGServer{clients: map[chan []byte]struct{}{}}
+	ts := httptest.NewServer(http.HandlerFunc(srv.handleInfo))
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL)
+	if err != nil {
+		t.Fatalf("GET /info: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var body map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode /info: %v", err)
+	}
+
+	// Capability must be advertised so a client can decide to handshake.
+	for _, key := range []string{"secure", "secureMode", "secureRequired", "secureVersion"} {
+		if _, ok := body[key]; !ok {
+			t.Errorf("/info is missing %q", key)
+		}
+	}
+	if got := body["secureVersion"]; got != float64(handshake.Version) {
+		t.Errorf("secureVersion = %v, want %d", got, handshake.Version)
+	}
+
+	// And the secret must appear nowhere in the payload, in any encoding.
+	raw, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("re-marshal: %v", err)
+	}
+	secret := ChannelSecretParam()
+	if secret == "" {
+		t.Fatal("no active secret to check against")
+	}
+	if strings.Contains(string(raw), secret) {
+		t.Fatal("/info published the channel secret")
+	}
+	if strings.Contains(string(raw), string(ChannelSecret())) {
+		t.Fatal("/info published the raw channel secret bytes")
+	}
+	// The pair code is also an admission secret and must stay unpublished.
+	if strings.Contains(string(raw), PairCode()) {
+		t.Fatal("/info published the pair code")
 	}
 }
 

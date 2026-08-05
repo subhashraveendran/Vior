@@ -47,6 +47,7 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -387,6 +388,29 @@ func (r *Responder) SessionKey() ([]byte, error) {
 		return nil, ErrIncomplete
 	}
 	return append([]byte(nil), r.keys.session[:]...), nil
+}
+
+// FrameToken derives the bearer token that authorises the plain-HTTP frame
+// endpoints (/stream, /snapshot) for a session.
+//
+// Those endpoints cannot be moved inside the encrypted WebSocket without
+// re-architecting the video path, so they need an authenticator that is not
+// spoofable the way a source IP is. Deriving it from the session key means
+// possession of the token proves the holder completed the handshake, and the
+// token is only ever transmitted inside the sealed channel.
+//
+// This authorises access; it does not make the frames confidential. Anyone
+// passively sniffing the network still sees the MJPEG stream in the clear.
+func FrameToken(sessionKey []byte) (string, error) {
+	if len(sessionKey) != SessionKeySize {
+		return "", ErrShortSecret
+	}
+	out := make([]byte, 32)
+	r := hkdf.New(sha256.New, sessionKey, nil, []byte("vior-hs v1 frame-token"))
+	if _, err := io.ReadFull(r, out); err != nil {
+		return "", fmt.Errorf("handshake: derive frame token: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(out), nil
 }
 
 // transcript builds the value both sides bind into the key schedule and MAC.

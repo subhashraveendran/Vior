@@ -104,13 +104,28 @@ function validId(id: unknown): id is string {
   return typeof id === 'string' && VALID_ID.test(id);
 }
 
+// MAX_TRANSFER_BYTES mirrors the desktop's MaxDownloadSize (2 GiB). A phone
+// has far less headroom than that — chunks are accumulated in memory as
+// base64 strings before being assembled into a Blob — so the declared size is
+// the ceiling, and the running total is enforced against it below.
+const MAX_TRANSFER_BYTES = 2 * 1024 * 1024 * 1024;
+
 function handleFileMessage(msg: FileMessage): void {
   const d = msg.data;
   if (!validId(d.id)) {
     return;
   }
   if (msg.type === 'file-offer') {
-    fileTransfers[d.id] = { id: d.id, name: d.name || '', size: d.size || 0, mimeType: d.mimeType || '', preview: d.preview || '', transferred: 0, complete: false, chunks: [], direction: 'in', pending: true, status: 'incoming' };
+    // A declared size outside sane bounds is refused before a single
+    // chunk is buffered. Without this the peer set the budget that the
+    // chunk handler below is meant to enforce.
+    const size = d.size || 0;
+    if (size <= 0 || size > MAX_TRANSFER_BYTES) {
+      ws!.send(JSON.stringify({ type: 'file-reject', data: { id: d.id, reason: 'invalid size' } }));
+      toast('warning', 'Declined', 'That file is too large to receive.');
+      return;
+    }
+    fileTransfers[d.id] = { id: d.id, name: d.name || '', size: size, mimeType: d.mimeType || '', preview: d.preview || '', transferred: 0, complete: false, chunks: [], direction: 'in', pending: true, status: 'incoming' };
     renderIncoming();
     toast('info', 'Incoming', d.name || '');
     switchTab('files');
@@ -120,7 +135,19 @@ function handleFileMessage(msg: FileMessage): void {
     const t2 = fileTransfers[d.id]; if (t2) { delete fileTransfers[d.id]; renderTransfers(); toast('warning', 'Declined', t2.name); }
   } else if (msg.type === 'file-chunk') {
     const t3 = fileTransfers[d.id]; if (t3 && t3.direction === 'in' && d.data) {
-      t3.chunks!.push(d.data); t3.transferred += atob(d.data).length;
+      // Enforce the size declared in the offer. Chunks were previously
+      // accumulated without any cumulative check, so a peer could
+      // announce a 1 MB file and then stream indefinitely — every chunk
+      // retained in memory until the phone was killed by the OS.
+      const chunkLen = atob(d.data).length;
+      if (t3.transferred + chunkLen > t3.size) {
+        ws!.send(JSON.stringify({ type: 'file-reject', data: { id: d.id, reason: 'exceeded declared size' } }));
+        delete fileTransfers[d.id];
+        renderIncoming(); renderTransfers();
+        toast('error', 'Transfer aborted', 'The sender exceeded the size it declared.');
+        return;
+      }
+      t3.chunks!.push(d.data); t3.transferred += chunkLen;
       t3.progress = Math.round(t3.transferred / t3.size * 100); t3.status = 'receiving';
       renderTransfers();
     }

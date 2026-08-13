@@ -1,5 +1,7 @@
-// Package stream handles serving captured frames as MJPEG over HTTP,
-// and manages WebSocket connections for client handshake and input forwarding.
+// Package stream handles serving captured frames — as plain-HTTP MJPEG for
+// cleartext/loopback consumers, and as sealed WebSocket messages for secure
+// sessions — and manages WebSocket connections for client handshake and
+// input forwarding.
 package stream
 
 import (
@@ -693,6 +695,67 @@ func (s *MJPEGServer) distributeFrames(frameCh <-chan []byte, stop <-chan struct
 	}
 }
 
+// StreamPathFor returns the MJPEG stream path to advertise to sess in a
+// ready message. A secure session gets none: its frames arrive as sealed
+// WebSocket messages, and the plain-HTTP endpoints refuse it anyway (they
+// are loopback-only while a secure session is active). Advertising the
+// token-less "/stream" to it was also simply a bug — a secure client could
+// never have fetched that URL, since it lacked the frame token.
+func StreamPathFor(sess *protocol.Session) string {
+	if sess.IsSecure() {
+		return ""
+	}
+	return config.DefaultStreamPath
+}
+
+// pumpSecureFrames forwards captured frames to a secure session as sealed
+// WebSocket messages (Session.SendFrame). It consumes a distributor client
+// channel — the same fan-out the MJPEG handlers use, with the same bounded
+// buffer — and adds latest-frame-wins on top: whatever queued while the
+// previous seal+write was in flight is drained and only the newest frame is
+// sent. Video therefore never queues unboundedly and never head-of-line
+// blocks the control messages interleaved on the same connection (each
+// SendFrame is one bounded critical section on the session write lock, not
+// a standing claim on it).
+//
+// Exits when the client channel closes (removeClient / Stop) or the session
+// stops accepting writes.
+func (s *MJPEGServer) pumpSecureFrames(session *protocol.Session, ch <-chan []byte) {
+	var loggedOversize bool
+	for frame := range ch {
+		// Latest-frame-wins: drain anything newer that arrived while we
+		// were busy, keeping only the most recent frame.
+	drain:
+		for {
+			select {
+			case f, ok := <-ch:
+				if !ok {
+					return
+				}
+				frame = f
+			default:
+				break drain
+			}
+		}
+		switch err := session.SendFrame(frame); {
+		case err == nil:
+		case errors.Is(err, protocol.ErrFrameTooLarge):
+			// Skip it — the next frame supersedes it. Log once so a
+			// misconfigured quality setting is diagnosable without
+			// flooding the log at 30fps.
+			if !loggedOversize {
+				loggedOversize = true
+				log.Printf("stream: skipping oversized frame (%d bytes) for secure session [%s] — lower the capture quality or resolution", len(frame), session.ID)
+			}
+		default:
+			// Write failure or closed session — the read loop and the
+			// disconnect defer own the teardown; just stop pumping.
+			log.Printf("stream: secure frame pump stopped [%s]: %v", session.ID, err)
+			return
+		}
+	}
+}
+
 func (s *MJPEGServer) addClient() (chan []byte, error) {
 	s.clientsMu.Lock()
 	defer s.clientsMu.Unlock()
@@ -729,8 +792,7 @@ func (s *MJPEGServer) generateBoundary() string {
 }
 
 func (s *MJPEGServer) handleStream(w http.ResponseWriter, r *http.Request) {
-	if !s.frameClientAuthorized(r) {
-		http.Error(w, "not authorized", http.StatusForbidden)
+	if !s.authorizeFrameRequest(w, r) {
 		return
 	}
 	log.Printf("stream: MJPEG client connected: %s", r.RemoteAddr)
@@ -897,8 +959,10 @@ func friendlyPlatform() string {
 //
 // Note this controls ACCESS, not confidentiality: /stream is plain HTTP, so a
 // passive listener on the same network still sees the frames regardless of
-// this check. Closing that gap needs the video path itself to be encrypted —
-// see docs/securechan-handshake-architecture.md.
+// this check. For secure sessions that gap is closed one layer up —
+// authorizeFrameRequest refuses non-loopback requests outright while a
+// secure session is active, because its frames travel the sealed WebSocket
+// instead (Session.SendFrame).
 func (s *MJPEGServer) frameClientAuthorized(r *http.Request) bool {
 	ip := remoteIP(r.RemoteAddr)
 	if pip := net.ParseIP(ip); pip != nil && pip.IsLoopback() {
@@ -920,9 +984,46 @@ func (s *MJPEGServer) frameClientAuthorized(r *http.Request) bool {
 	return subtle.ConstantTimeCompare([]byte(supplied), []byte(token)) == 1
 }
 
-func (s *MJPEGServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {
+// secureSessionActive reports whether the currently connected client
+// negotiated an encrypted channel and was admitted. The frame token only
+// exists for such a session — it is issued inside the sealed channel after
+// the handshake and cleared on disconnect — so its presence is the signal.
+func (s *MJPEGServer) secureSessionActive() bool {
+	s.frameClientMu.RLock()
+	defer s.frameClientMu.RUnlock()
+	return s.frameToken != ""
+}
+
+// authorizeFrameRequest is the gate in front of the raw-screen HTTP
+// endpoints (/stream, /snapshot). It writes the refusal itself and reports
+// whether the handler may proceed.
+//
+// Loopback is always allowed — the desktop's own preview renders from
+// localhost and must not pay the encryption cost. While a secure session is
+// active, everyone else is refused outright: that session's frames travel
+// only as sealed WebSocket messages, and serving the same pixels over plain
+// HTTP — even to the paired client holding a valid frame token — would hand
+// a passive listener everything the encryption exists to protect. Cleartext
+// sessions keep the historical frameClientAuthorized behaviour (IP check,
+// no token), preserving the §9 migration path for legacy clients.
+func (s *MJPEGServer) authorizeFrameRequest(w http.ResponseWriter, r *http.Request) bool {
+	ip := remoteIP(r.RemoteAddr)
+	if pip := net.ParseIP(ip); pip != nil && pip.IsLoopback() {
+		return true
+	}
+	if s.secureSessionActive() {
+		http.Error(w, "secure session active: screen frames are delivered only over the encrypted WebSocket channel", http.StatusForbidden)
+		return false
+	}
 	if !s.frameClientAuthorized(r) {
 		http.Error(w, "not authorized", http.StatusForbidden)
+		return false
+	}
+	return true
+}
+
+func (s *MJPEGServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {
+	if !s.authorizeFrameRequest(w, r) {
 		return
 	}
 	s.frameMu.RLock()
@@ -1088,6 +1189,24 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			Message: err.Error(),
 		})
 		return
+	}
+
+	// Secure sessions receive their screen frames as sealed WebSocket
+	// messages instead of plain-HTTP MJPEG. Register a distributor client
+	// — the same fan-out (and the same bounded-buffer drop behaviour) the
+	// MJPEG handlers use — and pump it into Session.SendFrame. Cleartext
+	// sessions are untouched: their frames stay on /stream, which
+	// authorizeFrameRequest still serves to them.
+	if session.IsSecure() {
+		if frameCh, err := s.addClient(); err != nil {
+			log.Printf("stream: secure frame pump not started [%s]: %v", session.ID, err)
+		} else {
+			// removeClient closes frameCh, which ends the pump. Runs
+			// before the outer defer's session.Close(), so the pump is
+			// gone before the disconnect teardown.
+			defer s.removeClient(frameCh)
+			go s.pumpSecureFrames(session, frameCh)
+		}
 	}
 
 	// Enter read loop for input messages.

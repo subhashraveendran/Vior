@@ -19,10 +19,14 @@ import (
 // virtual display or capture pipeline behind it.
 type stubHandler struct {
 	connected chan *protocol.HelloMessage
+	inputs    chan *protocol.InputMessage
 }
 
 func newStubHandler() *stubHandler {
-	return &stubHandler{connected: make(chan *protocol.HelloMessage, 1)}
+	return &stubHandler{
+		connected: make(chan *protocol.HelloMessage, 1),
+		inputs:    make(chan *protocol.InputMessage, 8),
+	}
 }
 
 func (h *stubHandler) OnClientConnect(_ *protocol.Session, hello *protocol.HelloMessage) error {
@@ -32,7 +36,13 @@ func (h *stubHandler) OnClientConnect(_ *protocol.Session, hello *protocol.Hello
 	}
 	return nil
 }
-func (h *stubHandler) OnClientInput(*protocol.Session, *protocol.InputMessage) error   { return nil }
+func (h *stubHandler) OnClientInput(_ *protocol.Session, msg *protocol.InputMessage) error {
+	select {
+	case h.inputs <- msg:
+	default:
+	}
+	return nil
+}
 func (h *stubHandler) OnClientResize(*protocol.Session, *protocol.ResizeMessage) error { return nil }
 func (h *stubHandler) OnClientDisconnect(*protocol.Session)                            {}
 func (h *stubHandler) OnClientFileOffer(*protocol.Session, *protocol.FileOfferMessage) error {

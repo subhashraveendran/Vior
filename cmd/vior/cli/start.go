@@ -305,7 +305,7 @@ func (h *cliSessionHandler) OnClientConnect(sess *protocol.Session, hello *proto
 	h.touchMapper = input.NewTouchMapper(input.DefaultController, setup.DisplayBounds)
 
 	sess.Send(protocol.MsgReady, &protocol.ReadyMessage{
-		StreamURL:  config.DefaultStreamPath,
+		StreamURL:  stream.StreamPathFor(sess),
 		Resolution: fmt.Sprintf("%dx%d", setup.Width, setup.Height),
 		SessionID:  sess.ID,
 	})
@@ -374,7 +374,7 @@ func (h *cliSessionHandler) OnClientResize(session *protocol.Session, msg *proto
 	h.touchMapper = input.NewTouchMapper(input.DefaultController, d.Bounds)
 
 	session.Send(protocol.MsgReady, &protocol.ReadyMessage{
-		StreamURL:  config.DefaultStreamPath,
+		StreamURL:  stream.StreamPathFor(session),
 		Resolution: fmt.Sprintf("%dx%d", msg.Width, msg.Height),
 		SessionID:  session.ID,
 	})

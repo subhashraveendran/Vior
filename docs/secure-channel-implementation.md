@@ -39,11 +39,12 @@ Two distinct problems follow, and they need to be kept apart:
 | | Problem | Fixed here? |
 |---|---|---|
 | **Authorization** | `/stream` and `/snapshot` were gated on source IP alone — shared behind NAT, and spoofable on exactly the hostile networks this work targets | **Yes** — frame token, §4 |
-| **Confidentiality** | The MJPEG stream is plain HTTP. A passive listener on the same network reads the screen regardless of any access check | **No** — needs a decision, §7 |
+| **Confidentiality** | The MJPEG stream is plain HTTP. A passive listener on the same network reads the screen regardless of any access check | **Yes, for secure sessions** — frames ride the sealed WebSocket, §11 |
 
-Until confidentiality is addressed, the UI must not tell a user their session
-is protected without qualification. `ServerStatus.Secure` reports the
-WebSocket's real state and nothing broader.
+Cleartext (legacy) sessions still stream plain-HTTP MJPEG, so under
+`SecurePreferred` a session's protection depends on which kind of client
+connected. `ServerStatus.Secure` reports the WebSocket's real state — and for
+a secure session that state now covers the video too.
 
 ## 3. Architecture as implemented
 
@@ -150,8 +151,10 @@ WebSocket:
 
 ## 7. Known limitations
 
-1. **Screen frames are still cleartext.** §2. The largest remaining gap, and it
-   needs an architecture decision before it can be closed.
+1. **Screen frames are cleartext for cleartext sessions only.** Secure
+   sessions now receive frames over the sealed channel (§11); a legacy
+   client's MJPEG stream remains plain HTTP until `SecureRequired` retires
+   that path.
 2. **No client implementation yet.** The Go server negotiates, but no shipped
    client speaks the handshake, so in practice every session is still
    cleartext under `SecurePreferred`. See §8.
@@ -198,10 +201,78 @@ in `desktop/frontend/wailsjs/go/models.ts` were updated to match.
 
 ## 10. Future improvements
 
-- Encrypt or relocate the video path (§7.1) — needs the decision in §2
-- Client implementations (§8)
+- Client implementations (§8) — the server side of the sealed video path
+  (§11) is waiting on them
 - SPAKE2 for the typed short code
 - TTL / single-use secrets
-- `Seal` currently allocates per frame; a buffer pool matters if video ever
-  moves onto this path
 - Delete `SecureOff` before 1.0
+
+(Resolved since first written: video for secure sessions moved onto the
+sealed channel, and `SealTo` + a `sync.Pool` removed the per-frame `Seal`
+allocation — both in §11.)
+
+## 11. Sealed frame transport (issue #87)
+
+Screen frames for a **secure** session travel as sealed binary WebSocket
+messages on the same connection as everything else — the RustDesk-style
+single encrypted stream recommended in
+`docs/transport-security-reference-comparison.md` §6. This closes the
+confidentiality gap identified in §2 for exactly the sessions that can
+close it.
+
+### Wire framing
+
+The sealed *plaintext* of every message on a secure channel is discriminated
+by its first byte:
+
+| First byte | Meaning |
+|---|---|
+| `{` (0x7B) | JSON `Envelope` — every existing control message |
+| `0x01` (`protocol.FramePrefixJPEG`) | screen frame; the rest is a complete JPEG |
+
+JSON can never begin with 0x01, so one byte routes the message. Frames are
+server→client only, sent via `Session.SendFrame`. This is still protocol v1 —
+no shipped client spoke the secure protocol before frames were added, so
+`handshake.Version` is unchanged.
+
+### Delivery semantics
+
+`MJPEGServer` registers the secure session as a distributor client (the same
+bounded fan-out the MJPEG handlers use) and pumps it through
+`pumpSecureFrames`, which drains the buffer to the newest frame before each
+send — **latest-frame-wins**. Video never queues unboundedly, and because
+each `SendFrame` is one bounded critical section on the session write lock,
+it never head-of-line-blocks input or file messages.
+
+An oversized frame (sealed size over the 1 MiB secure limit) is skipped with
+`ErrFrameTooLarge` — logged once, session unharmed; the next frame supersedes
+it. `SendFrame` on a cleartext session returns `ErrNotSecure` and frames stay
+on the MJPEG path, preserving the §9 migration behaviour.
+
+### Message size limits
+
+The 128 KiB read limit still applies pre-handshake and for cleartext
+sessions. `EnableSecure` raises it to 1 MiB — the peer has proven knowledge
+of the channel secret, and sealed frames need the headroom. `SendFrame`
+enforces the same 1 MiB bound outbound.
+
+### Plain-HTTP endpoints while a secure session is active
+
+`/stream` and `/snapshot` refuse **all non-loopback requests with 403** while
+a secure session is active — even the paired client presenting a valid frame
+token. Serving the same pixels over plain HTTP would hand a passive listener
+everything the sealed channel protects. Loopback is exempt: the desktop's own
+preview renders from localhost and pays no encryption cost. Cleartext
+sessions keep the §4 behaviour (IP fallback) unchanged.
+
+Consequently the `ReadyMessage.streamUrl` field is now **empty for secure
+sessions** (`stream.StreamPathFor`). It previously advertised a token-less
+`/stream` a secure client could never have fetched.
+
+### Performance
+
+`securechan.SealTo` seals into a caller-supplied buffer, and `SendFrame`
+draws both its buffers (prefixed plaintext + sealed output) from a
+`sync.Pool`, so the steady-state 30fps path allocates nothing per frame.
+`BenchmarkSealFrame` in `internal/securechan` measures 100/300/600 KB frames
+with and without buffer reuse.

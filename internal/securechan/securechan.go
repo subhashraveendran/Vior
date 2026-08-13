@@ -120,6 +120,17 @@ func deriveKey(sharedKey []byte, info string, out []byte) error {
 // Seal encrypts plaintext into a self-framed message. The returned slice is a
 // fresh allocation the caller owns.
 func (c *Channel) Seal(plaintext []byte) ([]byte, error) {
+	return c.SealTo(nil, plaintext)
+}
+
+// SealTo is Seal with a caller-provided output buffer. If dst has enough
+// capacity (len(plaintext) + Overhead) it is reused and no allocation happens
+// — this is what makes a sync.Pool effective on the 30fps video path, where
+// per-frame Seal allocations of several hundred KB would otherwise dominate
+// GC pressure. The returned slice aliases dst's backing array when it was
+// reused, so the caller must not touch dst until it is done with the result.
+// A nil dst behaves exactly like Seal.
+func (c *Channel) SealTo(dst, plaintext []byte) ([]byte, error) {
 	c.sendMu.Lock()
 	defer c.sendMu.Unlock()
 	if c.sendCounter == math.MaxUint64 {
@@ -128,9 +139,14 @@ func (c *Channel) Seal(plaintext []byte) ([]byte, error) {
 	var nonce [nonceSize]byte
 	binary.BigEndian.PutUint64(nonce[:counterPrefix], c.sendCounter)
 
-	out := make([]byte, counterPrefix, counterPrefix+len(plaintext)+secretbox.Overhead)
-	binary.BigEndian.PutUint64(out, c.sendCounter)
-	out = secretbox.Seal(out, plaintext, &nonce, &c.sendKey)
+	need := counterPrefix + len(plaintext) + secretbox.Overhead
+	if cap(dst) < need {
+		dst = make([]byte, counterPrefix, need)
+	} else {
+		dst = dst[:counterPrefix]
+	}
+	binary.BigEndian.PutUint64(dst, c.sendCounter)
+	out := secretbox.Seal(dst, plaintext, &nonce, &c.sendKey)
 
 	c.sendCounter++
 	return out, nil

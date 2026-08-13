@@ -19,6 +19,18 @@ import (
 // to the session rather than merely ignored.
 var ErrPlaintextOnSecure = errors.New("protocol: unsealed frame on a secure channel")
 
+// ErrNotSecure is returned by SendFrame on a cleartext session. Screen frames
+// only travel the WebSocket when they can be sealed — a legacy client keeps
+// reading the plain-HTTP MJPEG stream instead, so this is a signal to the
+// caller to leave frames on that path, not an error worth killing anything
+// over.
+var ErrNotSecure = errors.New("protocol: screen frames require a secure channel")
+
+// ErrFrameTooLarge is returned by SendFrame when the sealed frame would
+// exceed the peer's secure read limit. The caller should skip the frame —
+// the next one supersedes it anyway — rather than tear the session down.
+var ErrFrameTooLarge = errors.New("protocol: frame exceeds the secure message size limit")
+
 const (
 	// pongWait is the deadline for reading the next pong message.
 	pongWait = 40 * time.Second
@@ -29,9 +41,21 @@ const (
 	// helloTimeout is how long the server waits for a hello message after upgrade.
 	helloTimeout = 10 * time.Second
 
-	// maxMessageSize is the maximum WebSocket message size in bytes.
-	// Large enough for file chunks (48KB data base64-encoded = ~65KB + JSON overhead).
+	// maxMessageSize is the maximum WebSocket message size in bytes while
+	// the session is pre-handshake or cleartext. Large enough for file
+	// chunks (48KB data base64-encoded = ~65KB + JSON overhead), and
+	// deliberately small so an unauthenticated LAN peer cannot push huge
+	// messages before proving anything.
 	maxMessageSize = 128 * 1024
+
+	// secureMaxMessageSize is the read limit once the channel is sealed.
+	// Screen frames ride the WebSocket on secure sessions, and a 1080p
+	// JPEG at streaming quality runs to several hundred KB — well past the
+	// 128 KiB pre-auth limit. 1 MiB covers every realistic frame with
+	// headroom; SendFrame enforces the same bound on the way out so a
+	// pathological frame is skipped rather than killing the peer's read
+	// loop.
+	secureMaxMessageSize = 1024 * 1024
 )
 
 // Session represents a connected client with an active WebSocket.
@@ -132,6 +156,11 @@ func (s *Session) EnableSecure(ch *securechan.Channel) {
 	s.mu.Lock()
 	s.secure = ch
 	s.mu.Unlock()
+	// The 128 KiB pre-auth limit exists to stop an unauthenticated peer
+	// pushing oversized messages. This peer has now proven knowledge of
+	// the channel secret, and sealed screen frames (up to ~1 MiB) may
+	// flow in either direction, so raise the limit to match.
+	s.Conn.SetReadLimit(secureMaxMessageSize)
 }
 
 // IsSecure reports whether this session's payloads are encrypted. The stream
@@ -188,10 +217,89 @@ func (s *Session) Send(msgType MessageType, data any) error {
 	return writeErr
 }
 
+// frameBuf holds the two reusable buffers a SendFrame call needs: the
+// prefixed plaintext (0x01 || JPEG) and the sealed output. Pooled because at
+// 30fps a 300 KB frame would otherwise allocate ~18 MB/s just to be thrown
+// at the GC — see docs/secure-channel-implementation.md §10.
+type frameBuf struct {
+	plain  []byte
+	sealed []byte
+}
+
+var frameBufPool = sync.Pool{
+	New: func() any { return &frameBuf{} },
+}
+
+// SendFrame sends one JPEG screen frame as a sealed binary message whose
+// plaintext is FramePrefixJPEG || jpeg. Thread-safe, and safe to interleave
+// with Send — both seal and write under the same lock, so counter order is
+// wire order.
+//
+// Only valid on a secure session: a cleartext session returns ErrNotSecure
+// and the caller should leave frames on the plain-HTTP MJPEG path. A frame
+// that would exceed the peer's secure read limit returns ErrFrameTooLarge
+// and must simply be skipped — neither error closes the session.
+func (s *Session) SendFrame(jpeg []byte) error {
+	if 1+len(jpeg)+securechan.Overhead > secureMaxMessageSize {
+		return ErrFrameTooLarge
+	}
+
+	buf := frameBufPool.Get().(*frameBuf)
+	buf.plain = append(buf.plain[:0], FramePrefixJPEG)
+	buf.plain = append(buf.plain, jpeg...)
+
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		frameBufPool.Put(buf)
+		return fmt.Errorf("session closed")
+	}
+	if s.secure == nil {
+		s.mu.Unlock()
+		frameBufPool.Put(buf)
+		return ErrNotSecure
+	}
+	// Seal under the write lock for the same reason Send does: counter
+	// order must equal wire order or the peer drops the earlier frame as
+	// a replay and kills the channel.
+	sealed, sealErr := s.secure.SealTo(buf.sealed[:0], buf.plain)
+	if sealErr != nil {
+		// Counter exhaustion — terminal for the channel, exactly as in
+		// Send. Mark closed so callers stop writing.
+		s.closed = true
+		s.mu.Unlock()
+		s.Conn.Close()
+		frameBufPool.Put(buf)
+		return fmt.Errorf("seal frame: %w", sealErr)
+	}
+	buf.sealed = sealed
+	s.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	writeErr := s.Conn.WriteMessage(websocket.BinaryMessage, sealed)
+	s.mu.Unlock()
+	n := len(sealed)
+	// WriteMessage is synchronous — gorilla has flushed (or failed) by the
+	// time it returns — so the buffers are safe to reuse immediately.
+	frameBufPool.Put(buf)
+	if writeErr == nil {
+		s.healthMu.Lock()
+		s.bytesOut += uint64(n)
+		s.healthMu.Unlock()
+	}
+	return writeErr
+}
+
 // ReadLoop reads messages from the client and dispatches them to the handler.
 // It blocks until the connection closes or an error occurs.
 func (s *Session) ReadLoop(handler MessageHandler) error {
-	s.Conn.SetReadLimit(maxMessageSize)
+	// Defensive re-assert of the read limit set by NewSession /
+	// EnableSecure. A secure session keeps the raised limit — clamping it
+	// back to 128 KiB here would sever the channel on the first large
+	// sealed message.
+	if s.IsSecure() {
+		s.Conn.SetReadLimit(secureMaxMessageSize)
+	} else {
+		s.Conn.SetReadLimit(maxMessageSize)
+	}
 	s.Conn.SetReadDeadline(time.Now().Add(pongWait))
 	s.Conn.SetPongHandler(func(string) error {
 		// Spec-level pong (gorilla driver). Refresh the read deadline

@@ -1,4 +1,23 @@
 // Package protocol defines the WebSocket message types for Vior client-server communication.
+//
+// # Wire framing on a secure channel
+//
+// Once the secure handshake completes (see internal/handshake and
+// internal/securechan), every WebSocket message is a sealed binary frame.
+// The sealed *plaintext* is one of two things, distinguished by its first
+// byte:
+//
+//   - '{' (0x7B): a JSON Envelope — every control message in this package.
+//   - FramePrefixJPEG (0x01): a screen frame; the remaining bytes are a
+//     complete JPEG image. Sent server→client only, via Session.SendFrame.
+//
+// JSON never begins with 0x01 and a frame never begins with '{', so the
+// discriminator is unambiguous with a single-byte inspection. Screen frames
+// exist only inside the sealed channel — a cleartext session never carries
+// them over the WebSocket (legacy clients keep using the plain-HTTP MJPEG
+// endpoints instead). This framing is part of protocol v1: no shipped client
+// spoke the secure protocol before it was added, so handshake.Version is
+// unchanged.
 package protocol
 
 import "encoding/json"
@@ -58,6 +77,12 @@ const (
 	// ride the WebSocket because they are plain HTTP responses.
 	MsgSecureReady MessageType = "secure-ready"
 )
+
+// FramePrefixJPEG is the first plaintext byte of a sealed binary screen
+// frame. Everything after it is a complete JPEG image. Sealed JSON control
+// messages always begin with '{' (0x7B), so a receiver can route on the
+// first byte alone. See the package comment for the full framing contract.
+const FramePrefixJPEG byte = 0x01
 
 // Error codes emitted during the secure handshake. Clients match on these
 // to tell "you need to update" apart from "your QR code is stale", which

@@ -106,6 +106,14 @@ jobs:
       - name: Vet
         run: go vet ./cmd/... ./internal/...
 
+      # Pinned to a release that supports the repo's Go version (1.25);
+      # bump deliberately when the Go toolchain moves.
+      - name: Staticcheck
+        if: runner.os == 'Linux'
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@2026.1
+          "$(go env GOPATH)/bin/staticcheck" ./cmd/... ./internal/...
+
       - name: Gofmt (check formatting)
         if: runner.os != 'Windows'
         run: |
@@ -228,6 +236,11 @@ jobs:
         run: |
           cd desktop
           wails build -clean -o vior-desktop
+
+      # Runs after the Wails build so desktop/frontend/dist exists for the
+      # //go:embed all:frontend/dist directive in desktop/main.go.
+      - name: Test desktop Go package
+        run: go test ./desktop/... -short
 
       - name: Upload macOS app
         if: runner.os == 'macOS'

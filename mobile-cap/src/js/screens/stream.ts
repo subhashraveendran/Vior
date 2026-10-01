@@ -66,12 +66,20 @@ function stopFramePolling(): void {
   if (fpsTimer) { clearInterval(fpsTimer); fpsTimer = null; }
 }
 function cleanupBlob(): void { if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; } }
+// Consecutive /snapshot failures before giving up. 40 × 150 ms ≈ 6 s —
+// long enough to ride out a capture restart after a resize, short enough
+// that a session with no frame source (403 for secure sessions, 503 for a
+// remote-only session) does not spin "Starting stream…" forever.
+const MAX_SNAPSHOT_FAILURES = 40;
+let snapshotFailures = 0;
+
 function pollFrame(): void {
   if (!framePolling) return;
   fetch(frameBaseUrl + '/snapshot?t=' + Date.now())
     .then(function (r) { if (!r.ok) throw 0; return r.blob(); })
     .then(function (b: Blob) {
       if (!framePolling) return;
+      snapshotFailures = 0;
       cleanupBlob();
       blobUrl = URL.createObjectURL(b);
       streamImg.src = blobUrl;
@@ -81,7 +89,18 @@ function pollFrame(): void {
       reconnectAttempts = 0;
       requestAnimationFrame(pollFrame);
     })
-    .catch(function () { if (framePolling) setTimeout(pollFrame, 150); });
+    .catch(function () {
+      if (!framePolling) return;
+      snapshotFailures++;
+      if (snapshotFailures >= MAX_SNAPSHOT_FAILURES) {
+        snapshotFailures = 0;
+        stopFramePolling();
+        hideStream();
+        toast('warning', 'No video', 'The desktop is not streaming a display for this session.');
+        return;
+      }
+      setTimeout(pollFrame, 150);
+    });
 }
 
 // ── Stream overlay auto-hide ──

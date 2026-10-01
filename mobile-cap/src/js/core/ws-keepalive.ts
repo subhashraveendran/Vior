@@ -139,7 +139,7 @@ function createKeepalive(cb: KeepaliveCallbacks): Keepalive {
   // Generic browser online/offline is a useful belt-and-braces signal
   // (it fires for plane mode toggles, Wi-Fi reassociation on iOS).
   window.addEventListener('online', onNetworkChange);
-  window.addEventListener('offline', function () { onNetworkChange(); });
+  window.addEventListener('offline', onNetworkChange);
 
   return {
     attach(ws: WebSocket): void {
@@ -172,6 +172,9 @@ function createKeepalive(cb: KeepaliveCallbacks): Keepalive {
         conn.removeEventListener('change', onNetworkChange);
       }
       window.removeEventListener('online', onNetworkChange);
+      // Was an anonymous wrapper, so it was never removed and every
+      // keepalive instance left one behind until the page reloaded.
+      window.removeEventListener('offline', onNetworkChange);
       socket = null;
     },
     msSinceLastPong(): number | null {

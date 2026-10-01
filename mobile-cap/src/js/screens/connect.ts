@@ -97,26 +97,32 @@ async function pairOnlyConnect(pair: string): Promise<void> {
   }
   const base = localIP.split('.').slice(0, 3).join('.');
   const probes: Promise<{ host: string; port: number; info: { paired?: boolean; name?: string; platform?: string } } | null>[] = [];
+  // Same port list as discovery: the desktop binds 8080 by default and
+  // falls back to 8081 when that is taken. Probing 8080 alone made the
+  // pair-code path fail on exactly the machines where discovery worked.
+  const PROBE_PORTS = [8080, 8081];
   for (let i = 1; i < 255; i++) {
     const host = base + '.' + i;
-    probes.push((async function () {
-      const ctrl = new AbortController();
-      setTimeout(function () { ctrl.abort(); }, 1500);
-      try {
-        // Send the typed code as ?probe= so the server can confirm it's
-        // the right one WITHOUT ever publishing the code. The desktop
-        // returns {"paired":true} only on a constant-time match (and
-        // rate-limits mismatches). The old flow read info.pairCode,
-        // which meant the code was readable by anyone on the LAN.
-        const r = await fetch('http://' + host + ':8080/info?probe=' + encodeURIComponent(pair), { signal: ctrl.signal });
-        if (!r.ok) return null;
-        const info = await r.json();
-        if (info.paired === true) {
-          return { host, port: 8080, info };
-        }
-      } catch (_) { /* timeout or refused */ }
-      return null;
-    })());
+    PROBE_PORTS.forEach(function (port: number): void {
+      probes.push((async function () {
+        const ctrl = new AbortController();
+        setTimeout(function () { ctrl.abort(); }, 1500);
+        try {
+          // Send the typed code as ?probe= so the server can confirm it's
+          // the right one WITHOUT ever publishing the code. The desktop
+          // returns {"paired":true} only on a constant-time match (and
+          // rate-limits mismatches). The old flow read info.pairCode,
+          // which meant the code was readable by anyone on the LAN.
+          const r = await fetch('http://' + host + ':' + port + '/info?probe=' + encodeURIComponent(pair), { signal: ctrl.signal });
+          if (!r.ok) return null;
+          const info = await r.json();
+          if (info.paired === true) {
+            return { host, port, info };
+          }
+        } catch (_) { /* timeout or refused */ }
+        return null;
+      })());
+    });
   }
   const found = (await Promise.all(probes)).filter(Boolean) as { host: string; port: number; info: { name?: string; platform?: string } }[];
   if (found.length === 0) {
@@ -359,6 +365,9 @@ function doConnect(): void {
       } catch (_) {}
       frameBaseUrl = 'http://' + host + ':' + port;
       $('connecting-overlay').classList.add('hidden');
+      // A successful handshake after a drop must clear the banner the
+      // reconnect branch showed; nothing else ever hid it.
+      $('recon-banner').classList.add('hidden');
       connected = true;
       connecting = false;
       // A completed handshake refills the reconnect budget. Previously

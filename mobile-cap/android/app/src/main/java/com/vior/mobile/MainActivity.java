@@ -1,8 +1,16 @@
 package com.vior.mobile;
 
 import android.Manifest;
+import android.app.DownloadManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.database.Cursor;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Environment;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
@@ -12,6 +20,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.PermissionRequest;
 import android.webkit.WebView;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -58,6 +72,15 @@ public class MainActivity extends BridgeActivity {
     // Guards the pre-auth drop log so a flooding peer cannot spam logcat.
     private volatile boolean preAuthDropLogged = false;
     private Runnable helloAckTimeoutTask;
+
+    // ── Native file download (desktop → phone) ─────────────────────────
+    // The WebView cannot save a blob: URL to disk (there is no
+    // DownloadListener, and Capacitor does not handle blob downloads), so
+    // received files are fetched by the system DownloadManager instead.
+    // downloadToTransfer maps each DownloadManager job back to the Vior
+    // transfer id so the completion broadcast can notify the page.
+    private final Map<Long, String> downloadToTransfer = new HashMap<>();
+    private BroadcastReceiver downloadReceiver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -229,6 +252,20 @@ public class MainActivity extends BridgeActivity {
         // Register JavaScript interface for touch forwarding over USB.
         getBridge().getWebView().addJavascriptInterface(this, "Android");
 
+        // Completion broadcasts for downloads started by downloadFile().
+        // RECEIVER_EXPORTED because the broadcast comes from the system's
+        // download provider, not from this app; the job id is verified
+        // against DownloadManager before anything is reported to the page.
+        downloadReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                onDownloadComplete(intent);
+            }
+        };
+        ContextCompat.registerReceiver(this, downloadReceiver,
+                new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+                ContextCompat.RECEIVER_EXPORTED);
+
         // Scan for USB accessory after short delay (WebView needs time to load).
         getBridge().getWebView().postDelayed(() -> {
             if (!usbConnected && usbPlugin != null) {
@@ -304,6 +341,10 @@ public class MainActivity extends BridgeActivity {
         if (usbPlugin != null) {
             try { usbPlugin.disconnect(); } catch (Exception ignored) {}
             usbPlugin = null;
+        }
+        if (downloadReceiver != null) {
+            try { unregisterReceiver(downloadReceiver); } catch (Exception ignored) {}
+            downloadReceiver = null;
         }
         super.onDestroy();
     }
@@ -466,6 +507,113 @@ public class MainActivity extends BridgeActivity {
         } catch (Exception e) {
             Log.e(TAG, "setBootAutostart failed: " + e.getMessage());
         }
+    }
+
+    /**
+     * JS-callable: save a desktop-offered file via the system
+     * DownloadManager. Returns the DownloadManager job id as a string, or
+     * "" when the request could not be enqueued (the page then falls back
+     * to its in-WebView fetch). Called from JavaScript via:
+     *   Android.downloadFile(url, name, mime, transferId)
+     *
+     * Only plain http(s) URLs are accepted; the page builds them from the
+     * server base URL it is already talking to.
+     */
+    @android.webkit.JavascriptInterface
+    public String downloadFile(String url, String name, String mime, String transferId) {
+        if (url == null || transferId == null) return "";
+        if (!(url.startsWith("http://") || url.startsWith("https://"))) return "";
+        String safeName = sanitizeFileName(name);
+        try {
+            DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+            if (dm == null) return "";
+            DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
+            req.setTitle(safeName);
+            req.setDescription("Vior file transfer");
+            if (mime != null && !mime.isEmpty()) req.setMimeType(mime);
+            req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            req.setAllowedOverMetered(true);
+            req.setAllowedOverRoaming(true);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // Public Downloads/Vior. DownloadManager-written files need
+                // no storage permission on API 29+.
+                req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "Vior/" + safeName);
+            } else {
+                // Pre-29, public Downloads needs WRITE_EXTERNAL_STORAGE; the
+                // app's own external files dir needs no permission.
+                req.setDestinationInExternalFilesDir(this, Environment.DIRECTORY_DOWNLOADS, safeName);
+            }
+            long id = dm.enqueue(req);
+            synchronized (downloadToTransfer) {
+                downloadToTransfer.put(id, transferId);
+            }
+            Log.i(TAG, "download enqueued id=" + id + " name=" + safeName);
+            return Long.toString(id);
+        } catch (Exception e) {
+            Log.e(TAG, "downloadFile failed: " + e.getMessage());
+            return "";
+        }
+    }
+
+    private static String sanitizeFileName(String name) {
+        if (name == null || name.isEmpty()) return "file";
+        // Strip path separators and control characters; keep the rest so
+        // the user recognises the file. Cap the length for the filesystem.
+        String s = name.replaceAll("[/\\\\\\p{Cntrl}]", "_").trim();
+        if (s.isEmpty() || s.equals(".") || s.equals("..")) s = "file";
+        if (s.length() > 200) s = s.substring(0, 200);
+        return s;
+    }
+
+    private void onDownloadComplete(Intent intent) {
+        if (intent == null) return;
+        long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
+        if (id < 0) return;
+        String transferId;
+        synchronized (downloadToTransfer) {
+            transferId = downloadToTransfer.remove(id);
+        }
+        if (transferId == null) return; // not one of ours
+        boolean ok = false;
+        String localUri = null;
+        String error = "download failed";
+        try {
+            DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+            Cursor c = dm == null ? null : dm.query(new DownloadManager.Query().setFilterById(id));
+            if (c != null) {
+                try {
+                    if (c.moveToFirst()) {
+                        int status = c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+                        if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                            ok = true;
+                            localUri = c.getString(c.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI));
+                        } else {
+                            int reason = c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON));
+                            error = "download failed (status " + status + ", reason " + reason + ")";
+                        }
+                    }
+                } finally {
+                    c.close();
+                }
+            }
+        } catch (Exception e) {
+            error = "download failed: " + e.getMessage();
+        }
+        JSONObject payload = new JSONObject();
+        try {
+            payload.put("id", transferId);
+            payload.put("ok", ok);
+            if (localUri != null) payload.put("path", localUri);
+            if (!ok) payload.put("error", error);
+        } catch (JSONException ignored) {
+            return;
+        }
+        // JSON is a JS object literal except for U+2028/2029 inside strings,
+        // which org.json leaves raw; escape them so a file name cannot break
+        // the statement.
+        final String json = payload.toString().replace("\u2028", "\\u2028").replace("\u2029", "\\u2029");
+        final String js = "window.viorNativeDownloadDone && window.viorNativeDownloadDone(" + json + ")";
+        runOnUiThread(() -> evaluateJs(js));
     }
 
     private void evaluateJs(String js) {

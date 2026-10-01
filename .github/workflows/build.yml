@@ -299,8 +299,14 @@ jobs:
         with:
           node-version: '22'
 
+      # v3 ran `sdkmanager tools` by default; Google removed the deprecated
+      # `tools` package from the SDK repository, so every v3 run now fails
+      # before Gradle starts. v4 defaults to platform-tools; pinned here so a
+      # future default change cannot reintroduce the problem.
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
 
       - name: Install dependencies
         run: cd mobile-cap && npm ci

@@ -351,6 +351,11 @@ func (s *Session) ReadLoop(handler MessageHandler) error {
 		// updates lastReadAt above, which doubles as the freshness
 		// signal for the health logger.
 		if env.Type == MsgPing {
+			// A client that pings is alive — extend the read deadline the
+			// same way a spec-level pong does, so liveness is proven by
+			// either mechanism rather than only by the server's own
+			// 30 s ping/pong cycle.
+			s.Conn.SetReadDeadline(time.Now().Add(pongWait))
 			s.healthMu.Lock()
 			s.lastPongAt = time.Now()
 			s.healthMu.Unlock()

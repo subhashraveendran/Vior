@@ -18,14 +18,16 @@ import (
 // stubHandler satisfies SessionHandler so handleWebSocket can run without a
 // virtual display or capture pipeline behind it.
 type stubHandler struct {
-	connected chan *protocol.HelloMessage
-	inputs    chan *protocol.InputMessage
+	connected    chan *protocol.HelloMessage
+	disconnected chan *protocol.Session
+	inputs       chan *protocol.InputMessage
 }
 
 func newStubHandler() *stubHandler {
 	return &stubHandler{
-		connected: make(chan *protocol.HelloMessage, 1),
-		inputs:    make(chan *protocol.InputMessage, 8),
+		connected:    make(chan *protocol.HelloMessage, 1),
+		disconnected: make(chan *protocol.Session, 4),
+		inputs:       make(chan *protocol.InputMessage, 8),
 	}
 }
 
@@ -44,7 +46,12 @@ func (h *stubHandler) OnClientInput(_ *protocol.Session, msg *protocol.InputMess
 	return nil
 }
 func (h *stubHandler) OnClientResize(*protocol.Session, *protocol.ResizeMessage) error { return nil }
-func (h *stubHandler) OnClientDisconnect(*protocol.Session)                            {}
+func (h *stubHandler) OnClientDisconnect(s *protocol.Session) {
+	select {
+	case h.disconnected <- s:
+	default:
+	}
+}
 func (h *stubHandler) OnClientFileOffer(*protocol.Session, *protocol.FileOfferMessage) error {
 	return nil
 }

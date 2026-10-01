@@ -1078,23 +1078,19 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	session := protocol.NewSession(conn)
 	log.Printf("stream: ws client connected: %s [%s]", r.RemoteAddr, session.ID)
 
-	// Only one client at a time.
-	s.wsConnMu.Lock()
-	if s.wsConn != nil {
-		s.wsConnMu.Unlock()
-		session.Send(protocol.MsgError, &protocol.ErrorMessage{
-			Code:    "occupied",
-			Message: "Another device is already connected",
-		})
-		session.Close()
-		return
-	}
-	s.wsConn = session
-	s.wsConnMu.Unlock()
+	// admitted flips to true once this session holds the single client
+	// slot (claimSlot, after the pair check). The deferred teardown uses
+	// it to decide whether the disconnect callback belongs to this
+	// session: a peer that was turned away (occupied, bad pair code,
+	// handshake failure) never had a session the handler knows about, and
+	// running OnClientDisconnect for it would tear down the real client's
+	// display.
+	admitted := false
 
 	defer func() {
 		s.wsConnMu.Lock()
-		if s.wsConn == session {
+		wasActive := s.wsConn == session
+		if wasActive {
 			s.wsConn = nil
 		}
 		s.wsConnMu.Unlock()
@@ -1102,20 +1098,27 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		// unpaired peer at the same address can't keep scraping. The
 		// token goes with it — it is scoped to this session's key, so
 		// leaving it live would outlast the channel that justified it.
-		s.frameClientMu.Lock()
-		if s.frameClientIP == remoteIP(r.RemoteAddr) {
-			s.frameClientIP = ""
-			s.frameToken = ""
+		// Only the session that still holds the slot may do this: an
+		// evicted session shares the IP with its replacement, and the
+		// replacement's token must survive.
+		if wasActive {
+			s.frameClientMu.Lock()
+			if s.frameClientIP == remoteIP(r.RemoteAddr) {
+				s.frameClientIP = ""
+				s.frameToken = ""
+			}
+			s.frameClientMu.Unlock()
 		}
-		s.frameClientMu.Unlock()
 		// sync.Once on the session guarantees OnClientDisconnect runs
-		// exactly once even when an in-loop Bye and the post-loop
-		// defer both arrive — without this guard, the App handler
-		// would tear the virtual display down twice and race the
-		// macOS CGVirtualDisplay teardown.
-		session.FireDisconnect(func() {
-			s.handler.OnClientDisconnect(session)
-		})
+		// exactly once even when an in-loop Bye, an eviction by the same
+		// device reconnecting, and the post-loop defer all arrive —
+		// without this guard, the App handler would tear the virtual
+		// display down twice and race the macOS CGVirtualDisplay teardown.
+		if admitted {
+			session.FireDisconnect(func() {
+				s.handler.OnClientDisconnect(session)
+			})
+		}
 		session.Close()
 		log.Printf("stream: WebSocket client disconnected: %s [%s]", r.RemoteAddr, session.ID)
 	}()
@@ -1193,9 +1196,25 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Admitted. Authorize this client for /snapshot and /stream so the raw
-	// screen frames are only served to the paired device (plus loopback
-	// for the desktop's own preview).
+	// Admitted. Claim the single client slot. Claiming only now — after the
+	// pair check — means an unauthenticated LAN peer can no longer hold the
+	// slot for the length of a handshake, and a reconnect from the device
+	// that already holds it is a resume rather than a conflict: after a
+	// silent Wi-Fi drop the server keeps the dead session until its read
+	// deadline expires (up to 40 s), and the phone's immediate retry used
+	// to be answered with "occupied" and give up.
+	if !s.claimSlot(session, hello) {
+		session.Send(protocol.MsgError, &protocol.ErrorMessage{
+			Code:    "occupied",
+			Message: "Another device is already connected",
+		})
+		return
+	}
+	admitted = true
+
+	// Authorize this client for /snapshot and /stream so the raw screen
+	// frames are only served to the paired device (plus loopback for the
+	// desktop's own preview).
 	//
 	// For secure sessions the frame token is the real authenticator: it
 	// was derived from the session key and delivered inside the sealed
@@ -1239,6 +1258,39 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Enter read loop for input messages.
 	wsHandler := &wsMessageAdapter{handler: s.handler}
 	session.ReadLoop(wsHandler)
+}
+
+// claimSlot installs session as the single WebSocket client. It returns
+// false when a different device already holds the slot. When the holder
+// reports the same deviceId it is a stale session from a dropped link: its
+// disconnect handling runs synchronously here, so the display and capture
+// it owned are released before the new session's OnClientConnect builds
+// its own, and its socket is closed so its read loop exits. The old
+// session's own deferred teardown then finds it no longer holds the slot
+// and does nothing further (FireDisconnect is once-only).
+func (s *MJPEGServer) claimSlot(session *protocol.Session, hello *protocol.HelloMessage) bool {
+	s.wsConnMu.Lock()
+	old := s.wsConn
+	if old == nil || old == session {
+		s.wsConn = session
+		s.wsConnMu.Unlock()
+		return true
+	}
+	sameDevice := hello.DeviceID != "" && old.Hello != nil && old.Hello.DeviceID == hello.DeviceID
+	if !sameDevice {
+		s.wsConnMu.Unlock()
+		return false
+	}
+	s.wsConn = session
+	s.wsConnMu.Unlock()
+
+	log.Printf("stream: device %s reconnected; evicting stale session [%s] in favour of [%s]",
+		hello.DeviceID, old.ID, session.ID)
+	old.FireDisconnect(func() {
+		s.handler.OnClientDisconnect(old)
+	})
+	old.Close()
+	return true
 }
 
 // wsMessageAdapter adapts SessionHandler to protocol.MessageHandler.

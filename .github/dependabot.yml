@@ -1,0 +1,59 @@
+# Dependabot — version updates for every manifest in the repo.
+#
+# Security alerts/updates are enabled separately in the repository settings
+# (Settings → Code security). This file only controls the weekly
+# version-bump PRs. Each ecosystem groups its minor/patch bumps into one PR
+# so the CI matrix (7 jobs) runs once per week per ecosystem, not once per
+# transitive dependency.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      go-minor-patch:
+        update-types: [minor, patch]
+    # Wails minor bumps change the webview host; keep them as their own PR
+    # so a UI regression is easy to bisect.
+    ignore:
+      - dependency-name: github.com/wailsapp/wails/v2
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: npm
+    directory: /desktop/frontend
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      desktop-frontend:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /mobile-cap
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      mobile-minor-patch:
+        update-types: [minor, patch]
+    # Capacitor majors change the Android project template that CI
+    # regenerates with `cap add android`; they need a deliberate migration.
+    ignore:
+      - dependency-name: "@capacitor/*"
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: npm
+    directory: /npm/cli
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ["*"]

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -30,6 +31,9 @@ Example — make virtual display mirror main display:
 			return fmt.Errorf("source and target must be different")
 		}
 		if err := capture.MirrorDisplay(mirrorSource, mirrorTarget); err != nil {
+			if errors.Is(err, capture.ErrUnsupported) {
+				return fmt.Errorf("display mirroring is only available on macOS")
+			}
 			return err
 		}
 		fmt.Printf("Display %d now mirrors display %d\n", mirrorSource, mirrorTarget)
@@ -51,6 +55,9 @@ Example:
 			return fmt.Errorf("invalid display index: %q", args[0])
 		}
 		if err := capture.UnmirrorDisplay(idx); err != nil {
+			if errors.Is(err, capture.ErrUnsupported) {
+				return fmt.Errorf("display arrangement is only available on macOS")
+			}
 			return err
 		}
 		fmt.Printf("Display %d is now extended\n", idx)

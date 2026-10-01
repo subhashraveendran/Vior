@@ -353,6 +353,7 @@ func (a *App) OnClientConnect(sess *protocol.Session, hello *protocol.HelloMessa
 			RemoteAddr:     clientRemoteHost(sess),
 			Platform:       hello.Platform,
 			DeviceID:       hello.DeviceID,
+			Intent:         clientIntent(hello),
 		})
 		return nil
 	}
@@ -365,11 +366,14 @@ func (a *App) OnClientConnect(sess *protocol.Session, hello *protocol.HelloMessa
 	a.setTouchMapper(input.NewTouchMapper(input.DefaultController, setup.DisplayBounds))
 
 	sess.Send(protocol.MsgReady, &protocol.ReadyMessage{
-		StreamURL:  config.DefaultStreamPath,
+		StreamURL:  stream.StreamPathFor(sess),
 		Resolution: fmt.Sprintf("%dx%d", setup.Width, setup.Height),
 		SessionID:  sess.ID,
 	})
 
+	// Same identity fields as the no-display branch: the Connected screen's
+	// "is this your device?" card needs the address and platform to be
+	// answerable, and this — the common path — used to omit them.
 	runtime.EventsEmit(a.ctx, "client:connected", ClientInfo{
 		SessionID:      sess.ID,
 		Name:           hello.Name,
@@ -378,29 +382,43 @@ func (a *App) OnClientConnect(sess *protocol.Session, hello *protocol.HelloMessa
 		DPR:            hello.DPR,
 		ConnectedAt:    time.Now().Format(time.RFC3339),
 		ConnectionType: "wifi",
+		RemoteAddr:     clientRemoteHost(sess),
+		Platform:       hello.Platform,
+		DeviceID:       hello.DeviceID,
+		Intent:         clientIntent(hello),
 	})
 
 	return nil
 }
 
 func (a *App) OnClientResize(sess *protocol.Session, msg *protocol.ResizeMessage) error {
-	log.Printf("session: client resized: %dx%d @%.1fx", msg.Width, msg.Height, msg.DPR)
+	log.Printf("session: client resized: %dx%d @%.1fx mode=%q", msg.Width, msg.Height, msg.DPR, msg.Mode)
 
 	if a.session != nil {
 		a.session.Stop()
 		a.session = nil
 	}
 
-	// Treat resize as a fresh extend-mode setup with new dimensions.
-	hello := &protocol.HelloMessage{
-		Width:  msg.Width,
-		Height: msg.Height,
-		DPR:    msg.DPR,
-		Mode:   "extend",
-	}
+	// Re-run setup with the new dimensions, carrying over everything else
+	// the client said in hello. This used to hardcode Mode "extend" and
+	// drop the intent, so a rotation of a Remote-only / Files-only session
+	// created a virtual display the user never asked for, and a mirror
+	// session silently became extend. msg.Mode is the live mode switch.
+	hello := session.ResizeHello(sess.Hello, msg)
 	setup, err := session.Configure(hello)
 	if err != nil {
 		return err
+	}
+	sess.Hello = hello
+
+	if setup.Mode == "none" {
+		a.setTouchMapper(input.NewTouchMapper(input.DefaultController, setup.DisplayBounds))
+		sess.Send(protocol.MsgReady, &protocol.ReadyMessage{
+			StreamURL:  "",
+			Resolution: fmt.Sprintf("%dx%d", setup.Width, setup.Height),
+			SessionID:  sess.ID,
+		})
+		return nil
 	}
 
 	a.session = capture.NewSession(setup.DisplayIndex, a.cfg.Quality, a.cfg.FrameRate)
@@ -411,7 +429,7 @@ func (a *App) OnClientResize(sess *protocol.Session, msg *protocol.ResizeMessage
 	a.setTouchMapper(input.NewTouchMapper(input.DefaultController, setup.DisplayBounds))
 
 	sess.Send(protocol.MsgReady, &protocol.ReadyMessage{
-		StreamURL:  config.DefaultStreamPath,
+		StreamURL:  stream.StreamPathFor(sess),
 		Resolution: fmt.Sprintf("%dx%d", setup.Width, setup.Height),
 		SessionID:  sess.ID,
 	})
@@ -780,12 +798,21 @@ func (a *App) GetConfig() AppConfig {
 	}
 }
 
+// UpdateConfig applies the stream tunables the Settings screen edits.
+//
+// Only Quality and FrameRate are taken from the UI. The frontend reads
+// config once at boot — before StartServer has resolved port 0 to a real
+// port — and echoes the whole struct back on every preset click. Copying
+// Port/Host from that stale snapshot reset the bound port to 0, which
+// broke the advertised URL, the QR code, the USB port-forward and the
+// discovery beacon until the next restart.
 func (a *App) UpdateConfig(ac AppConfig) {
-	a.cfg.Port = ac.Port
-	a.cfg.Quality = ac.Quality
-	a.cfg.FrameRate = ac.FrameRate
-	a.cfg.Host = ac.Host
-	a.cfg.TransferDir = ac.TransferDir
+	if ac.Quality > 0 {
+		a.cfg.Quality = ac.Quality
+	}
+	if ac.FrameRate > 0 {
+		a.cfg.FrameRate = ac.FrameRate
+	}
 }
 
 func (a *App) ResetConfig() {
@@ -857,6 +884,26 @@ type ClientInfo struct {
 	RemoteAddr string `json:"remoteAddr,omitempty"`
 	Platform   string `json:"platform,omitempty"`
 	DeviceID   string `json:"deviceId,omitempty"`
+	// Intent is what the client asked for: "display" (default), "remote"
+	// or "files". Remote/files sessions have no virtual display, so the
+	// UI hides the display panel instead of showing a resolution that
+	// does not exist.
+	Intent string `json:"intent,omitempty"`
+}
+
+// clientIntent normalizes a hello for the UI. Legacy clients send no
+// intent and mean "display"; a client that only set SkipDisplay is a
+// remote-only session in all but name.
+func clientIntent(h *protocol.HelloMessage) string {
+	switch {
+	case h == nil:
+		return "display"
+	case h.Intent != "":
+		return h.Intent
+	case h.SkipDisplay:
+		return "remote"
+	}
+	return "display"
 }
 
 // clientRemoteHost returns the peer IP (no port) for a WS session, or ""
@@ -890,6 +937,10 @@ func (a *App) GetConnectedClients() []ClientInfo {
 		DPR:            a.client.Hello.DPR,
 		ConnectedAt:    a.client.CreatedAt.Format(time.RFC3339),
 		ConnectionType: "wifi",
+		RemoteAddr:     clientRemoteHost(a.client),
+		Platform:       a.client.Hello.Platform,
+		DeviceID:       a.client.Hello.DeviceID,
+		Intent:         clientIntent(a.client.Hello),
 	}}
 }
 

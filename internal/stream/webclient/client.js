@@ -213,11 +213,12 @@
     });
 
     // ── Pair-code input formatting ────────────────────────────────
-    // Pair code is the machine's stable 4-digit "phone number". Strip
-    // anything that isn't a decimal digit and clamp to 4 chars.
+    // Pair code is the machine's stable 6-digit "phone number" (a user
+    // override may be 4–8 digits). Strip anything that isn't a decimal
+    // digit and clamp to the server's maximum.
     var pairInput = $('pair-input');
     function formatPair(raw) {
-        return (raw || '').replace(/[^0-9]/g, '').slice(0, 4);
+        return (raw || '').replace(/[^0-9]/g, '').slice(0, 8);
     }
     function strippedPair() {
         return ((pairInput && pairInput.value) || '').replace(/[^0-9]/g, '');
@@ -280,17 +281,19 @@
         });
     }
 
-    // Probe one host:port for matching pair code.
+    // Probe one host:port for matching pair code. The server never
+    // publishes the code; we present ours as ?probe= and it answers
+    // {paired:true} only on a match (constant-time, rate-limited).
     function probeHost(host, port, pair) {
         var ctrl = new AbortController();
         state.scanAbortControllers.push(ctrl);
         var to = setTimeout(function () { ctrl.abort(); }, 1500);
-        return fetch('http://' + host + ':' + port + '/info', { signal: ctrl.signal })
+        return fetch('http://' + host + ':' + port + '/info?probe=' + encodeURIComponent(pair), { signal: ctrl.signal })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (info) {
                 clearTimeout(to);
                 if (!info) return null;
-                if ((info.pairCode || '') === pair) {
+                if (info.paired === true) {
                     return { host: host, port: port, info: info };
                 }
                 return null;
@@ -364,8 +367,8 @@
 
     connectBtn.addEventListener('click', function () {
         var pair = strippedPair();
-        if (pair.length !== 4) {
-            toast('warn', 'Pair code', 'Enter the 4-digit code shown on the desktop.');
+        if (!/^[0-9]{4,8}$/.test(pair)) {
+            toast('warn', 'Pair code', 'Enter the 6-digit code shown on the desktop.');
             return;
         }
         lsSet(PAIR_KEY, pair);

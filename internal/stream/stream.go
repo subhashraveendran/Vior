@@ -1,5 +1,7 @@
-// Package stream handles serving captured frames as MJPEG over HTTP,
-// and manages WebSocket connections for client handshake and input forwarding.
+// Package stream handles serving captured frames — as plain-HTTP MJPEG for
+// cleartext/loopback consumers, and as sealed WebSocket messages for secure
+// sessions — and manages WebSocket connections for client handshake and
+// input forwarding.
 package stream
 
 import (
@@ -355,7 +357,7 @@ func remoteIP(remoteAddr string) string {
 }
 
 // PairCode returns the active pair code: the user-override if set, else
-// the machine-derived 4-digit numeric default.
+// the machine-derived 6-digit numeric default.
 func PairCode() string {
 	pairCodeMu.RLock()
 	defer pairCodeMu.RUnlock()
@@ -520,6 +522,33 @@ func (s *MJPEGServer) Start() error {
 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
+		// Roll back the running flag and the distributor we just started.
+		// Without this a port-in-use failure left IsRunning() true, so the
+		// desktop refused every later StartServer with "already running"
+		// and the distributor goroutine leaked.
+		//
+		// Snapshot under distMu, then wait with it released: the
+		// distributor's deferred cleanup takes distMu itself to clear
+		// distRunning, so waiting on done while holding the lock deadlocks.
+		s.distMu.Lock()
+		running := s.distRunning
+		stop := s.stopDistribute
+		done := s.distDone
+		s.distMu.Unlock()
+		if running {
+			select {
+			case <-stop:
+			default:
+				close(stop)
+			}
+			<-done
+			s.distMu.Lock()
+			s.stopDistribute = make(chan struct{})
+			s.distMu.Unlock()
+		}
+		s.mu.Lock()
+		s.running = false
+		s.mu.Unlock()
 		return fmt.Errorf("listen failed: %w", err)
 	}
 
@@ -693,6 +722,67 @@ func (s *MJPEGServer) distributeFrames(frameCh <-chan []byte, stop <-chan struct
 	}
 }
 
+// StreamPathFor returns the MJPEG stream path to advertise to sess in a
+// ready message. A secure session gets none: its frames arrive as sealed
+// WebSocket messages, and the plain-HTTP endpoints refuse it anyway (they
+// are loopback-only while a secure session is active). Advertising the
+// token-less "/stream" to it was also simply a bug — a secure client could
+// never have fetched that URL, since it lacked the frame token.
+func StreamPathFor(sess *protocol.Session) string {
+	if sess.IsSecure() {
+		return ""
+	}
+	return config.DefaultStreamPath
+}
+
+// pumpSecureFrames forwards captured frames to a secure session as sealed
+// WebSocket messages (Session.SendFrame). It consumes a distributor client
+// channel — the same fan-out the MJPEG handlers use, with the same bounded
+// buffer — and adds latest-frame-wins on top: whatever queued while the
+// previous seal+write was in flight is drained and only the newest frame is
+// sent. Video therefore never queues unboundedly and never head-of-line
+// blocks the control messages interleaved on the same connection (each
+// SendFrame is one bounded critical section on the session write lock, not
+// a standing claim on it).
+//
+// Exits when the client channel closes (removeClient / Stop) or the session
+// stops accepting writes.
+func (s *MJPEGServer) pumpSecureFrames(session *protocol.Session, ch <-chan []byte) {
+	var loggedOversize bool
+	for frame := range ch {
+		// Latest-frame-wins: drain anything newer that arrived while we
+		// were busy, keeping only the most recent frame.
+	drain:
+		for {
+			select {
+			case f, ok := <-ch:
+				if !ok {
+					return
+				}
+				frame = f
+			default:
+				break drain
+			}
+		}
+		switch err := session.SendFrame(frame); {
+		case err == nil:
+		case errors.Is(err, protocol.ErrFrameTooLarge):
+			// Skip it — the next frame supersedes it. Log once so a
+			// misconfigured quality setting is diagnosable without
+			// flooding the log at 30fps.
+			if !loggedOversize {
+				loggedOversize = true
+				log.Printf("stream: skipping oversized frame (%d bytes) for secure session [%s] — lower the capture quality or resolution", len(frame), session.ID)
+			}
+		default:
+			// Write failure or closed session — the read loop and the
+			// disconnect defer own the teardown; just stop pumping.
+			log.Printf("stream: secure frame pump stopped [%s]: %v", session.ID, err)
+			return
+		}
+	}
+}
+
 func (s *MJPEGServer) addClient() (chan []byte, error) {
 	s.clientsMu.Lock()
 	defer s.clientsMu.Unlock()
@@ -729,8 +819,7 @@ func (s *MJPEGServer) generateBoundary() string {
 }
 
 func (s *MJPEGServer) handleStream(w http.ResponseWriter, r *http.Request) {
-	if !s.frameClientAuthorized(r) {
-		http.Error(w, "not authorized", http.StatusForbidden)
+	if !s.authorizeFrameRequest(w, r) {
 		return
 	}
 	log.Printf("stream: MJPEG client connected: %s", r.RemoteAddr)
@@ -897,8 +986,10 @@ func friendlyPlatform() string {
 //
 // Note this controls ACCESS, not confidentiality: /stream is plain HTTP, so a
 // passive listener on the same network still sees the frames regardless of
-// this check. Closing that gap needs the video path itself to be encrypted —
-// see docs/securechan-handshake-architecture.md.
+// this check. For secure sessions that gap is closed one layer up —
+// authorizeFrameRequest refuses non-loopback requests outright while a
+// secure session is active, because its frames travel the sealed WebSocket
+// instead (Session.SendFrame).
 func (s *MJPEGServer) frameClientAuthorized(r *http.Request) bool {
 	ip := remoteIP(r.RemoteAddr)
 	if pip := net.ParseIP(ip); pip != nil && pip.IsLoopback() {
@@ -920,9 +1011,46 @@ func (s *MJPEGServer) frameClientAuthorized(r *http.Request) bool {
 	return subtle.ConstantTimeCompare([]byte(supplied), []byte(token)) == 1
 }
 
-func (s *MJPEGServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {
+// secureSessionActive reports whether the currently connected client
+// negotiated an encrypted channel and was admitted. The frame token only
+// exists for such a session — it is issued inside the sealed channel after
+// the handshake and cleared on disconnect — so its presence is the signal.
+func (s *MJPEGServer) secureSessionActive() bool {
+	s.frameClientMu.RLock()
+	defer s.frameClientMu.RUnlock()
+	return s.frameToken != ""
+}
+
+// authorizeFrameRequest is the gate in front of the raw-screen HTTP
+// endpoints (/stream, /snapshot). It writes the refusal itself and reports
+// whether the handler may proceed.
+//
+// Loopback is always allowed — the desktop's own preview renders from
+// localhost and must not pay the encryption cost. While a secure session is
+// active, everyone else is refused outright: that session's frames travel
+// only as sealed WebSocket messages, and serving the same pixels over plain
+// HTTP — even to the paired client holding a valid frame token — would hand
+// a passive listener everything the encryption exists to protect. Cleartext
+// sessions keep the historical frameClientAuthorized behaviour (IP check,
+// no token), preserving the §9 migration path for legacy clients.
+func (s *MJPEGServer) authorizeFrameRequest(w http.ResponseWriter, r *http.Request) bool {
+	ip := remoteIP(r.RemoteAddr)
+	if pip := net.ParseIP(ip); pip != nil && pip.IsLoopback() {
+		return true
+	}
+	if s.secureSessionActive() {
+		http.Error(w, "secure session active: screen frames are delivered only over the encrypted WebSocket channel", http.StatusForbidden)
+		return false
+	}
 	if !s.frameClientAuthorized(r) {
 		http.Error(w, "not authorized", http.StatusForbidden)
+		return false
+	}
+	return true
+}
+
+func (s *MJPEGServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {
+	if !s.authorizeFrameRequest(w, r) {
 		return
 	}
 	s.frameMu.RLock()
@@ -950,23 +1078,19 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	session := protocol.NewSession(conn)
 	log.Printf("stream: ws client connected: %s [%s]", r.RemoteAddr, session.ID)
 
-	// Only one client at a time.
-	s.wsConnMu.Lock()
-	if s.wsConn != nil {
-		s.wsConnMu.Unlock()
-		session.Send(protocol.MsgError, &protocol.ErrorMessage{
-			Code:    "occupied",
-			Message: "Another device is already connected",
-		})
-		session.Close()
-		return
-	}
-	s.wsConn = session
-	s.wsConnMu.Unlock()
+	// admitted flips to true once this session holds the single client
+	// slot (claimSlot, after the pair check). The deferred teardown uses
+	// it to decide whether the disconnect callback belongs to this
+	// session: a peer that was turned away (occupied, bad pair code,
+	// handshake failure) never had a session the handler knows about, and
+	// running OnClientDisconnect for it would tear down the real client's
+	// display.
+	admitted := false
 
 	defer func() {
 		s.wsConnMu.Lock()
-		if s.wsConn == session {
+		wasActive := s.wsConn == session
+		if wasActive {
 			s.wsConn = nil
 		}
 		s.wsConnMu.Unlock()
@@ -974,20 +1098,27 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		// unpaired peer at the same address can't keep scraping. The
 		// token goes with it — it is scoped to this session's key, so
 		// leaving it live would outlast the channel that justified it.
-		s.frameClientMu.Lock()
-		if s.frameClientIP == remoteIP(r.RemoteAddr) {
-			s.frameClientIP = ""
-			s.frameToken = ""
+		// Only the session that still holds the slot may do this: an
+		// evicted session shares the IP with its replacement, and the
+		// replacement's token must survive.
+		if wasActive {
+			s.frameClientMu.Lock()
+			if s.frameClientIP == remoteIP(r.RemoteAddr) {
+				s.frameClientIP = ""
+				s.frameToken = ""
+			}
+			s.frameClientMu.Unlock()
 		}
-		s.frameClientMu.Unlock()
 		// sync.Once on the session guarantees OnClientDisconnect runs
-		// exactly once even when an in-loop Bye and the post-loop
-		// defer both arrive — without this guard, the App handler
-		// would tear the virtual display down twice and race the
-		// macOS CGVirtualDisplay teardown.
-		session.FireDisconnect(func() {
-			s.handler.OnClientDisconnect(session)
-		})
+		// exactly once even when an in-loop Bye, an eviction by the same
+		// device reconnecting, and the post-loop defer all arrive —
+		// without this guard, the App handler would tear the virtual
+		// display down twice and race the macOS CGVirtualDisplay teardown.
+		if admitted {
+			session.FireDisconnect(func() {
+				s.handler.OnClientDisconnect(session)
+			})
+		}
 		session.Close()
 		log.Printf("stream: WebSocket client disconnected: %s [%s]", r.RemoteAddr, session.ID)
 	}()
@@ -1065,9 +1196,25 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Admitted. Authorize this client for /snapshot and /stream so the raw
-	// screen frames are only served to the paired device (plus loopback
-	// for the desktop's own preview).
+	// Admitted. Claim the single client slot. Claiming only now — after the
+	// pair check — means an unauthenticated LAN peer can no longer hold the
+	// slot for the length of a handshake, and a reconnect from the device
+	// that already holds it is a resume rather than a conflict: after a
+	// silent Wi-Fi drop the server keeps the dead session until its read
+	// deadline expires (up to 40 s), and the phone's immediate retry used
+	// to be answered with "occupied" and give up.
+	if !s.claimSlot(session, hello) {
+		session.Send(protocol.MsgError, &protocol.ErrorMessage{
+			Code:    "occupied",
+			Message: "Another device is already connected",
+		})
+		return
+	}
+	admitted = true
+
+	// Authorize this client for /snapshot and /stream so the raw screen
+	// frames are only served to the paired device (plus loopback for the
+	// desktop's own preview).
 	//
 	// For secure sessions the frame token is the real authenticator: it
 	// was derived from the session key and delivered inside the sealed
@@ -1090,9 +1237,60 @@ func (s *MJPEGServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Secure sessions receive their screen frames as sealed WebSocket
+	// messages instead of plain-HTTP MJPEG. Register a distributor client
+	// — the same fan-out (and the same bounded-buffer drop behaviour) the
+	// MJPEG handlers use — and pump it into Session.SendFrame. Cleartext
+	// sessions are untouched: their frames stay on /stream, which
+	// authorizeFrameRequest still serves to them.
+	if session.IsSecure() {
+		if frameCh, err := s.addClient(); err != nil {
+			log.Printf("stream: secure frame pump not started [%s]: %v", session.ID, err)
+		} else {
+			// removeClient closes frameCh, which ends the pump. Runs
+			// before the outer defer's session.Close(), so the pump is
+			// gone before the disconnect teardown.
+			defer s.removeClient(frameCh)
+			go s.pumpSecureFrames(session, frameCh)
+		}
+	}
+
 	// Enter read loop for input messages.
 	wsHandler := &wsMessageAdapter{handler: s.handler}
 	session.ReadLoop(wsHandler)
+}
+
+// claimSlot installs session as the single WebSocket client. It returns
+// false when a different device already holds the slot. When the holder
+// reports the same deviceId it is a stale session from a dropped link: its
+// disconnect handling runs synchronously here, so the display and capture
+// it owned are released before the new session's OnClientConnect builds
+// its own, and its socket is closed so its read loop exits. The old
+// session's own deferred teardown then finds it no longer holds the slot
+// and does nothing further (FireDisconnect is once-only).
+func (s *MJPEGServer) claimSlot(session *protocol.Session, hello *protocol.HelloMessage) bool {
+	s.wsConnMu.Lock()
+	old := s.wsConn
+	if old == nil || old == session {
+		s.wsConn = session
+		s.wsConnMu.Unlock()
+		return true
+	}
+	sameDevice := hello.DeviceID != "" && old.Hello != nil && old.Hello.DeviceID == hello.DeviceID
+	if !sameDevice {
+		s.wsConnMu.Unlock()
+		return false
+	}
+	s.wsConn = session
+	s.wsConnMu.Unlock()
+
+	log.Printf("stream: device %s reconnected; evicting stale session [%s] in favour of [%s]",
+		hello.DeviceID, old.ID, session.ID)
+	old.FireDisconnect(func() {
+		s.handler.OnClientDisconnect(old)
+	})
+	old.Close()
+	return true
 }
 
 // wsMessageAdapter adapts SessionHandler to protocol.MessageHandler.

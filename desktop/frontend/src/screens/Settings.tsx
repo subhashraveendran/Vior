@@ -5,15 +5,15 @@
 //     it up at next launch via LaunchAtLogin login item — actual OS
 //     wiring is a follow-up, the toggle is here so the UI is stable.)
 //   • macOS menu-bar visibility (existing, persists to ~/.vior/menubar.flag)
-//   • USB connections allowed (auto-accept paired devices over USB)
 //   • Local discovery on/off (lets the user disable mDNS broadcast on
 //     untrusted networks)
 //   • Theme / Appearance (existing)
 //
 // Removed: resolution presets (cosmetic only, not respected by the
 // capture pipeline — virtual displays match the phone's panel size),
-// frame-rate toggle (now folded into the quality preset), and the
-// fake Displays / USB-ADB placeholder rows.
+// frame-rate toggle (now folded into the quality preset), the fake
+// Displays / USB-ADB placeholder rows, and the "auto-accept USB devices"
+// toggle (its backend was a no-op stub, so the switch never did anything).
 import React, { useCallback, useEffect, useState } from 'react'
 import {
   GetMenuBarVisible, SetMenuBarVisible,
@@ -21,7 +21,6 @@ import {
   GetServerStatus, SetPairCode,
   EventsOn,
   SetAutoDiscovery, GetAutoDiscovery,
-  SetUSBAutoAccept, GetUSBAutoAccept,
 } from '../lib/api'
 import { Icons } from '../lib/icons'
 import Glyph from '../lib/Glyph'
@@ -78,14 +77,6 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }: 
   const toggleDiscovery = (v: boolean): void => {
     setAutoDiscovery(v)
     SetAutoDiscovery?.(v)
-  }
-
-  // USB auto-accept toggle — calls SetUSBAutoAccept on the Go backend.
-  const [usbAutoAccept, setUsbAutoAccept] = useState<boolean>(false)
-  useEffect(() => { GetUSBAutoAccept?.().then(setUsbAutoAccept).catch(() => {}) }, [])
-  const toggleUsbAutoAccept = (v: boolean): void => {
-    setUsbAutoAccept(v)
-    SetUSBAutoAccept?.(v)
   }
 
   // Trusted Devices list. Polled on mount + whenever a new client
@@ -206,15 +197,6 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }: 
             <span className="toggle-knob" style={{ transform: `translateX(${autoDiscovery ? 17 : 0}px)` }} />
           </button>
         </div>
-        <div className="settings-row">
-          <div className="settings-row-body">
-            <div className="settings-row-title">Auto-accept paired USB devices</div>
-            <div className="settings-row-sub">Skip the connect prompt for phones you've paired before</div>
-          </div>
-          <button className={`toggle ${usbAutoAccept ? 'toggle-on' : 'toggle-off'}`} onClick={() => toggleUsbAutoAccept(!usbAutoAccept)}>
-            <span className="toggle-knob" style={{ transform: `translateX(${usbAutoAccept ? 17 : 0}px)` }} />
-          </button>
-        </div>
       </div>
 
       <div className="label" style={{ marginTop: 24, marginBottom: 12 }}>Pair code</div>
@@ -234,7 +216,7 @@ export default function SettingsScreen({ config, onChange, accent, setAccent }: 
               maxLength={8}
               value={pairInput}
               onChange={e => { setPairInput(e.target.value.replace(/\D/g, '').slice(0, 8)); setPairMsg('') }}
-              placeholder={pairCode || '0000'}
+              placeholder={pairCode || '000000'}
               style={{
                 fontFamily: 'var(--font-mono)', fontSize: 22, letterSpacing: '0.25em',
                 padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)',

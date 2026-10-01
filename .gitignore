@@ -20,6 +20,9 @@ build-errors.log
 /vior*
 /vior-desktop
 
+# Release artifacts produced by `make release`
+/dist/
+
 # Wails desktop build artifacts
 desktop/build/
 desktop/README.md

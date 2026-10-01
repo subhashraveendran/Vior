@@ -148,9 +148,27 @@ export default function ConnectedScreen({
           </div>
         )}
 
+        {/* Remote-only / Files-only sessions have no virtual display at
+            all — the phone asked for trackpad/keyboard or file drop only.
+            Showing a resolution grid and a mode switch for them described
+            a display that did not exist. */}
+        {(client?.intent === 'remote' || client?.intent === 'files') && (
+          <div className="section">
+            <div className="section-head"><div className="label">Session</div></div>
+            <div className="perm-card">
+              <div className="perm-card-icon">{client?.intent === 'files' ? Icons.arrowR(20) : Icons.layers(20)}</div>
+              <div className="perm-card-body">
+                <div className="perm-card-title">{client?.intent === 'files' ? 'File transfer only' : 'Remote control only'}</div>
+                <div className="perm-card-sub">No second display for this session — the phone chose this mode. Reconnect from the phone to use it as a display.</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Virtual display details — the user usually wants to verify
             "yes, the phone is actually treated as a second screen" at a
             glance without going hunting in System Settings → Displays. */}
+        {!(client?.intent === 'remote' || client?.intent === 'files') && (<>
         <div className="section">
           <div className="section-head"><div className="label">Virtual display</div></div>
           <div className="vdisp-grid">
@@ -188,6 +206,7 @@ export default function ConnectedScreen({
             </button>
           </div>
         </div>
+        </>)}
 
         {/* Quick file send — Files pane lives behind the sidebar tab,
             but a one-shot Send button here lets the user push a file

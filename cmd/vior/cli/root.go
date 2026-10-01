@@ -49,6 +49,6 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print Vior version",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("vior %s  (go1.25.6 %s/%s)\n", config.Version, runtime.GOOS, runtime.GOARCH)
+		fmt.Printf("vior %s  (%s %s/%s)\n", config.Version, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 	},
 }

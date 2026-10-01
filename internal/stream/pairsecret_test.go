@@ -133,7 +133,9 @@ func TestPairSecretEncoding(t *testing.T) {
 
 // Two generated secrets must not be equal.
 func TestPairSecretIsFresh(t *testing.T) {
-	if string(mustNewPairSecret()) == string(mustNewPairSecret()) {
+	first := mustNewPairSecret()
+	second := mustNewPairSecret()
+	if string(first) == string(second) {
 		t.Fatal("two generated pair secrets were identical")
 	}
 }

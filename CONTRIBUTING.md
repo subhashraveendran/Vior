@@ -4,7 +4,7 @@ Thanks for your interest in contributing to Vior! This guide will help you get s
 
 ## Prerequisites
 
-- [Go 1.25+](https://go.dev/dl/)
+- [Go 1.26+](https://go.dev/dl/) (the exact patch release is pinned in `go.mod` and fetched automatically)
 - [Node.js 22+](https://nodejs.org/) (for desktop frontend and mobile)
 - [Wails v2](https://wails.io/) (for desktop app)
 - [Android SDK](https://developer.android.com/studio) (for mobile APK builds)

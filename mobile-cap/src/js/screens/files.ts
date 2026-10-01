@@ -17,6 +17,9 @@ interface FileTransfer {
   pending?: boolean;
   progress?: number;
   blobUrl?: string;
+  // native: the Android DownloadManager is fetching this file to disk;
+  // completion arrives through window.viorNativeDownloadDone.
+  native?: boolean;
 }
 
 interface FileMessage {
@@ -35,6 +38,35 @@ interface FileMessage {
 }
 
 const fileTransfers: Record<string, FileTransfer> = {};
+
+// ── Native (Android) download bridge ─────────────────────────────────
+// MainActivity injects `Android` with downloadFile(url, name, mime, id),
+// which hands the URL to the system DownloadManager. It returns the job id
+// as a string, or '' when the request could not be enqueued (we then fall
+// back to the in-WebView fetch). Absent entirely in a plain browser.
+interface NativeBridge { downloadFile?: (url: string, name: string, mime: string, id: string) => string }
+function nativeBridge(): NativeBridge | null {
+  const a = (window as unknown as { Android?: NativeBridge }).Android;
+  return a && typeof a === 'object' ? a : null;
+}
+
+// Called from MainActivity when a DownloadManager job finishes.
+(window as unknown as { viorNativeDownloadDone: (r: { id: string; ok: boolean; path?: string; error?: string }) => void }).viorNativeDownloadDone =
+  function (r: { id: string; ok: boolean; path?: string; error?: string }): void {
+    if (!r || !validId(r.id)) return;
+    const t = fileTransfers[r.id];
+    if (!t) return;
+    if (r.ok) {
+      t.complete = true; t.status = 'done'; t.progress = 100; t.transferred = t.size;
+      toast('success', 'Saved to Downloads', t.name);
+      try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'download-complete', data: { id: r.id } })); } catch (_) { /* best-effort */ }
+    } else {
+      t.status = 'failed';
+      toast('error', 'Download failed', r.error || 'Could not save the file.');
+      try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'download-reject', data: { id: r.id, reason: r.error || 'download failed' } })); } catch (_) { /* best-effort */ }
+    }
+    renderTransfers();
+  };
 
 ($('send-file-btn') as HTMLElement).addEventListener('click', function (): void { ($('file-input') as HTMLElement).click(); });
 ($('send-photo-btn') as HTMLElement).addEventListener('click', function (): void { ($('photo-input') as HTMLElement).click(); });
@@ -58,12 +90,56 @@ function sendFile(file: File): void {
     const t: FileTransfer = { id: id, name: file.name, size: file.size, mimeType: file.type || 'application/octet-stream', preview: '', transferred: 0, complete: false, data: data, direction: 'out', status: 'sending' };
     fileTransfers[id] = t;
     if (file.type && file.type.indexOf('image/') === 0) {
-      const pr = new FileReader();
-      pr.onload = function (): void { t.preview = pr.result as string; sendOffer(t); };
-      pr.readAsDataURL(file);
+      makeThumbnail(file).then(function (thumb: string): void { t.preview = thumb; sendOffer(t); });
     } else { sendOffer(t); }
   };
   reader.readAsArrayBuffer(file);
+}
+
+// MAX_PREVIEW_CHARS bounds the thumbnail that rides inside the file-offer
+// JSON. The desktop's pre-auth WebSocket read limit is 128 KiB per message;
+// the old code put the ENTIRE image into the offer as a data: URL, so any
+// photo over ~96 KB exceeded that limit and the server closed the socket.
+const MAX_PREVIEW_CHARS = 32 * 1024;
+const THUMB_PX = 160;
+
+// makeThumbnail renders a small JPEG data: URL for an image file, or '' when
+// the image cannot be decoded or the result is still too large to embed.
+function makeThumbnail(file: File): Promise<string> {
+  return new Promise(function (resolve): void {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    const done = function (v: string): void { URL.revokeObjectURL(url); resolve(v); };
+    img.onerror = function (): void { done(''); };
+    img.onload = function (): void {
+      try {
+        const nw = img.naturalWidth || 1, nh = img.naturalHeight || 1;
+        const scale = Math.min(1, THUMB_PX / Math.max(nw, nh));
+        const w = Math.max(1, Math.round(nw * scale)), h = Math.max(1, Math.round(nh * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { done(''); return; }
+        ctx.drawImage(img, 0, 0, w, h);
+        const out = canvas.toDataURL('image/jpeg', 0.7);
+        done(out.length <= MAX_PREVIEW_CHARS ? out : '');
+      } catch (_) { done(''); }
+    };
+    img.src = url;
+  });
+}
+
+// sha256Hex digests a whole buffer with WebCrypto, or resolves '' where
+// crypto.subtle is unavailable (a browser client on a plain http:// origin).
+// The desktop treats an empty hash as "unverified" rather than a mismatch.
+function sha256Hex(data: Uint8Array): Promise<string> {
+  try {
+    const subtle = (window.crypto && window.crypto.subtle) || null;
+    if (!subtle) return Promise.resolve('');
+    return subtle.digest('SHA-256', data as BufferSource).then(function (buf: ArrayBuffer): string {
+      return Array.from(new Uint8Array(buf), function (b: number): string { return ('0' + b.toString(16)).slice(-2); }).join('');
+    }).catch(function (): string { return ''; });
+  } catch (_) { return Promise.resolve(''); }
 }
 function sendOffer(t: FileTransfer): void {
   if (!ws || ws.readyState !== 1) return;
@@ -76,10 +152,17 @@ function sendChunks(t: FileTransfer): void {
   function next(): void {
     if (!t.data) return;
     if (offset >= t.data.length) {
-      t.complete = true; t.status = 'done';
-      ws!.send(JSON.stringify({ type: 'file-complete', data: { id: t.id, hash: '' } }));
-      renderTransfers();
-      toast('success', 'Sent', t.name);
+      // The desktop verifies this digest against its own incremental hash
+      // and deletes the file on a mismatch. This used to send '' every
+      // time, which the desktop counted as a mismatch — so no file ever
+      // survived. Compute the real digest wherever WebCrypto exists.
+      sha256Hex(t.data).then(function (hash: string): void {
+        if (!ws || ws.readyState !== 1) return;
+        t.complete = true; t.status = 'done';
+        ws.send(JSON.stringify({ type: 'file-complete', data: { id: t.id, hash: hash } }));
+        renderTransfers();
+        toast('success', 'Sent', t.name);
+      });
       return;
     }
     const end = Math.min(offset + CHUNK_SIZE, t.data.length);
@@ -182,9 +265,9 @@ function handleFileMessage(msg: FileMessage): void {
 };
 function statusMeta(t: FileTransfer): { color: string; text: string } {
   if (t.status === 'failed') return { color: 'var(--err)', text: 'Failed' };
-  if (t.status === 'done') return { color: 'var(--ok)', text: 'Sent' };
+  if (t.status === 'done') return { color: 'var(--ok)', text: t.direction === 'in' ? 'Saved to Downloads' : 'Sent' };
   if (t.status === 'received') return { color: 'var(--ok)', text: 'Received' };
-  if (t.status === 'receiving') return { color: 'var(--warn)', text: 'Receiving · ' + (t.progress || 0) + '%' };
+  if (t.status === 'receiving') return { color: 'var(--warn)', text: t.native ? 'Receiving · see notification' : 'Receiving · ' + (t.progress || 0) + '%' };
   return { color: 'var(--accent)', text: 'Sending · ' + (t.progress || 0) + '%' };
 }
 function fileIconSvg(): string { return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h7l5 5v13a0 0 0 0 1 0 0H6a0 0 0 0 1 0 0z"/><path d="M13 3v5h5"/></svg>'; }
@@ -277,7 +360,10 @@ interface IncomingFilePayload { id: string; name: string; size: number; mime?: s
 
 function handleIncomingFile(msg: { type: 'incoming-file'; data: unknown }): void {
   const d = (msg.data || {}) as IncomingFilePayload;
-  if (!d.id || !d.url) return;
+  // Same id filter as the WS-chunk path: the id becomes an object key and
+  // is interpolated into an onclick attribute. The url must be the
+  // server-relative download path, never an absolute URL to elsewhere.
+  if (!validId(d.id) || typeof d.url !== 'string' || d.url.indexOf('/download/') !== 0) return;
   const t: FileTransfer = {
     id: d.id, name: d.name || 'file', size: d.size || 0,
     mimeType: d.mime || 'application/octet-stream', preview: d.preview || '',
@@ -344,6 +430,23 @@ async function fetchDownload(id: string): Promise<void> {
       ws.send(JSON.stringify({ type: 'download-accept', data: { id: id } }));
     }
   } catch (_) { /* best-effort notify */ }
+
+  // Android: hand the URL to the system DownloadManager, which streams it
+  // straight to Downloads/Vior with no JS heap and a system notification.
+  // The in-WebView path below kept the whole file in a Blob and then
+  // "saved" it with <a download>, which an Android WebView ignores — the
+  // file was never written anywhere. The fetch path stays for browsers.
+  const native = nativeBridge();
+  if (native && typeof native.downloadFile === 'function') {
+    let started = '';
+    try { started = String(native.downloadFile(frameBaseUrl + url, t.name, t.mimeType, id) || ''); } catch (_) { started = ''; }
+    if (started) {
+      t.native = true;
+      t.progress = 0;
+      renderTransfers();
+      return; // completion arrives via window.viorNativeDownloadDone
+    }
+  }
 
   try {
     const resp = await fetch(frameBaseUrl + url);
@@ -441,7 +544,7 @@ function renderTransfers(): void {
             '</div>' +
           '</div>' +
           (t.status === 'received'
-            ? '<button class="btn btn-primary btn-sm" onclick="window._saveFile(\'' + id + '\')"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>Save</button>'
+            ? '<button class="btn btn-primary btn-sm" onclick="window._saveFile(\'' + esc(id) + '\')"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>Save</button>'
             : (t.status === 'done' ? '<span style="color: var(--ok);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l4.5 4.5L19.5 6.5"/></svg></span>' : '')) +
         '</div>' +
         (active ? '<div class="bar-inner"><i style="width:' + (t.progress || 0) + '%;"></i></div>' : '') +

@@ -542,8 +542,19 @@ func (m *Manager) HandleComplete(msg *protocol.FileCompleteMessage) {
 
 	// Verify integrity: compare sender's claimed hash against the
 	// incremental hash we've been computing as chunks arrived.
+	//
+	// An empty hash means the sender could not compute one — the browser
+	// client runs on an insecure origin with no WebCrypto. Accept the
+	// transfer as unverified rather than treating "no hash" as a mismatch:
+	// the mismatch path deletes the file, and the mobile client sent ''
+	// for every transfer, so no phone→desktop transfer ever survived.
+	// Out-of-order and over-size chunks are still rejected in HandleChunk;
+	// what is lost without a hash is only end-to-end corruption detection,
+	// which TCP already provides per segment.
 	got := hex.EncodeToString(t.hash.Sum(nil))
-	if got != msg.Hash {
+	if msg.Hash == "" {
+		log.Printf("filetransfer: %s completed without a sender hash (unverified)", t.ID)
+	} else if got != msg.Hash {
 		log.Printf("filetransfer: SHA-256 mismatch for %s (got %s, want %s)", t.ID, got, msg.Hash)
 		// Clean up the corrupt file so a stale entry doesn't survive.
 		if t.Path != "" {
@@ -557,7 +568,7 @@ func (m *Manager) HandleComplete(msg *protocol.FileCompleteMessage) {
 	}
 
 	t.Complete = true
-	t.Hash = msg.Hash
+	t.Hash = got
 	t.mu.Unlock()
 
 	log.Printf("filetransfer: received %s (%d bytes)", t.Path, t.Transferred)
@@ -718,16 +729,22 @@ func (m *Manager) ServeDownload(w http.ResponseWriter, r *http.Request, id strin
 	}
 	defer f.Close()
 
-	// Resolve symlinks so a crafted path through a symlink inside
-	// ReceiveDir can't reach files outside it.
+	// The file was authorized at offer time: OfferDownload resolved the
+	// symlink chain and required a regular file, and the desktop only
+	// offers paths the user picked in a file dialog. Re-resolve now and
+	// require the same real file, so a path swapped for a symlink between
+	// offer and fetch cannot redirect the download. The previous check
+	// instead required the file to live inside ReceiveDir (~/Downloads/
+	// Vior), which refused every file picked from anywhere else — i.e.
+	// nearly all of them.
 	realPath, err := filepath.EvalSymlinks(p.Path)
 	if err != nil {
 		http.Error(w, "resolve failed", http.StatusInternalServerError)
 		return
 	}
-	absRoot, _ := filepath.Abs(m.ReceiveDir)
+	absOffered, _ := filepath.Abs(p.Path)
 	absReal, _ := filepath.Abs(realPath)
-	if rel, err := filepath.Rel(absRoot, absReal); err != nil || strings.HasPrefix(rel, "..") || rel == ".." {
+	if absReal != absOffered {
 		http.Error(w, "path blocked", http.StatusForbidden)
 		return
 	}

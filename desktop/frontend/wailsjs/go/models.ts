@@ -185,6 +185,7 @@ export namespace main {
 	    remoteAddr?: string;
 	    platform?: string;
 	    deviceId?: string;
+	    intent?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ClientInfo(source);
@@ -202,6 +203,7 @@ export namespace main {
 	        this.remoteAddr = source["remoteAddr"];
 	        this.platform = source["platform"];
 	        this.deviceId = source["deviceId"];
+	        this.intent = source["intent"];
 	    }
 	}
 	export class DisplayInfo {
@@ -670,6 +672,7 @@ export namespace protocol {
 	    width: number;
 	    height: number;
 	    dpr: number;
+	    mode?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ResizeMessage(source);
@@ -680,6 +683,7 @@ export namespace protocol {
 	        this.width = source["width"];
 	        this.height = source["height"];
 	        this.dpr = source["dpr"];
+	        this.mode = source["mode"];
 	    }
 	}
 	export class Session {
@@ -740,6 +744,7 @@ export namespace tls {
 	    OCSPResponse: number[];
 	    TLSUnique: number[];
 	    ECHAccepted: boolean;
+	    HelloRetryRequest: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new ConnectionState(source);
@@ -761,6 +766,7 @@ export namespace tls {
 	        this.OCSPResponse = source["OCSPResponse"];
 	        this.TLSUnique = source["TLSUnique"];
 	        this.ECHAccepted = source["ECHAccepted"];
+	        this.HelloRetryRequest = source["HelloRetryRequest"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -805,12 +811,12 @@ export namespace url {
 	    User?: any;
 	    Host: string;
 	    Path: string;
-	    RawPath: string;
-	    OmitHost: boolean;
-	    ForceQuery: boolean;
-	    RawQuery: string;
 	    Fragment: string;
+	    RawQuery: string;
+	    RawPath: string;
 	    RawFragment: string;
+	    ForceQuery: boolean;
+	    OmitHost: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new URL(source);
@@ -823,12 +829,12 @@ export namespace url {
 	        this.User = this.convertValues(source["User"], null);
 	        this.Host = source["Host"];
 	        this.Path = source["Path"];
-	        this.RawPath = source["RawPath"];
-	        this.OmitHost = source["OmitHost"];
-	        this.ForceQuery = source["ForceQuery"];
-	        this.RawQuery = source["RawQuery"];
 	        this.Fragment = source["Fragment"];
+	        this.RawQuery = source["RawQuery"];
+	        this.RawPath = source["RawPath"];
 	        this.RawFragment = source["RawFragment"];
+	        this.ForceQuery = source["ForceQuery"];
+	        this.OmitHost = source["OmitHost"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

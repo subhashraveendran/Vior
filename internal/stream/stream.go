@@ -357,7 +357,7 @@ func remoteIP(remoteAddr string) string {
 }
 
 // PairCode returns the active pair code: the user-override if set, else
-// the machine-derived 4-digit numeric default.
+// the machine-derived 6-digit numeric default.
 func PairCode() string {
 	pairCodeMu.RLock()
 	defer pairCodeMu.RUnlock()
@@ -522,6 +522,33 @@ func (s *MJPEGServer) Start() error {
 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
+		// Roll back the running flag and the distributor we just started.
+		// Without this a port-in-use failure left IsRunning() true, so the
+		// desktop refused every later StartServer with "already running"
+		// and the distributor goroutine leaked.
+		//
+		// Snapshot under distMu, then wait with it released: the
+		// distributor's deferred cleanup takes distMu itself to clear
+		// distRunning, so waiting on done while holding the lock deadlocks.
+		s.distMu.Lock()
+		running := s.distRunning
+		stop := s.stopDistribute
+		done := s.distDone
+		s.distMu.Unlock()
+		if running {
+			select {
+			case <-stop:
+			default:
+				close(stop)
+			}
+			<-done
+			s.distMu.Lock()
+			s.stopDistribute = make(chan struct{})
+			s.distMu.Unlock()
+		}
+		s.mu.Lock()
+		s.running = false
+		s.mu.Unlock()
 		return fmt.Errorf("listen failed: %w", err)
 	}
 

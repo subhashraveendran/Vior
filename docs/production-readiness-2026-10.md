@@ -22,7 +22,7 @@ but not reproduced on hardware.
 | CI | Builds CLI ×3, Wails ×3, APK; vet, staticcheck, gofmt, govulncheck, npm audit, type-checks |
 | Security | Pair-code admission + throttling solid. Encrypted channel implemented server-side, **not used by any shipped client** → all traffic cleartext today |
 | Desktop UX | Happy path fine; several controls are dead or lie about state (§3) |
-| Mobile UX | Connect loop fixed this pass; stream/USB/files still have blocking bugs (§4) |
+| Mobile UX | Connect loop, file transfer and reconnect fixed; stream trap, USB and touch mapping still open (§4) |
 | CLI | Core `vior start` works; legacy modes and `virtual`/`display` subcommands are broken or ineffective (§5) |
 | Linux / Windows | Capture + input real; virtual display unreliable (Linux) or **dangerous** (Windows) (§6) |
 | Release engineering | Unsigned artifacts, no auto-update, no Play Store, no config persistence, no log file (§7) |
@@ -45,6 +45,13 @@ production-ready for a general audience until the P0 items below are closed.
 - `internal/filetransfer/test_out_of_order.go` was compiled into the production binary (no `_test` suffix) and asserted the pre-fix corrupting behaviour; replaced by a real test of the rejection path.
 - Housekeeping: stale `bun.lock`, scratch `test_port.go`, four merged agent worktrees.
 
+**Second pass — connection layer and file transfer** (details and the target design in [`connection-architecture.md`](connection-architecture.md)):
+
+- Phone→desktop file transfer never succeeded (empty hash was treated as corruption and the file deleted); desktop→phone 403'd every file outside `~/Downloads/Vior`; any photo over ~96 KB killed the WebSocket (full image in the offer); Android "Save" wrote nothing. All four fixed; Android now saves through the system DownloadManager **(verify on device)**.
+- Reconnect after a silent Wi-Fi drop got "occupied" and gave up: the slot is now claimed after admission and a same-device hello evicts the stale session; rejected peers no longer run the disconnect handler (which tore down the real client's display). App-level pings now count as liveness.
+- Mirror/extend switch did nothing (`ResizeMessage` had no `mode`); rotating a remote-only phone created a virtual display; the CLI streamed the whole desktop to remote-only clients and cast dimensions unchecked. One shared resize path now carries intent and mode on desktop and CLI; the desktop UI shows a session card instead of a display grid for remote/files sessions and sends device identity on every connect.
+- Snapshot polling no longer spins forever on a session with no frames; reconnect banner clears; pair-code search probes 8081 too; keepalive listener leak fixed.
+
 ---
 
 ## 3. Desktop app — open items
@@ -54,7 +61,7 @@ production-ready for a general audience until the P0 items below are closed.
 2. **Permission "Fix"/"Open Settings" buttons are plain `<a href="x-apple.systempreferences:…">`** (`Connected.tsx`, `Permissions.tsx`). WKWebView does not navigate custom schemes; use Wails `runtime.BrowserOpenURL`. Same for the "Check for updates" link. **(verify on device)**
 3. **Screen Recording is only checked when a phone connects** (`app.go` OnClientConnect). First-time users see a black phone screen before any prompt. Check at Start; say that macOS needs an app restart after granting.
 4. **Encryption state is never shown.** `ServerStatus.Secure`/`SecureMode` are computed and ignored by the UI. Must be visible before/after the secure channel ships (lock icon + "Unencrypted" badge).
-5. **Device identity on the trust card is just a self-chosen name.** The connect event omits IP/platform/deviceId except in "none" mode. Show IP + platform so "is this your device?" is answerable.
+5. ~~Device identity on the trust card is just a self-chosen name.~~ Fixed in the second pass: the connect event now carries IP, platform, deviceId and intent on every path. The card itself should still render them (`Connected.tsx`).
 
 **P1**
 6. Quality changes only apply on next connect/resize; the Connected screen shows the *config* fps, not the streaming fps. Either restart capture live or label "applies on next connection".

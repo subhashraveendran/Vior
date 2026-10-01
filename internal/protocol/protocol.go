@@ -188,11 +188,17 @@ type ErrorMessage struct {
 	Message string `json:"message"`
 }
 
-// ResizeMessage is sent by the client when screen orientation changes.
+// ResizeMessage is sent by the client when screen orientation changes, or
+// when the user switches display mode mid-session.
 type ResizeMessage struct {
 	Width  int     `json:"width"`
 	Height int     `json:"height"`
 	DPR    float64 `json:"dpr"`
+	// Mode optionally switches between "extend" and "mirror" without a
+	// reconnect. Empty keeps the mode from hello. The mobile app has sent
+	// this field since the live mode switch shipped; the server ignored
+	// it, so the switch showed a "Mode changed" toast and did nothing.
+	Mode string `json:"mode,omitempty"`
 }
 
 // ── File Transfer Messages ──────────────────────────────────────────

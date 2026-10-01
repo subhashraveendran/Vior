@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/subhashraveendran/vior/internal/capture"
@@ -296,13 +295,34 @@ func (h *cliSessionHandler) OnClientConnect(sess *protocol.Session, hello *proto
 	if err != nil {
 		return err
 	}
+	return h.applySetup(sess, setup)
+}
+
+// applySetup starts capture for a configured session — or, for Mode
+// "none", deliberately does not — and tells the client it is ready. Shared
+// by connect and resize so the two paths cannot drift.
+func (h *cliSessionHandler) applySetup(sess *protocol.Session, setup *session.Setup) error {
+	h.touchMapper = input.NewTouchMapper(input.DefaultController, setup.DisplayBounds)
+
+	// Remote-only / Files-only intents: no virtual display, no capture.
+	// Input still maps to the main display. The CLI used to capture and
+	// advertise the main screen regardless, so a "remote only" client was
+	// streamed the whole desktop it had asked not to see.
+	if setup.Mode == "none" {
+		sess.Send(protocol.MsgReady, &protocol.ReadyMessage{
+			StreamURL:  "",
+			Resolution: fmt.Sprintf("%dx%d", setup.Width, setup.Height),
+			SessionID:  sess.ID,
+		})
+		fmt.Printf("Client connected without a display (remote/files only).\n")
+		return nil
+	}
 
 	h.session = capture.NewSession(setup.DisplayIndex, h.cfg.Quality, h.cfg.FrameRate)
 	if err := h.session.Start(); err != nil {
 		return fmt.Errorf("capture failed: %w", err)
 	}
 	h.server.SetFrameCh(h.session.FrameCh)
-	h.touchMapper = input.NewTouchMapper(input.DefaultController, setup.DisplayBounds)
 
 	sess.Send(protocol.MsgReady, &protocol.ReadyMessage{
 		StreamURL:  stream.StreamPathFor(sess),
@@ -337,48 +357,25 @@ func (h *cliSessionHandler) OnClientInput(_ *protocol.Session, msg *protocol.Inp
 	return err
 }
 
-func (h *cliSessionHandler) OnClientResize(session *protocol.Session, msg *protocol.ResizeMessage) error {
+func (h *cliSessionHandler) OnClientResize(sess *protocol.Session, msg *protocol.ResizeMessage) error {
 	fmt.Printf("Client resized: %dx%d\n", msg.Width, msg.Height)
-	// For CLI, recreate virtual display with new dimensions.
 	if h.session != nil {
 		h.session.Stop()
 		h.session = nil
 	}
-	virtual.Destroy()
-	time.Sleep(300 * time.Millisecond)
-
-	info := virtual.Info{Width: uint32(msg.Width), Height: uint32(msg.Height), RefreshRate: config.DefaultRefreshRate}
-	displayID, err := virtual.CreateVirtualDisplay(info)
+	// Route through the shared Configure so a resize gets the same
+	// dimension validation, intent handling and mode switch as connect.
+	// The hand-rolled path this replaces cast the client's dimensions to
+	// uint32 unchecked (a negative width became ~4 billion pixels),
+	// ignored the Start() error, and always built an extend display —
+	// even for a remote-only session that never wanted one.
+	hello := session.ResizeHello(sess.Hello, msg)
+	setup, err := session.Configure(hello)
 	if err != nil {
 		return err
 	}
-	time.Sleep(500 * time.Millisecond)
-
-	vdIdx := capture.FindDisplayIndexByID(displayID)
-	if vdIdx < 0 {
-		displays, _ := capture.ListDisplays()
-		vdIdx = len(displays) - 1
-	}
-	capture.UnmirrorDisplay(vdIdx)
-
-	displays, _ := capture.ListDisplays()
-	if vdIdx >= len(displays) {
-		return fmt.Errorf("display index out of range")
-	}
-
-	h.session = capture.NewSession(vdIdx, h.cfg.Quality, h.cfg.FrameRate)
-	h.session.Start()
-	h.server.SetFrameCh(h.session.FrameCh)
-
-	d := displays[vdIdx]
-	h.touchMapper = input.NewTouchMapper(input.DefaultController, d.Bounds)
-
-	session.Send(protocol.MsgReady, &protocol.ReadyMessage{
-		StreamURL:  stream.StreamPathFor(session),
-		Resolution: fmt.Sprintf("%dx%d", msg.Width, msg.Height),
-		SessionID:  session.ID,
-	})
-	return nil
+	sess.Hello = hello
+	return h.applySetup(sess, setup)
 }
 
 func (h *cliSessionHandler) OnClientFileOffer(session *protocol.Session, msg *protocol.FileOfferMessage) error {

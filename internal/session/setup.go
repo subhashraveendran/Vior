@@ -150,7 +150,10 @@ func Configure(hello *protocol.HelloMessage) (*Setup, error) {
 			vdIdx = len(displays) - 1
 			log.Printf("session: display ID %d not found, falling back to last index %d", displayID, vdIdx)
 		}
-		if err := capture.UnmirrorDisplay(vdIdx); err != nil {
+		// Unmirroring is a macOS-only arrangement step; elsewhere the
+		// virtual display is already a separate screen, so the sentinel is
+		// expected and not worth a warning line on every connect.
+		if err := capture.UnmirrorDisplay(vdIdx); err != nil && !errors.Is(err, capture.ErrUnsupported) {
 			log.Printf("session: extend warning: %v", err)
 		}
 		captureIdx = vdIdx

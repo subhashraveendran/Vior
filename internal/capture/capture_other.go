@@ -3,7 +3,6 @@
 package capture
 
 import (
-	"fmt"
 	"image"
 
 	"github.com/kbinani/screenshot"
@@ -31,14 +30,18 @@ func getPixelSize(displayIndex int) (int, int) {
 	return b.Dx(), b.Dy()
 }
 
-// MirrorDisplay is a stub for non-macOS platforms.
+// MirrorDisplay is a stub for non-macOS platforms: the OS display layout
+// cannot be changed from here, so it reports ErrUnsupported. Returning the
+// sentinel (rather than a fresh error) lets callers distinguish "feature
+// unavailable" from a failure, and keeps the call sites' err != nil checks
+// meaningful on every platform.
 func MirrorDisplay(sourceDisplayIndex, targetDisplayIndex int) error {
-	return fmt.Errorf("mirroring not supported on this platform")
+	return ErrUnsupported
 }
 
-// UnmirrorDisplay is a stub for non-macOS platforms.
+// UnmirrorDisplay is a stub for non-macOS platforms; see MirrorDisplay.
 func UnmirrorDisplay(displayIndex int) error {
-	return fmt.Errorf("unmirroring not supported on this platform")
+	return ErrUnsupported
 }
 
 // IsMirrored is a stub for non-macOS platforms.

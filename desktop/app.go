@@ -780,12 +780,21 @@ func (a *App) GetConfig() AppConfig {
 	}
 }
 
+// UpdateConfig applies the stream tunables the Settings screen edits.
+//
+// Only Quality and FrameRate are taken from the UI. The frontend reads
+// config once at boot — before StartServer has resolved port 0 to a real
+// port — and echoes the whole struct back on every preset click. Copying
+// Port/Host from that stale snapshot reset the bound port to 0, which
+// broke the advertised URL, the QR code, the USB port-forward and the
+// discovery beacon until the next restart.
 func (a *App) UpdateConfig(ac AppConfig) {
-	a.cfg.Port = ac.Port
-	a.cfg.Quality = ac.Quality
-	a.cfg.FrameRate = ac.FrameRate
-	a.cfg.Host = ac.Host
-	a.cfg.TransferDir = ac.TransferDir
+	if ac.Quality > 0 {
+		a.cfg.Quality = ac.Quality
+	}
+	if ac.FrameRate > 0 {
+		a.cfg.FrameRate = ac.FrameRate
+	}
 }
 
 func (a *App) ResetConfig() {

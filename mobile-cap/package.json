@@ -11,13 +11,13 @@
     "vite:build": "vite build"
   },
   "dependencies": {
-    "@capacitor/core": "^7.0.0",
-    "@capacitor/android": "^7.0.0"
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0"
   },
   "devDependencies": {
     "@capacitor/cli": "^7.0.0",
+    "@types/node": "^22.20.4",
     "typescript": "^5.5.4",
-    "vite": "^5.4.8",
-    "@types/node": "^20.14.10"
+    "vite": "^8.3.2"
   }
 }

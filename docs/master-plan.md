@@ -1,6 +1,12 @@
 # Vior — master plan
 
-Phase 2 status + remaining work + Phase 3 roadmap. Single source of truth.
+> **Status (October 2026):** the "Known issues / gaps" table below has drifted
+> from the code. The current, verified backlog — security, desktop and mobile
+> UX, backend/CLI gaps, platform truth table, competitor comparison and release
+> gates — lives in [`production-readiness-2026-10.md`](production-readiness-2026-10.md).
+> Corrections to specific rows are listed in its §11.
+
+Phase 2 status + remaining work + Phase 3 roadmap.
 
 ## Shipped (Phase 2)
 

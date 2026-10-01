@@ -6,7 +6,7 @@
 
 [![Build](https://github.com/subhashraveendran/Vior/actions/workflows/build.yml/badge.svg)](https://github.com/subhashraveendran/Vior/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Go](https://img.shields.io/badge/Go-1.25-00ADD8.svg)](https://go.dev)
+[![Go](https://img.shields.io/badge/Go-1.26-00ADD8.svg)](https://go.dev)
 
 [Website](https://subhashraveendran.github.io/Vior/) · [Releases](https://github.com/subhashraveendran/Vior/releases) · [Phase 2 docs](docs/phase-2.md) · [Contributing](CONTRIBUTING.md)
 
@@ -26,7 +26,7 @@ What you get:
 
 - **macOS extended display** via the private `CGVirtualDisplay` API — no kernel extension, no signed driver, no Sidecar-style device whitelist.
 - **One binary** per OS. No installer wizard on macOS or Linux. Windows needs an optional IDD driver only for virtual-display mode.
-- **No account, no telemetry.** Pair once with a 4-digit code; the desktop and phone find each other over UDP broadcast on the LAN.
+- **No account, no telemetry.** Pair once with a 6-digit code; the phone finds the desktop by scanning the local subnet (or scan the QR code).
 - **Wi-Fi *and* USB.** AOA (Android Open Accessory) lets the phone connect with a plain USB cable, no ADB and no developer mode.
 - **Cross-platform from day one.** macOS, Linux (X11), Windows server. Android client today, iOS via Safari PWA, native iOS planned.
 
@@ -37,7 +37,7 @@ Honest trade-offs you should know about before you switch:
 - **No native iOS app** yet — the browser fallback works but is not as polished.
 - **Linux is X11 only.** Wayland is not supported because virtual-display creation there still requires distro-specific compositor plumbing.
 - **Windows virtual display** needs a one-time IDD driver install. Capture and input work without it.
-- Pair codes protect against random LAN neighbours but assume the post-pairing transport (Wi-Fi LAN) is not actively hostile. There is no end-to-end encryption beyond what your LAN provides.
+- Pair codes protect against random LAN neighbours, and the server implements an application-layer encrypted channel — but the shipped Android and browser clients do not use it yet, so today's traffic is still readable by anyone on the same Wi-Fi. See [Security model](#security-model).
 
 ## Quick start
 
@@ -71,9 +71,9 @@ vior start
 
 ### First run
 
-1. Launch the desktop app and click **Start Server**. You will see one or more LAN URLs, a QR code, and a 4-digit pair code.
-2. Open Vior on the phone. It auto-discovers the desktop over UDP broadcast. If discovery is blocked, scan the QR code or type the URL.
-3. Enter the 4-digit pair code once. The device is added to `~/.vior/trusted.json` and reconnects automatically next time.
+1. Launch the desktop app and click **Start Server**. You will see one or more LAN URLs, a QR code, and a 6-digit pair code.
+2. Open Vior on the phone. It finds the desktop by probing the local subnet. If that is blocked (guest Wi-Fi, AP isolation), scan the QR code or type the IP.
+3. Enter the 6-digit pair code once. The phone remembers it and reconnects automatically next time; the desktop lists the device under Settings → Trusted devices.
 
 ## Features
 
@@ -82,7 +82,7 @@ vior start
 - Virtual trackpad with two-finger scroll, tap-click, two-finger-tap right-click.
 - Soft keyboard plus 40+ shortcut buttons (Copy/Paste/Cut/Undo, Cmd+Tab, Spotlight, F-keys, arrow keys, modifier chords).
 - Bidirectional file transfer with progress bars, SHA-256 integrity check, image thumbnails, native file picker. Auto-accepts from trusted devices.
-- LAN auto-discovery (UDP broadcast on port 37680 + HTTP subnet scan).
+- LAN auto-discovery (HTTP subnet scan of `/info`; a UDP beacon on port 37680 is also broadcast for third-party clients).
 - Auto-reconnect to the last known server.
 - QR-code pairing for the browser fallback.
 - USB Accessory Mode — works without ADB, without USB debugging, without developer options.
@@ -152,7 +152,7 @@ Three transports share one envelope shape:
 | `internal/input` | Mouse + keyboard injection. macOS uses `CGEvent` (with Unicode + modifier-chord support and an Accessibility permission check). Linux uses `XTest`. Windows uses `SendInput`. |
 | `internal/usb` | Android Open Accessory protocol implementation. Switches the device into accessory mode, opens bulk endpoints, runs a binary frame loop. No ADB, no USB debugging. |
 | `internal/discovery` | UDP broadcast beacon on port 37680 every 2s carrying `{magic:"VIOR", name, port, platform}` so the mobile app can find the desktop zero-config. |
-| `internal/trust` | Pair-code admission + persistent trusted-device store at `~/.vior/trusted.json`. Devices that pair once are admitted by `deviceID` after that — no re-prompt. |
+| `internal/trust` | Persistent trusted-device list at `~/.vior/trusted.json` (name, platform, last seen — shown in Settings). Admission always requires the pair code; the phone caches it so the user types it once. |
 | `internal/stream` | HTTP + WebSocket server, MJPEG endpoint, embedded web client, CORS, the pair-code handshake. The single place that touches the network. |
 | `internal/session` | `Configure(hello)` — decides display index + bounds for extend vs mirror mode and is shared between the Wails app, the CLI, and the USB path so they cannot drift. |
 | `internal/filetransfer` | Chunked file transfer manager (48 KB chunks, ~5 ms throttle, SHA-256 integrity). Transport-agnostic — it asks the caller for a `Send` function. |
@@ -163,20 +163,19 @@ Three transports share one envelope shape:
 
 ## Security model
 
-Vior is designed for trusted LANs (home, office, hotspot). The threat model and what is actually protected:
+Vior is designed for trusted LANs (home, office, hotspot). What is actually protected today:
 
-- On every connection the phone sends `{deviceId, pairCode?}` in its hello. The server admits the session iff (a) the `deviceId` is already in `~/.vior/trusted.json`, or (b) the `pairCode` matches the 4-digit numeric code printed alongside the URL.
-- Successfully paired devices are written to `~/.vior/trusted.json` (mode `0600`) and skip the pair prompt on subsequent connects. The user can revoke a device by deleting it from the file. File-transfer offers from a trusted device auto-accept; offers from a freshly-paired device require Accept on the desktop.
-- The pair code is regenerated on every server start. Restart the server to invalidate all unsaved sessions.
-- All traffic stays on your LAN. There is no telemetry, no analytics, no remote endpoint of any kind. Run `grep -ri "http" internal/ | grep -v test` to verify.
-- File transfers SHA-256 the full payload and reject the file on mismatch.
+- **Pair-code admission.** On every connection the phone sends `{deviceId, pairCode}` in its hello. The server admits the session only if `pairCode` matches the 6-digit code shown on the desktop (constant-time compare). A previously seen `deviceId` on its own is *not* enough — `~/.vior/trusted.json` (mode `0600`) is informational (name, platform, last seen) and the phone caches the code so you only type it once.
+- **The pair code is stable per install.** It is derived from a per-install secret in `~/.vior/pair-secret` plus the machine ID, so it survives restarts. You can override it from Settings → Pair code (4–8 digits, stored in `~/.vior/pair.txt`); changing it is how you revoke every phone at once.
+- **Brute-force throttling.** 5 wrong codes per minute per IP plus a global ceiling, after which the server answers `rate_limited` and closes the socket. The same limit applies to `/info?probe=` pairing probes.
+- **File integrity.** Transfers SHA-256 the full payload, drop out-of-order chunks, and delete the file on a hash mismatch.
+- **No cloud.** All traffic stays on your LAN. There is no telemetry, no analytics, no remote endpoint of any kind. Run `grep -ri "http" internal/ | grep -v test` to verify.
 
-What is **not** protected:
+What is **not** protected yet:
 
-- **Traffic on the LAN is in the clear.** An attacker on the same Wi-Fi can sniff your JPEG frames, your keystrokes, and your file transfers. There is no TLS or in-protocol encryption. Treat Vior the way you treat AirDrop or Spacedesk: fine for a home network, not fine for a coffee-shop network.
-- **No replay protection or session-key rotation** beyond pair-code admission.
-- **The trust store has no per-device password.** If somebody can read `~/.vior/trusted.json`, they can spoof the `deviceId` and re-pair without the code.
-- **There is no rate limit or lockout** on bad pair-code attempts — although the code regenerates on every restart.
+- **Traffic on the LAN is still in the clear for the shipped clients.** The server implements an application-layer encrypted channel (X25519 key exchange → HKDF → XSalsa20-Poly1305 over the WebSocket, with screen frames delivered on the same sealed stream — see [`docs/secure-channel-implementation.md`](docs/secure-channel-implementation.md)), and a JavaScript initiator exists in [`clients/secure/`](clients/secure/). Neither the Android app nor the embedded web client has been switched over to it yet, so today every session negotiates down to plaintext: a peer on the same Wi-Fi can read frames, keystrokes and files. Treat Vior like AirDrop or Spacedesk: fine at home, not fine on a coffee-shop network. Wiring the clients to the secure channel is the top item in [`docs/production-readiness-2026-10.md`](docs/production-readiness-2026-10.md).
+- **USB (AOA) sessions skip pairing entirely.** Physical access to the cable is the trust decision.
+- **No per-device credential.** You cannot revoke one phone without changing the pair code for all of them.
 
 ## Permissions
 
@@ -238,12 +237,12 @@ The mobile app stores its own preferences in Android `SharedPreferences` (`vior_
 
 Toolchain:
 
-- **Go 1.25.6** (see `go.mod`).
+- **Go 1.26** (see `go.mod`; the default `GOTOOLCHAIN=auto` fetches the exact patch release automatically).
 - **Wails v2.12.0** for the desktop GUI: `go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0`.
 - **Node + npm** for the desktop and mobile frontends (`desktop/frontend/`, `mobile-cap/`).
 - **cgo** is required on macOS (CGVirtualDisplay, CGEvent, CGDisplayCreateImage) and Linux (XTest).
 - **libusb-1.0** for the `gousb` AOA path (`brew install libusb` on macOS, `apt install libusb-1.0-0-dev` on Debian/Ubuntu).
-- **Android SDK + JDK 17 + Gradle** for the mobile APK. CI uses `android-actions/setup-android@v3` and `./gradlew assembleDebug`. Capacitor regenerates the Gradle project from `mobile-cap/capacitor.config.json` on `cap sync`.
+- **Android SDK + JDK 21 + Gradle** for the mobile APK. CI uses `android-actions/setup-android@v3` and `./gradlew assembleDebug`. Capacitor regenerates the Gradle project from `mobile-cap/capacitor.config.json` on `cap sync`.
 
 Common targets:
 

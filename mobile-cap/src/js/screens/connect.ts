@@ -139,6 +139,12 @@ $('files-connect-btn').addEventListener('click', function () { switchTab('displa
 $('remote-connect-btn').addEventListener('click', function () { switchTab('display'); });
 $('conn-cancel').addEventListener('click', function () {
   if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
+  // Clear the in-flight flags BEFORE closing: onclose only retries when
+  // `connected || connecting` is set, so this is what makes Cancel
+  // actually cancel instead of kicking off the backoff loop.
+  connecting = false;
+  connected = false;
+  reconnectAttempts = 0;
   if (ws) { ws.close(); ws = null; }
   $('connecting-overlay').classList.add('hidden');
   setConnState('offline');
@@ -211,16 +217,26 @@ function doConnect(): void {
   // separately in the match chip below.
   $('conn-sub').innerHTML = 'Establishing ' + esc(selectedMode) + ' session with<br><b>' + esc(serverName) + '</b>';
   // The pair code being presented lives on #manual-pair during the
-  // connect flow (written by the cascade/pair-prompt/QR paths). Surface
-  // it so the user can visually match it against the desktop.
-  const pairForMatch = (($('manual-pair') as HTMLInputElement | null) && ($('manual-pair') as HTMLInputElement).value || '')
-    .replace(/[^0-9]/g, '').trim();
+  // connect flow (written by the cascade/pair-prompt/QR paths). On a
+  // trusted auto-reconnect that input is empty — nothing typed it since
+  // the last launch — so fall back to the code cached for this server on
+  // the last successful 'ready'. The server admits on the pair code
+  // alone; a remembered deviceId never substitutes for it.
+  const host = selectedServer!.host, port = selectedServer!.port;
+  const mpInput = $('manual-pair') as HTMLInputElement | null;
+  if (mpInput && !(mpInput.value || '').replace(/[^0-9]/g, '').trim()) {
+    try {
+      const cached = localStorage.getItem('vior_pair_' + host + ':' + port) || '';
+      if (/^[0-9]{4,8}$/.test(cached)) mpInput.value = cached;
+    } catch (_) { /* localStorage blocked */ }
+  }
+  // Surface the code so the user can visually match it against the desktop.
+  const pairForMatch = ((mpInput && mpInput.value) || '').replace(/[^0-9]/g, '').trim();
   showConnMatch(pairForMatch);
   $('conn-bar').classList.remove('hidden');
   $('conn-spin-ring').style.display = '';
   $('conn-spin-core').classList.remove('failed');
 
-  const host = selectedServer!.host, port = selectedServer!.port;
   ws = new WebSocket('ws://' + host + ':' + port + '/ws');
 
   // Hard 15s ceiling so the overlay can't hang forever when the server is
@@ -228,6 +244,10 @@ function doConnect(): void {
   if (connectTimeoutId) clearTimeout(connectTimeoutId);
   connectTimeoutId = setTimeout(async function () {
     if (connected) return;
+    // Give up on this attempt for real. Without clearing `connecting`
+    // the close below re-entered onclose's retry branch, so the user saw
+    // "Connection timed out" and then the overlay came straight back.
+    connecting = false;
     try { if (ws) ws.close(); } catch (_) {}
     ws = null;
     // Before giving up, try the DHCP-drift fallback: the desktop may
@@ -323,10 +343,13 @@ function doConnect(): void {
       serverRes = data.resolution.replace('x', ' × ');
       localStorage.setItem('vior_last', host + ':' + port);
       // Mark this server as 'known' client-side so the next Connect tap
-      // skips the pair-code prompt — the server already trusts us via
-      // the deviceID round-trip, this just reflects that in the UI.
+      // skips the pair-code prompt, and remember the code that just
+      // worked: the server re-checks it on every connect (a trusted
+      // deviceId is informational only), and the input it was typed
+      // into is empty after a relaunch.
       try {
         localStorage.setItem('vior_known_' + host + ':' + port, '1');
+        if (pairForMatch) localStorage.setItem('vior_pair_' + host + ':' + port, pairForMatch);
         // Clear the consecutive-failure counter — we just succeeded.
         localStorage.removeItem('vior_fail_' + host + ':' + port);
         // Successful connect resets the cascade memory — next launch
@@ -428,6 +451,15 @@ function doConnect(): void {
     } else if (msg.type === 'error') {
       if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
       $('connecting-overlay').classList.add('hidden');
+      // The server closes the socket right after any admission error.
+      // Clear the in-flight flags now so onclose does NOT treat that
+      // close as a transient drop and retry: each retry re-sent the same
+      // rejected (then emptied) code, burning the server's 5-per-minute
+      // allowance and locking the user out with `rate_limited` before
+      // they could type the right one.
+      connecting = false;
+      connected = false;
+      reconnectAttempts = 0;
       const errData = msg.data as { code?: string; message?: string } | undefined;
       const code = errData?.code || '';
       const errMsg = errData?.message || 'Check both devices on same Wi-Fi. Try manual IP.';
@@ -437,20 +469,29 @@ function doConnect(): void {
       if (code === 'pair_mismatch') {
         try { (($('manual-pair') as HTMLInputElement) || {}).value = ''; } catch (_) {}
         if (selectedServer) {
-          try { localStorage.removeItem('vior_known_' + selectedServer.host + ':' + selectedServer.port); } catch (_) {}
+          try {
+            localStorage.removeItem('vior_known_' + selectedServer.host + ':' + selectedServer.port);
+            localStorage.removeItem('vior_pair_' + selectedServer.host + ':' + selectedServer.port);
+          } catch (_) {}
         }
         toast('error', 'Pair code rejected', 'Check the code shown on the desktop and try again.');
         // Preserve the typed code so the user can correct a single typo
         // instead of re-entering the whole thing.
         promptPair({ preserveValue: true });
+      } else if (code === 'rate_limited') {
+        // Don't re-open the prompt: any guess inside the cool-down is
+        // rejected regardless of correctness, which would read as "my
+        // code is wrong" when it isn't.
+        try { (($('manual-pair') as HTMLInputElement) || {}).value = ''; } catch (_) {}
+        toast('error', 'Too many attempts', 'Wait a minute, then enter the code shown on the desktop.');
       } else if (code === 'occupied') {
-        // Second-tab scenario: the desktop server already has a WS
-        // client. Surface a clean "you were replaced" message and stop
-        // the reconnect-loop dance — racing the other tab is pointless
-        // and looks broken. The replacing tab keeps the session.
+        // The desktop server already has a WS client and it keeps the
+        // session — WE are the one being turned away. Say so plainly and
+        // stop the reconnect-loop dance; racing the other device is
+        // pointless and looks broken.
         replacedByOtherSession = true;
         reconnectAttempts = maxReconnect; // suppress onclose retry
-        toast('warning', 'Replaced by another session', 'Another device is using this desktop.');
+        toast('warning', 'Desktop is busy', 'Another device is already connected to it. Disconnect that one first.');
         // Don't drop the server selection — user might want to retry
         // after the other side disconnects.
       } else {
@@ -589,13 +630,16 @@ async function tryDhcpFallback(prevHost: string, prevPort: number): Promise<bool
   if (found.length === 0) return false;
 
   const next = found[0];
-  // Migrate trust cache to the new IP.
+  // Migrate trust cache (marker, server id, cached pair code) to the new IP.
   try {
+    const cachedPair = localStorage.getItem('vior_pair_' + prevHost + ':' + prevPort);
     localStorage.setItem('vior_known_' + next.host + ':' + prevPort, '1');
     localStorage.setItem('vior_known_device_' + next.host + ':' + prevPort, knownDeviceId);
+    if (cachedPair) localStorage.setItem('vior_pair_' + next.host + ':' + prevPort, cachedPair);
     localStorage.setItem('vior_last', next.host + ':' + prevPort);
     localStorage.removeItem('vior_known_' + prevHost + ':' + prevPort);
     localStorage.removeItem('vior_known_device_' + prevHost + ':' + prevPort);
+    localStorage.removeItem('vior_pair_' + prevHost + ':' + prevPort);
   } catch (_) { /* localStorage blocked */ }
   selectServer(next.host, prevPort, next.info.name || next.host, next.info.platform || '');
   toast('info', 'Server IP updated', prevHost + ' → ' + next.host);

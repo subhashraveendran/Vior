@@ -181,6 +181,7 @@ function renderSavedConns(): void {
     b.addEventListener('click', function () {
       const hp = b.getAttribute('data-forget') || '';
       localStorage.removeItem('vior_known_' + hp);
+      localStorage.removeItem('vior_pair_' + hp);
       if (localStorage.getItem('vior_last') === hp) localStorage.removeItem('vior_last');
       renderSavedConns();
       toast('info', 'Forgotten', hp);
@@ -198,7 +199,7 @@ if (clearBtn) clearBtn.addEventListener('click', function () {
   const keys: string[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (k && (k.indexOf('vior_known_') === 0 || k === 'vior_last' || k === 'vior_pair' || k === 'vior_device_id')) {
+    if (k && (k.indexOf('vior_known_') === 0 || k.indexOf('vior_pair_') === 0 || k === 'vior_last' || k === 'vior_pair' || k === 'vior_device_id')) {
       keys.push(k);
     }
   }

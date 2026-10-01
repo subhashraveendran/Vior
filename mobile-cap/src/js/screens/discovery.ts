@@ -208,7 +208,15 @@ function selectServer(host: string, port: number, name: string, platform: string
 function initiateConnect(): void {
   if (!selectedServer) return;
   const key = selectedServer.host + ':' + selectedServer.port;
-  const known = localStorage.getItem('vior_known_' + key) === '1';
+  // "Known" only counts while we still hold the pair code for this
+  // server: admission needs the code on every connect, so a marker
+  // without a cached code (installs from before the cache existed, or
+  // cleared by a rejection) would send an empty code and bounce back.
+  let known = false;
+  try {
+    known = localStorage.getItem('vior_known_' + key) === '1' &&
+      /^[0-9]{4,8}$/.test(localStorage.getItem('vior_pair_' + key) || '');
+  } catch (_) { /* localStorage blocked */ }
   if (!known) {
     viorState.set({ state: 'pairing' });
     // promptPair is defined in connect.ts (loaded later in the same

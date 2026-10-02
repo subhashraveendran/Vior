@@ -34,9 +34,9 @@ production-ready for a general audience until the P0 items below are closed.
 
 ## 2. Fixed in this pass
 
-- Go toolchain 1.25.6 → 1.26.8; `golang.org/x/{crypto,net,sys,text,image}` to current. Closes all 18 reachable `govulncheck` findings (17 stdlib, 3 in `x/image`).
+- Go toolchain 1.25.6 → 1.26.8; `golang.org/x/{crypto,net,sys,text,image}` to current. Closes all 18 reachable `govulncheck` findings (15 stdlib, 3 in `x/image`).
 - `mobile-cap`: vite 5 → 8, `@types/node` 22; transitive dev-dep fixes. `desktop/frontend`: vite 8.3, React 19.3, plugin-react 6.1. All audits at 0, including dev.
-- Dependabot alerts + security updates enabled on the repo; `.github/dependabot.yml` added (gomod, 3× npm, github-actions, weekly, grouped).
+- Dependabot alerts + security updates enabled on the repo; `.github/dependabot.yml` added (gomod, 3× npm, github-actions; weekly and grouped, except `/npm/cli` which is monthly).
 - CI: `go-version-file: go.mod`, Node 22, staticcheck 2026.2.1, `govulncheck` gate, `npm audit --omit=dev --audit-level=high` gate, `npm ci`.
 - **Mobile connect loop** (`connect.ts`): a rejected pair code no longer triggers 5 automatic retries with an empty code (which hit the server's 5/min limit and locked the user out); Cancel actually cancels; the 15 s timeout no longer restarts the overlay; the code that worked is cached per server so a relaunch can reconnect (the server requires the code on every connect — a remembered deviceId was never enough). `rate_limited` gets its own message; the `occupied` message no longer tells the rejected device it was "replaced".
 - **Desktop**: clicking a quality preset no longer resets the bound port to 0 (which broke the URL, QR, USB port-forward and discovery beacon). Dead "auto-accept USB devices" toggle removed. Port-in-use on Start no longer leaves the server stuck as "running" (+ regression test).
@@ -86,15 +86,15 @@ production-ready for a general audience until the P0 items below are closed.
 1. **Full-screen stream can trap the user.** `touchstart` `preventDefault` on `#stream-img` suppresses the click that toggles the overlay; after 2.8 s the bars hide and cannot return. Hardware Back (`main.ts`) does not check `#stream-fs.active` and calls `exitApp()`. **(verify on device)**
 2. **Touch mapping is wrong under letterboxing.** `mapT` scales against the `<img>` box while CSS uses `object-fit: contain`. Map against the rendered content rect.
 3. **USB is display-only, and frames > 64 KB are probably dropped.** `sendInput` writes only to `ws` (null over USB); nothing calls `Android.sendTouch`. `UsbAccessoryPlugin.readLoop` does one 64 KiB read per frame; the desktop writes whole JPEGs. Needs a reassembly buffer on the phone (the desktop side already has one). **(verify on device)**
-4. **"Save" on received files likely does nothing in the APK.** `<a download>` on a `blob:` URL, revoked on the same tick; `MainActivity` registers no `DownloadListener`. Use Capacitor Filesystem/Share. **(verify on device)**
+4. ~~"Save" on received files likely does nothing in the APK.~~ Fixed in the second pass (system `DownloadManager` via `Android.downloadFile`). Still open: a download the user cancels from the system notification sends no completion broadcast, so the row stays "receiving" — reconcile pending ids on resume. **(verify on device)**
 5. **Secure channel not used.** `clients/secure/vior-secure.js` is never loaded by `index.html`; only its `.d.ts` exists in `src/js`. See §8.
 
 **P1**
-6. Mirror/Extend switch while connected is a no-op: `resize` carries a `mode` field that `ResizeMessage` lacks. Toast says "Mode changed".
+6. ~~Mirror/Extend switch while connected is a no-op.~~ Fixed in the second pass (`ResizeMessage.mode`).
 7. Stream quality presets (`#seg-preset`) and "Verbose console" have no handler; most settings toggles default to ON visually (`def='1'`) while their real state is off; Wi-Fi/USB-only toggles write before the "disconnect first" guard.
 8. Auto-launch on boot cannot work on Android 10+ (`BootReceiver` starts an activity from background).
-9. Reconnect banner never clears on `ready`; stream spinner polls `/snapshot` forever (403 in secure mode → infinite "Starting stream…").
-10. Pair-code-only search probes port 8080 only (discovery also tries 8081); cancelling the search does not stop it.
+9. ~~Reconnect banner never clears on `ready`; stream spinner polls `/snapshot` forever.~~ Fixed in the second pass.
+10. ~~Pair-code-only search probes port 8080 only.~~ Fixed; still open: cancelling the search does not stop it.
 11. Local-IP detection relies on WebRTC ICE; Chromium hides it behind mDNS → likely "Not on Wi-Fi" on a working network. Add a tiny native `ConnectivityManager` helper. **(verify on device)**
 12. USB attach while app is open is missed (`singleTask` + no `onNewIntent`; scan runs once 1 s after `onCreate`).
 13. Files: auto-accepts downloads up to 2 GB in memory from any known server; outgoing sends read whole file to RAM, ignore `bufferedAmount`, no cancel.
@@ -116,10 +116,10 @@ production-ready for a general audience until the P0 items below are closed.
 2. **macOS `vior virtual create` / `vior display mirror|extend` do nothing that lasts** — the `CGVirtualDisplay` lives in a process-static and mirror uses `kCGConfigureForAppOnly`, so the effect dies when the CLI exits. `vior virtual destroy` runs in a fresh process with nothing to destroy. Either make these long-running (`--hold`) or remove them.
 
 **P1**
-3. CLI file transfer handlers are no-op stubs (`start.go` `OnClientFile*`): the phone waits forever after an offer. CLI ignores Remote-only/Files-only intents and captures anyway.
-4. `SetSecurityMode` has no caller: `SecureRequired` is unreachable in a shipped build. Pre-auth WS slot claim and no per-connection message rate limit remain open from the July audit.
+3. CLI file transfer handlers are no-op stubs (`start.go` `OnClientFile*`): the phone waits forever after an offer. (The CLI now honours Remote-only/Files-only intents.)
+4. `SetSecurityMode` has no caller: `SecureRequired` is unreachable in a shipped build. No per-connection message rate limit remains open from the July audit (the pre-auth slot claim was fixed in the second pass).
 5. Logging: stdlib `log` to stderr only, no levels, no file. A packaged `.app` user cannot produce a log. Add `~/.vior/logs/` with rotation and a "Reveal logs" button.
-6. CLI: `cliSessionHandler` has no mutex (shutdown races); `OnClientResize` casts `uint32(msg.Width)` unvalidated; `Start()` error ignored; `vior stop` fails on Windows (`os.Interrupt`); PID file in shared temp, 0644.
+6. CLI: `cliSessionHandler` has no mutex (shutdown races); `vior stop` fails on Windows (`os.Interrupt`); PID file in shared temp, 0644. (Resize now goes through `Configure`, so the unchecked `uint32` cast and ignored `Start()` error are gone.)
 7. ADB: no timeouts on `exec.Command`; `adb devices` + `getprop` spawned on every desktop status poll; unpinned platform-tools `latest` download with no checksum; old install deleted before extraction succeeds.
 8. `Config` is half-real: yaml tags, no loader/saver; `TransferDir` ignored (hardcoded `~/Downloads/Vior`); `--verbose` never read; `UpdateConfig` unvalidated (now narrowed).
 9. UDP discovery beacon broadcasts every 2 s but nothing reads it (the WebView cannot); it also lacks `deviceId`/`secure`. Keep only if a native listener is planned; otherwise drop and simplify docs.
@@ -198,7 +198,7 @@ What this says about Vior's gaps, in order of user impact:
 ## 10. Suggested release gates
 
 **v0.3 — Stabilise (≈2–3 weeks)**
-Mobile P0 1–4, desktop P0 1–3 and P1 6–11, Windows virtual-display guard (§6), config persistence + log file (§5-5/8), CLI P0 1–2 (fix or remove), fix the settings toggles that lie (mobile P1 7). Convert "verify on device" items into a manual test run on at least one Android 13+ and one Android 15 device.
+Mobile P0 1–3, desktop P0 1–3 and P1 6–11, Windows virtual-display guard (§6), config persistence + log file (§5-5/8), CLI P0 1–2 (fix or remove), fix the settings toggles that lie (mobile P1 7). Convert "verify on device" items into a manual test run on at least one Android 13+ and one Android 15 device.
 
 **v0.5 — Secure by default**
 §8 in full. README "What is not protected" shrinks to USB-skips-pairing and no-per-device-credential.

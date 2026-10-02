@@ -132,3 +132,36 @@ func TestServeDownloadRefusesSwappedPath(t *testing.T) {
 		t.Fatalf("status = %d, want 403 (body %q)", rr.Code, rr.Body.String())
 	}
 }
+
+// TestIncompleteTransferRejected: a complete that arrives before every
+// advertised byte was written must not mark the transfer received — with
+// or without a sender hash. HandleChunk drops chunks silently on write
+// errors and overshoots, so the byte count is the only signal left when
+// the sender cannot hash.
+func TestIncompleteTransferRejected(t *testing.T) {
+	for _, hash := range []string{"", "matches-partial"} {
+		m := NewManager(t.TempDir())
+		m.Send = func(protocol.MessageType, any) error { return nil }
+		const id = "dddddddd"
+		m.HandleOffer(&protocol.FileOfferMessage{ID: id, Name: "big.bin", Size: 10})
+		if err := m.AcceptFile(id); err != nil {
+			t.Fatalf("AcceptFile: %v", err)
+		}
+		m.HandleChunk(&protocol.FileChunkMessage{ID: id, Offset: 0, Data: base64.StdEncoding.EncodeToString([]byte("hello"))})
+		path := m.GetTransfer(id).Path
+
+		h := hash
+		if h == "matches-partial" {
+			sum := sha256.Sum256([]byte("hello"))
+			h = hex.EncodeToString(sum[:])
+		}
+		m.HandleComplete(&protocol.FileCompleteMessage{ID: id, Hash: h})
+
+		if m.GetTransfer(id) != nil {
+			t.Fatalf("hash=%q: incomplete transfer (5 of 10 bytes) was kept", hash)
+		}
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("hash=%q: partial file left on disk (stat err = %v)", hash, err)
+		}
+	}
+}

@@ -551,12 +551,25 @@ func (m *Manager) HandleComplete(msg *protocol.FileCompleteMessage) {
 	// Out-of-order and over-size chunks are still rejected in HandleChunk;
 	// what is lost without a hash is only end-to-end corruption detection,
 	// which TCP already provides per segment.
+	//
+	// Independently of the hash, the byte count must match the advertised
+	// size. HandleChunk drops chunks silently on a write error, an
+	// overshoot, a decode error or an offset mismatch, and the sender has
+	// no way to know; before the empty-hash path existed the hash mismatch
+	// caught that, now the count does. A short file is never "received".
 	got := hex.EncodeToString(t.hash.Sum(nil))
-	if msg.Hash == "" {
+	var failure string
+	switch {
+	case t.Size > 0 && t.Transferred != t.Size:
+		failure = fmt.Sprintf("incomplete: %d of %d bytes", t.Transferred, t.Size)
+	case msg.Hash != "" && got != msg.Hash:
+		failure = fmt.Sprintf("SHA-256 mismatch (got %s, want %s)", got, msg.Hash)
+	case msg.Hash == "":
 		log.Printf("filetransfer: %s completed without a sender hash (unverified)", t.ID)
-	} else if got != msg.Hash {
-		log.Printf("filetransfer: SHA-256 mismatch for %s (got %s, want %s)", t.ID, got, msg.Hash)
-		// Clean up the corrupt file so a stale entry doesn't survive.
+	}
+	if failure != "" {
+		log.Printf("filetransfer: rejecting %s: %s", t.ID, failure)
+		// Clean up the partial/corrupt file so a stale entry doesn't survive.
 		if t.Path != "" {
 			_ = os.Remove(t.Path)
 		}

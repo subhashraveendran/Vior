@@ -53,6 +53,7 @@ function startFramePolling(): void {
   if (framePolling) return;
   framePolling = true;
   frameCount = 0;
+  snapshotFailures = 0;
   if (fpsTimer) clearInterval(fpsTimer);
   fpsTimer = setInterval(function () {
     fps = frameCount; frameCount = 0;
@@ -63,6 +64,7 @@ function startFramePolling(): void {
 }
 function stopFramePolling(): void {
   framePolling = false;
+  snapshotFailures = 0;
   if (fpsTimer) { clearInterval(fpsTimer); fpsTimer = null; }
 }
 function cleanupBlob(): void { if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; } }
@@ -76,7 +78,7 @@ let snapshotFailures = 0;
 function pollFrame(): void {
   if (!framePolling) return;
   fetch(frameBaseUrl + '/snapshot?t=' + Date.now())
-    .then(function (r) { if (!r.ok) throw 0; return r.blob(); })
+    .then(function (r) { if (!r.ok) throw new Error('http:' + r.status); return r.blob(); })
     .then(function (b: Blob) {
       if (!framePolling) return;
       snapshotFailures = 0;
@@ -89,15 +91,24 @@ function pollFrame(): void {
       reconnectAttempts = 0;
       requestAnimationFrame(pollFrame);
     })
-    .catch(function () {
+    .catch(function (e: unknown) {
       if (!framePolling) return;
-      snapshotFailures++;
-      if (snapshotFailures >= MAX_SNAPSHOT_FAILURES) {
-        snapshotFailures = 0;
-        stopFramePolling();
-        hideStream();
-        toast('warning', 'No video', 'The desktop is not streaming a display for this session.');
-        return;
+      // Only an HTTP answer proves the desktop has no frames for us (403
+      // on a secure session, 503 with no capture). A network error is a
+      // dropped link: fetch fails fast on Android, so counting those tore
+      // the stream down with the wrong message within ~6 s of a Wi-Fi
+      // blip and, with streamVisible cleared, defeated the resume that
+      // 'ready' performs after the reconnect. Keep polling through those;
+      // the keepalive and onclose own that failure.
+      const httpStatus = e instanceof Error && e.message.indexOf('http:') === 0;
+      if (httpStatus) {
+        snapshotFailures++;
+        if (snapshotFailures >= MAX_SNAPSHOT_FAILURES) {
+          stopFramePolling();
+          hideStream();
+          toast('warning', 'No video', 'The desktop is not streaming a display for this session.');
+          return;
+        }
       }
       setTimeout(pollFrame, 150);
     });

@@ -168,7 +168,7 @@ Vior is designed for trusted LANs (home, office, hotspot). What is actually prot
 - **Pair-code admission.** On every connection the phone sends `{deviceId, pairCode}` in its hello. The server admits the session only if `pairCode` matches the 6-digit code shown on the desktop (constant-time compare). A previously seen `deviceId` on its own is *not* enough — `~/.vior/trusted.json` (mode `0600`) is informational (name, platform, last seen) and the phone caches the code so you only type it once.
 - **The pair code is stable per install.** It is derived from a per-install secret in `~/.vior/pair-secret` plus the machine ID, so it survives restarts. You can override it from Settings → Pair code (4–8 digits, stored in `~/.vior/pair.txt`); changing it is how you revoke every phone at once.
 - **Brute-force throttling.** 5 wrong codes per minute per IP plus a global ceiling, after which the server answers `rate_limited` and closes the socket. The same limit applies to `/info?probe=` pairing probes.
-- **File integrity.** Transfers SHA-256 the full payload, drop out-of-order chunks, and delete the file on a hash mismatch.
+- **File integrity.** A transfer is accepted only when every advertised byte arrived; out-of-order chunks are dropped. When the sender supplies a SHA-256 (the Android app does; the embedded browser client cannot on a plain `http://` origin, so its uploads are accepted unverified) a mismatch deletes the file.
 - **No cloud.** All traffic stays on your LAN. There is no telemetry, no analytics, no remote endpoint of any kind. Run `grep -ri "http" internal/ | grep -v test` to verify.
 
 What is **not** protected yet:

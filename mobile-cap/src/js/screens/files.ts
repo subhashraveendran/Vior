@@ -73,6 +73,27 @@ function nativeBridge(): NativeBridge | null {
 ($('file-input') as HTMLInputElement).addEventListener('change', function (e: Event): void { const tgt = e.target as HTMLInputElement; if (tgt.files && tgt.files[0]) sendFile(tgt.files[0]); tgt.value = ''; });
 ($('photo-input') as HTMLInputElement).addEventListener('change', function (e: Event): void { const tgt = e.target as HTMLInputElement; if (tgt.files && tgt.files[0]) sendFile(tgt.files[0]); tgt.value = ''; });
 
+// Accept / Decline / Save buttons are rendered into these lists as HTML
+// strings. They used to carry onclick="window._acceptFile('…')" attributes,
+// which the Content-Security-Policy (script-src 'self', no 'unsafe-inline')
+// refuses to run. One delegated listener per list reads the action and id
+// from data-* attributes instead, and dispatches through the window.* hooks
+// so the HTTP-download overrides installed further down still apply.
+function onFileActionClick(e: Event): void {
+  const target = e.target as Element | null;
+  const btn = target && target.closest ? target.closest('[data-file-action]') as HTMLElement | null : null;
+  if (!btn) return;
+  const id = btn.getAttribute('data-file-id');
+  if (!validId(id)) return;
+  const hooks = window as unknown as { _acceptFile: (id: string) => void; _rejectFile: (id: string) => void; _saveFile: (id: string) => void };
+  const action = btn.getAttribute('data-file-action');
+  if (action === 'accept') hooks._acceptFile(id);
+  else if (action === 'reject') hooks._rejectFile(id);
+  else if (action === 'save') hooks._saveFile(id);
+}
+($('incoming-list') as HTMLElement).addEventListener('click', onFileActionClick);
+($('transfer-list') as HTMLElement).addEventListener('click', onFileActionClick);
+
 function genID(): string { const a = new Uint8Array(8); crypto.getRandomValues(a); return Array.from(a, function (b: number): string { return ('0' + b.toString(16)).slice(-2); }).join(''); }
 function fmtSize(b: number): string { if (b < 1024) return b + ' B'; if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'; return (b / 1048576).toFixed(1) + ' MB'; }
 
@@ -177,10 +198,10 @@ function sendChunks(t: FileTransfer): void {
   next();
 }
 // A file id is a server-supplied opaque string used as both an object
-// key on fileTransfers and as text interpolated into HTML onclick
-// handlers. Without this strict filter, ids like '__proto__' polluted
-// the object prototype, and ids containing quote characters broke out
-// of the onclick attribute and executed arbitrary JS. Hex-only and
+// key on fileTransfers and as text interpolated into HTML (now a
+// data-file-id attribute; formerly an onclick handler). Without this strict
+// filter, ids like '__proto__' polluted the object prototype, and ids
+// containing quote characters broke out of the attribute. Hex-only and
 // 8-64 chars covers every legitimate desktop-generated id format.
 const VALID_ID = /^[a-f0-9]{8,64}$/;
 function validId(id: unknown): id is string {
@@ -338,8 +359,8 @@ function renderIncoming(): void {
           '</div>' +
         '</div>' +
         '<div class="incoming-buttons">' +
-          '<button class="btn btn-ghost btn-block" onclick="window._rejectFile(\'' + esc(id) + '\')">Decline</button>' +
-          '<button class="btn btn-primary btn-block" onclick="window._acceptFile(\'' + esc(id) + '\')">' +
+          '<button class="btn btn-ghost btn-block" data-file-action="reject" data-file-id="' + esc(id) + '">Decline</button>' +
+          '<button class="btn btn-primary btn-block" data-file-action="accept" data-file-id="' + esc(id) + '">' +
             '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>' +
             'Accept' +
           '</button>' +
@@ -361,7 +382,7 @@ interface IncomingFilePayload { id: string; name: string; size: number; mime?: s
 function handleIncomingFile(msg: { type: 'incoming-file'; data: unknown }): void {
   const d = (msg.data || {}) as IncomingFilePayload;
   // Same id filter as the WS-chunk path: the id becomes an object key and
-  // is interpolated into an onclick attribute. The url must be the
+  // is interpolated into a data-file-id attribute. The url must be the
   // server-relative download path, never an absolute URL to elsewhere.
   if (!validId(d.id) || typeof d.url !== 'string' || d.url.indexOf('/download/') !== 0) return;
   const t: FileTransfer = {
@@ -544,7 +565,7 @@ function renderTransfers(): void {
             '</div>' +
           '</div>' +
           (t.status === 'received'
-            ? '<button class="btn btn-primary btn-sm" onclick="window._saveFile(\'' + esc(id) + '\')"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>Save</button>'
+            ? '<button class="btn btn-primary btn-sm" data-file-action="save" data-file-id="' + esc(id) + '"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>Save</button>'
             : (t.status === 'done' ? '<span style="color: var(--ok);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l4.5 4.5L19.5 6.5"/></svg></span>' : '')) +
         '</div>' +
         (active ? '<div class="bar-inner"><i style="width:' + (t.progress || 0) + '%;"></i></div>' : '') +

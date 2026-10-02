@@ -2,16 +2,26 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Content Security Policy. Scripts and fonts load only from the bundled
+     app (https://localhost); no inline handlers or eval. Inline style
+     attributes are pervasive in this markup and in the HTML strings the
+     screens build, hence 'unsafe-inline' for styles only.
+     http:/ws: in img-src/connect-src: the desktop is reached at a LAN IP
+     discovered at runtime, over cleartext until the secure transport lands
+     (production-readiness §8, Phase 2), which will narrow these.
+     frame-ancestors is omitted: browsers ignore it in a <meta> policy.
+     Capacitor's bridge is injected as a document-start script, or, on
+     WebViews without DOCUMENT_START_SCRIPT, as an inline <script> placed
+     directly after <head> — before this tag, so it is not governed by it. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: http:; connect-src 'self' http: ws:; font-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0b0d10">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Vior</title>
-<link rel="manifest" href="manifest.json">
 <script src="jsqr.min.js" defer></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Geist / Geist Mono are bundled (fonts/), not fetched from Google. -->
+<link rel="stylesheet" href="fonts/geist.css">
 <!-- Modular CSS: tokens → components → layout → screens → remaps.
      Order matters — later rules override earlier ones. Capacitor copies
      the whole src/ tree, so relative paths resolve under android assets. -->

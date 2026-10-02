@@ -145,6 +145,10 @@ $('files-connect-btn').addEventListener('click', function () { switchTab('displa
 $('remote-connect-btn').addEventListener('click', function () { switchTab('display'); });
 $('conn-cancel').addEventListener('click', function () {
   if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
+  // A backoff attempt may already be scheduled; without clearing it the
+  // timer fired after Cancel, called doConnect and brought the overlay
+  // straight back.
+  if (reconnectTimerId) { clearTimeout(reconnectTimerId); reconnectTimerId = null; }
   // Clear the in-flight flags BEFORE closing: onclose only retries when
   // `connected || connecting` is set, so this is what makes Cancel
   // actually cancel instead of kicking off the backoff loop.
@@ -158,6 +162,9 @@ $('conn-cancel').addEventListener('click', function () {
 });
 
 let connectTimeoutId: ReturnType<typeof setTimeout> | null = null;
+// Pending backoff attempt scheduled by onclose's reconnect branch, so
+// Cancel and Disconnect can stop it.
+let reconnectTimerId: ReturnType<typeof setTimeout> | null = null;
 // Live keepalive instance. Recreated on every doConnect so a stale
 // timer from a previous session can't fire pings into a fresh socket.
 // Stopped from onclose AND doDisconnect.
@@ -250,12 +257,22 @@ function doConnect(): void {
   if (connectTimeoutId) clearTimeout(connectTimeoutId);
   connectTimeoutId = setTimeout(async function () {
     if (connected) return;
-    // Give up on this attempt for real. Without clearing `connecting`
-    // the close below re-entered onclose's retry branch, so the user saw
-    // "Connection timed out" and then the overlay came straight back.
-    connecting = false;
+    // Two different situations share this timer:
+    //  - a user-initiated attempt: give up for real. Without clearing
+    //    `connecting` the close below re-entered onclose's retry branch,
+    //    so the user saw "Connection timed out" and then the overlay
+    //    came straight back.
+    //  - an attempt made by the backoff loop (reconnectAttempts > 0):
+    //    keep `connecting` set so onclose schedules the next attempt or,
+    //    once the budget is spent, runs its terminal cleanup. Clearing it
+    //    here collapsed the whole budget into a single 15 s try — in
+    //    exactly the case reconnect exists for (desktop rebooting, SYN
+    //    hanging instead of being refused) — and left the banner stuck.
+    const midReconnect = reconnectAttempts > 0;
+    if (!midReconnect) connecting = false;
     try { if (ws) ws.close(); } catch (_) {}
     ws = null;
+    if (midReconnect) return; // onclose owns the UI and the next attempt
     // Before giving up, try the DHCP-drift fallback: the desktop may
     // have moved to a new IP. We re-probe the /24 looking for a host
     // whose /info advertises the same server deviceId we last paired
@@ -363,6 +380,12 @@ function doConnect(): void {
         // pair-code entry they no longer need.
         localStorage.removeItem('vior_last_entry_step');
       } catch (_) {}
+      // The input only ever carries a code typed/scanned for the current
+      // attempt. Left in place it shadowed the per-server cache: switching
+      // to another known server sent this server's code, got
+      // pair_mismatch, and the handler then erased that server's correct
+      // cached code too.
+      if (mpInput) mpInput.value = '';
       frameBaseUrl = 'http://' + host + ':' + port;
       $('connecting-overlay').classList.add('hidden');
       // A successful handshake after a drop must clear the banner the
@@ -566,7 +589,8 @@ function doConnect(): void {
       // a just-restarted desktop at identical 1s/2s/4s boundaries.
       const backoffBase = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000);
       const jittered = backoffBase * (0.75 + Math.random() * 0.5);
-      setTimeout(function () { doConnect(); }, jittered);
+      if (reconnectTimerId) clearTimeout(reconnectTimerId);
+      reconnectTimerId = setTimeout(function () { reconnectTimerId = null; doConnect(); }, jittered);
     } else if (connected || connecting) {
       connecting = false;
       connected = false;
@@ -675,7 +699,10 @@ function doDisconnect(): void {
   // the deviceID round-trip).
   viorKeepalive.clearResume();
   if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
+  if (reconnectTimerId) { clearTimeout(reconnectTimerId); reconnectTimerId = null; }
   connected = false;
+  connecting = false;
+  try { (($('manual-pair') as HTMLInputElement) || {}).value = ''; } catch (_) {}
   if (ws) { try { ws.close(); } catch (_) {} ws = null; }
   hideStream();
   showView('disc');
